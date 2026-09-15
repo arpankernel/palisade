@@ -1,0 +1,105 @@
+# Proof scans: Palisade v0.1.0 vs. the real CVE repos
+
+**Date:** 2026-09-16 · **Palisade:** v0.1.0 · **Method:** scanned the last
+vulnerable tag of each project that motivated Palisade's rules, then traced
+each CVE's actual code path by hand to classify hits and misses.
+
+## Summary
+
+| Repo (tag) | CVE | Files scanned | Findings | CVE caught? |
+|---|---|---|---|---|
+| vanna-ai/vanna `v0.5.5` | CVE-2024-5565 (LLM → plotly `exec`) | 45 | 0 | **No** — see V1/V2/V3 |
+| sinaptik-ai/pandas-ai `v2.4.2` | CVE-2024-12366 (LLM code → `exec`) | 292 | 0 | **No** — see P1 |
+| langflow-ai/langflow `1.2.0` | CVE-2025-3248 (request → `exec`) | 738 | 0 | **No** — out of contract, see L1 |
+
+What held up, and matters as much as the misses:
+
+- **Zero false positives across 1,075 real-world files.** The precision
+  contract ("a false positive is worse than a miss") survived contact with
+  three large, messy, real codebases.
+- **Zero crashes, zero skipped files**, and the largest repo (Langflow,
+  738 Python files) scanned in ~10 seconds.
+- The engine *does* catch all three CVE **patterns** when they appear in
+  app-shaped code — the `examples/vulnerable-app` fixtures mirror each one
+  (PandasAI-style exec, Vanna-style text-to-SQL, shell) and are flagged with
+  full traces.
+
+The misses are structural, not random, and each one maps to a concrete
+roadmap item. That is exactly what these scans were for.
+
+## Why each CVE was missed
+
+### Vanna (CVE-2024-5565) — three independent blockers
+
+The real chain lives entirely in `src/vanna/base/base.py`:
+`ask(question)` → `generate_plotly_code(...)` (line 686) →
+`self.submit_prompt(message_log)` (line 707, the LLM call) →
+`self._sanitize_plotly_code(...)` (line 709) →
+`get_plotly_figure(plotly_code)` → `exec(plotly_code, globals(), ldict)`
+(line 1998).
+
+- **V1 — library entry point.** The untrusted input is the `question`
+  *parameter* of a public API method. Palisade v1 sources are app-shaped
+  (`request.*`, `input()`, `sys.argv`); function parameters are only tainted
+  when the caller is visible. Libraries have no visible caller.
+  → Roadmap: opt-in **library mode** (`--assume-params-untrusted`) tainting
+  public-function parameters, per the PRD's "params marked untrusted".
+- **V2 — abstract provider dispatch.** `submit_prompt` is `@abstractmethod`
+  in `VannaBase`; the actual `client.chat.completions.create` lives in
+  provider subclasses (`openai_chat.py` etc.). Same-class method resolution
+  can't link them, so the LLM hop is invisible.
+  → Roadmap: class-hierarchy-aware method resolution (resolve `self.m()`
+  through subclass implementations when unambiguous enough); short-term, a
+  custom rule adding `*.submit_prompt` to `llm_signatures` closes this for
+  Vanna-style codebases.
+- **V3 — a "sanitizer" in name only.** `_sanitize_plotly_code` merely strips
+  `fig.show()` — cosmetic, and the CVE was exploited straight through it.
+  Palisade's lenient name-based sanitizer matching would have *suppressed*
+  the finding had V1/V2 been fixed. This cuts against philosophy #7.
+  → Roadmap: tighten sanitizer resolution — name-match alone should perhaps
+  downgrade (like a partial defense) rather than suppress, unless the
+  sanitizer body shows allowlist/validation semantics.
+
+### PandasAI (CVE-2024-12366) — P1: pipeline-object indirection
+
+The sink is `exec(code, env)` in `pandasai/pipelines/chat/code_cleaning.py:493`,
+but data flows to it through a chain of pipeline *step objects*
+(`CodeGenerator` → `CodeCleaning` → `CodeExecution`) invoked dynamically by a
+pipeline runner. Function-level bounded taint cannot follow
+`pipeline.run()` dispatch between step instances.
+→ Roadmap: recognize common pipeline/chain frameworks via rules (step-class
+signatures), or model "output of step N feeds step N+1" for known runners.
+Honest assessment: full generality here is out of scope for a bounded static
+tool; framework-specific rules are the pragmatic path.
+
+### Langflow (CVE-2025-3248) — L1: not an LLM-path vulnerability
+
+`POST /api/v1/validate/code` passes the request body **directly** to
+`validate_code()` → `exec()` (`langflow/utils/validate.py`). There is no LLM
+between source and sink — this is classic unauthenticated code injection,
+squarely Bandit-B102 territory, and Palisade's contract (complete
+source → **LLM** → sink path) correctly excludes it. It remains strong
+motivation for the *problem space* (AI tooling ships `exec` on untrusted
+input), but it is not a Palisade v1 target.
+→ Roadmap: FastAPI sources (pydantic body params, route args) are still
+worth adding for the LLM-path cases in FastAPI apps.
+
+## Methodology notes
+
+- Tags scanned are the last releases before each fix landed.
+- Scans ran with `--all --json`; nothing was hidden by severity filtering.
+- "CVE caught" means a finding whose sink is the CVE's actual sink line.
+
+## Takeaways for v0.2
+
+Priority order implied by these scans:
+
+1. **Library mode** (`--assume-params-untrusted`) — unlocks the entire
+   library-audit use case (V1).
+2. **Sanitizer strictness** — name-only sanitizer matches downgrade instead
+   of suppress (V3). Keeps FP=0 shape while honoring philosophy #7.
+3. **Custom-rule story for wrapper LLM methods** — document `*.submit_prompt`
+   -style signatures now; class-hierarchy resolution later (V2).
+4. **FastAPI sources** (L1).
+5. Framework-specific pipeline rules (P1) — last; lowest generality per
+   effort.
