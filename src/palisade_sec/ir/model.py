@@ -133,6 +133,7 @@ class ExprStmt(Stmt):
 @dataclass
 class Return(Stmt):
     value: Expr | None = None
+    raises: bool = False  # this "return" is actually a raise
 
 
 @dataclass
@@ -197,6 +198,9 @@ class FuncDef:
     # True when the body contains a membership test (`x in y`) — one signal
     # that a sanitizer-named function really validates (see engine docs).
     has_membership_test: bool = False
+    # Dotted paths of decorators (alias-resolved), e.g. "app.post" — used to
+    # recognize web-framework entry points whose params are untrusted.
+    decorators: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -207,3 +211,6 @@ class Module:
     functions: list[FuncDef] = field(default_factory=list)
     toplevel: FuncDef | None = None  # module-level statements as pseudo-func
     imports: dict[str, str] = field(default_factory=dict)  # alias -> dotted path
+    # class name -> base-class dotted paths (alias-resolved), for
+    # class-hierarchy method resolution.
+    class_bases: dict[str, list[str]] = field(default_factory=dict)

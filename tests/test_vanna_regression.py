@@ -12,10 +12,13 @@ RULES = Path(__file__).parent / "fixtures" / "vanna_rules"
 
 
 def test_vanna_shape_caught_with_library_mode_and_wrapper_rule():
+    """The custom-wrapper-rule recipe works — and cross-rule dedup reports
+    the vulnerability exactly once even though the builtin
+    PI-FRAMEWORK-EXEC rule (since v0.3) matches the same chain."""
     res = run_scan(FIXTURE, rules_dir=str(RULES), assume_params_untrusted=True)
-    hits = [f for f in res.findings if f.rule_id == "PI-VANNA-EXEC"]
-    assert len(hits) == 1, [(f.rule_id, f.sink.snippet) for f in res.findings]
-    f = hits[0]
+    assert len(res.findings) == 1, [(f.rule_id, f.sink.snippet) for f in res.findings]
+    f = res.findings[0]
+    assert f.rule_id in ("PI-VANNA-EXEC", "PI-FRAMEWORK-EXEC")
     # the CVE sink, with the full trace back to the library entry point
     assert "exec(plotly_code" in f.sink.snippet
     assert f.source.detail == "param:question"
@@ -33,8 +36,12 @@ def test_vanna_shape_silent_without_library_mode():
     assert res.findings == []
 
 
-def test_vanna_shape_silent_without_wrapper_rule():
-    """Library mode alone is not enough either: the LLM hop is invisible
-    behind the abstract provider method (documented limitation V2)."""
+def test_vanna_shape_caught_by_builtin_framework_rule():
+    """Since v0.3 the builtin PI-FRAMEWORK-EXEC rule knows the
+    *.submit_prompt wrapper signature, so library mode alone (no custom
+    rule) catches the shape too."""
     res = run_scan(FIXTURE, assume_params_untrusted=True)
-    assert res.findings == []
+    assert [f.rule_id for f in res.findings] == ["PI-FRAMEWORK-EXEC"]
+    f = res.findings[0]
+    assert f.severity == "med" and f.risky
+    assert [p.kind for p in f.partial_defenses] == ["unverified_sanitizer"]

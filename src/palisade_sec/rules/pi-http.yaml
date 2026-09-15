@@ -1,10 +1,13 @@
-id: PI-SHELL
-title: Prompt injection reaching an OS command
-severity: high
+id: PI-HTTP
+title: Prompt injection reaching an outbound HTTP request (SSRF / exfiltration)
+severity: med
 description: >
-  Untrusted input flows into an LLM whose output is then passed to a shell
-  (os.system, subprocess with shell=True, os.popen). An attacker can make the
-  model emit a shell command string that runs on your host.
+  Untrusted input flows into an LLM whose output is then used as the URL of
+  an outbound HTTP request. An attacker can steer the model into requesting
+  internal endpoints (SSRF: cloud metadata, admin APIs) or exfiltrating data
+  to an attacker-controlled host. Advisory severity: agents that legitimately
+  browse make this pattern intentional in some codebases — review, then
+  either fix or baseline.
 sources:
   - kind: attribute
     patterns:
@@ -61,25 +64,18 @@ llm_signatures:
 sinks:
   - kind: call
     patterns:
-      - "os.system"
-      - "os.popen"
-      - "subprocess.getoutput"
-      - "subprocess.getstatusoutput"
-      - "child_process.exec"
-      - "child_process.execSync"
-    taint_args: [0]
-  - kind: call
-    patterns:
-      - "subprocess.run"
-      - "subprocess.call"
-      - "subprocess.check_call"
-      - "subprocess.check_output"
-      - "subprocess.Popen"
-    require_kwargs:
-      shell: true
+      - "requests.get"
+      - "requests.post"
+      - "requests.put"
+      - "requests.delete"
+      - "requests.head"
+      - "requests.request"
+      - "httpx.get"
+      - "httpx.post"
+      - "urllib.request.urlopen"
+      - "urlopen"
     taint_args: [0]
 sanitizers:
-  # Trusted validation frameworks: a name match fully suppresses.
   - kind: call
     trusted: true
     patterns:
@@ -87,10 +83,6 @@ sanitizers:
       - "parse_obj"
       - "parse_raw"
       - "schema.load"
-      - "shlex.quote"
-  # Name heuristics: suppress only when the resolved function body
-  # shows a real allowlist/validation shape; otherwise downgrade to MED
-  # "unverified sanitizer" (Vanna's _sanitize_plotly_code, CVE-2024-5565).
   - kind: call
     patterns:
       - "allowlist"
@@ -110,7 +102,6 @@ partial_defenses:
       - "blocked"
       - "banned"
       - "forbidden"
-      - "command_execution_functions"
       - "confirm"
       - "approval"
       - "approve"
@@ -118,11 +109,12 @@ partial_defenses:
       - "human_review"
 references:
   - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
-  - "Open Interpreter: LLM -> shell by design, confirmation gate only"
+  - "OWASP SSRF Prevention Cheat Sheet"
 attack: >
-  Crafted input makes the model emit a shell command (e.g. "run `curl … | sh`"),
-  which your code passes to a shell verbatim.
+  Crafted input makes the model emit a URL pointing at internal services
+  (e.g. 169.254.169.254 cloud metadata) or an attacker-controlled host to
+  exfiltrate context data via query parameters.
 fix: >
-  Never pass model output to a shell. Use subprocess.run([...]) with an
-  argument list, no shell=True, and validate the executable and arguments
-  against a strict allowlist.
+  Never fetch model-chosen URLs directly. Resolve against an allowlist of
+  hosts/schemes, block private and link-local address ranges after DNS
+  resolution, and strip credentials and sensitive data from outbound URLs.

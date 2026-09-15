@@ -20,6 +20,9 @@ from palisade_sec.engine import Engine, Finding
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.rules import load_rules
 
+PY_EXTENSIONS = (".py", ".pyi")
+JS_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx")
+
 ALWAYS_EXCLUDE_DIRS = {
     ".venv",
     "venv",
@@ -133,7 +136,7 @@ def collect_files(root: Path, cfg: ScanConfig) -> list[Path]:
             and not _ignored_by_cfg(f"{rel_dir}/{d}".lstrip("./"), cfg)
         ]
         for fname in sorted(filenames):
-            if not fname.endswith((".py", ".pyi")):
+            if not fname.endswith(PY_EXTENSIONS + JS_EXTENSIONS):
                 continue
             rel = f"{rel_dir}/{fname}".lstrip("./").lstrip("/")
             if rel_dir == ".":
@@ -180,11 +183,32 @@ def run_scan(
         result.warnings.append("no valid rules loaded; nothing to scan for")
         return result
 
-    frontend = PythonFrontend()
+    frontends: dict[str, object] = {ext: PythonFrontend() for ext in PY_EXTENSIONS}
+    js_frontend = None
+    js_unavailable = False
+    try:
+        from palisade_sec.frontends.tree_sitter_js import AVAILABLE, JavaScriptFrontend
+
+        if AVAILABLE:
+            js_frontend = JavaScriptFrontend()
+        else:
+            js_unavailable = True
+    except ImportError:
+        js_unavailable = True
+    if js_frontend is not None:
+        frontends.update({ext: js_frontend for ext in JS_EXTENSIONS})
+
     base = root if root.is_dir() else root.parent
     modules = []
+    js_skipped = 0
     for path in collect_files(root, cfg):
         rel = path.relative_to(base).as_posix()
+        ext = path.suffix.lower()
+        frontend = frontends.get(ext)
+        if frontend is None:
+            if js_unavailable and ext in JS_EXTENSIONS:
+                js_skipped += 1
+            continue
         try:
             source = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
@@ -196,6 +220,11 @@ def run_scan(
             continue
         modules.append(lowered)
         result.files_scanned += 1
+    if js_skipped:
+        result.notes.append(
+            f"{js_skipped} JS/TS file(s) skipped — install the JS frontend with "
+            "`pip install 'palisade-sec[js]'` (or `uvx --with 'palisade-sec[js]' ...`)"
+        )
 
     engine = Engine(
         modules,

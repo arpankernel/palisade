@@ -1,6 +1,42 @@
 # Changelog
 
-## 0.2.0 — unreleased
+## 0.3.0 — unreleased
+
+The "everything deferred" release: multi-language, framework-aware, and
+able to propose fixes.
+
+- **JavaScript/TypeScript frontend** (tree-sitter, optional `[js]` extra):
+  `.js`/`.mjs`/`.cjs`/`.jsx`/`.ts`/`.tsx` lower into the same taint IR with
+  **zero engine changes** — the multi-language architecture, proven. Express
+  sources (`req.body`, `req.query`), `eval`/`new Function`/`vm.runIn*`,
+  `child_process.exec[Sync]`, `pool.query` sinks; `.includes()` enum guards;
+  `this` maps to `self` so class-field tracking works. 1,576 mixed
+  Python+TS files (Langflow) scan in ~36s with zero crashes and zero FPs.
+- **FastAPI / decorator sources**: rules can declare `kind: decorator`
+  sources (`*.post`, `*.route`, ...) — route-handler parameters (including
+  pydantic bodies) become untrusted automatically.
+- **Class-hierarchy method resolution**: `self.m()` resolves through base
+  classes and, when exactly one concrete implementation exists, through
+  subclasses (abstract-hook/single-provider pattern). Ambiguous
+  many-provider dispatch stays unresolved — precision first.
+- **New seeded rules**: `PI-HTTP` (LLM-chosen URL fetched — SSRF/exfil,
+  advisory MED) and `PI-FRAMEWORK-EXEC` (framework LLM wrappers:
+  `submit_prompt`, `call_llm`, `generate_code`, ... → execution step).
+  With library mode, builtin rules now flag the real Vanna CVE-2024-5565
+  with no custom rule at all.
+- **`palisade-sec fix`**: deterministic, offline remediation plans — a
+  rule-tailored guardrail plus a regression pytest per finding, written to
+  `palisade-fixes.md`. Never modifies scanned code, never calls an LLM.
+- **Sanitizer verification refinements**: raises anywhere in the body
+  (including except handlers) count as validation, `re.fullmatch`-style
+  validator calls count, and verification follows one level of delegation.
+- **Engine precision**: cross-rule dedup (one source→sink vulnerability is
+  one finding; most specific rule wins); sink-named calls that resolve to
+  real project functions are followed instead of flagged at the boundary;
+  sources match on dotted prefixes (`req.body.q`).
+- Demo: `docs/demo.svg` regenerable via `scripts/make_demo.py`.
+
+## 0.2.0 — 2026-09-16
 
 Driven by the proof scans against real CVE repos (docs/proof-scans.md).
 

@@ -1,8 +1,8 @@
 # Palisade
 
 **A linter for LLM security.** Palisade statically detects prompt-injection
-vulnerabilities in Python codebases — untrusted input flowing through an LLM
-into a dangerous sink — in CI, before they ship.
+vulnerabilities in Python and JavaScript/TypeScript codebases — untrusted
+input flowing through an LLM into a dangerous sink — in CI, before they ship.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
@@ -13,6 +13,10 @@ No API key. No signup. No network calls. Pure static analysis.
 ```bash
 uvx palisade-sec scan .
 ```
+
+![palisade-sec scanning the example app](docs/demo.svg)
+
+<details><summary>Same output as text</summary>
 
 ```
 HIGH  app.py:31  [PI-EXEC] Prompt injection reaching code execution
@@ -25,6 +29,8 @@ HIGH  app.py:31  [PI-EXEC] Prompt injection reaching code execution
   Refs:   CVE-2024-12366 (PandasAI); CVE-2025-3248 (Langflow, CISA KEV)
 ```
 
+</details>
+
 ## Why
 
 This exact pattern is behind real, exploited CVEs: **Langflow**
@@ -36,13 +42,22 @@ path) or guardrail libraries you have to know to wire in. Palisade is the
 missing piece — **free, static, LLM-dataflow-aware, and CI-native**, like
 ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
 
-## What it detects (v1)
+## What it detects
 
 | Rule | Path | Real-world precedent |
 |------|------|----------------------|
-| `PI-EXEC` | input → LLM → `exec` / `eval` / `compile` / `PythonREPL` | PandasAI, Langflow, LangChain PAL |
-| `PI-SHELL` | input → LLM → `os.system` / `subprocess(shell=True)` | Open Interpreter (by design) |
-| `PI-SQL` | input → LLM → raw non-parameterized SQL | Vanna.ai |
+| `PI-EXEC` | input → LLM → `exec` / `eval` / `new Function` / `vm.runIn*` | PandasAI, Langflow, LangChain PAL |
+| `PI-SHELL` | input → LLM → `os.system` / `subprocess(shell=True)` / `child_process.exec` | Open Interpreter (by design) |
+| `PI-SQL` | input → LLM → raw non-parameterized SQL (`cursor.execute`, `pool.query`) | Vanna.ai |
+| `PI-FRAMEWORK-EXEC` | input → framework LLM wrapper (`submit_prompt`, `generate_code`, ...) → execution step | Vanna.ai, PandasAI |
+| `PI-HTTP` | input → LLM → model-chosen URL fetched (SSRF/exfil; advisory) | OWASP LLM Top-10 |
+
+Sources cover Flask (`request.*`), FastAPI (`@app.post` route params and
+pydantic bodies), Express (`req.body`/`req.query`), CLIs (`input()`,
+`sys.argv`, `process.argv`) — and, in library mode, public function
+parameters. **Scanning the real vanna v0.5.5 with
+`--assume-params-untrusted` flags exactly the CVE-2024-5565 sink
+(`base.py:1998`) and nothing else.**
 
 Palisade runs **taint analysis, not grep**: it only reports a *complete*
 `source → LLM → sink` data-flow path with no sanitizer in between.
@@ -57,6 +72,8 @@ Palisade runs **taint analysis, not grep**: it only reports a *complete*
   `validate` whose body never actually validates? **Flagged MED "unverified
   sanitizer"** — Vanna's cosmetic `_sanitize_plotly_code` shipped
   CVE-2024-5565 straight through such a function.
+- Several rules matching one `source → sink` path? **One finding** — the
+  most specific rule wins; no duplicate noise.
 
 ## Install & run
 
@@ -69,7 +86,13 @@ pipx run palisade-sec scan .
 
 # or as a dev dependency
 uv add --dev palisade-sec
+
+# with the JavaScript/TypeScript frontend (tree-sitter)
+uvx --from "palisade-sec[js]" palisade-sec scan .
 ```
+
+Python is scanned out of the box; `.js`/`.ts`/`.tsx` files are scanned when
+the `[js]` extra is installed (otherwise they're skipped with a note).
 
 Useful flags:
 
@@ -79,7 +102,17 @@ palisade-sec scan . --json         # stable machine-readable output
 palisade-sec scan . --report       # write palisade-report.md
 palisade-sec scan . --rules ./my-rules   # add your own YAML rules
 palisade-sec scan . --assume-params-untrusted   # library mode, see below
+palisade-sec fix .                 # remediation plan: guardrail + test per finding
 ```
+
+### `palisade-sec fix`
+
+`fix` turns findings into a remediation plan (`palisade-fixes.md`): for each
+finding, a rule-tailored guardrail (AST allowlist for exec, arg-list +
+executable allowlist for shell, SELECT-only parser check for SQL, host
+allowlist + private-IP block for SSRF) **plus a pytest asserting the
+guardrail blocks the canonical attack**. Deterministic and offline — it
+never modifies your code and never calls an LLM.
 
 ### Scanning libraries
 
@@ -141,16 +174,19 @@ the 5-minute guide.
 ## Architecture
 
 ```
-source ──▶ language frontend (Python: stdlib ast) ──▶ normalized taint IR
-                                                        │
+source ──▶ language frontends ──────────────────▶ normalized taint IR
+           Python (stdlib ast)                          │
+           JS/TS (tree-sitter, optional extra)          │
                               language-agnostic engine ─┤ taint propagation,
                               sanitizer resolution, confidence scoring
                                                         │
              YAML rules ──▶ findings ──▶ baseline diff ──▶ terminal / json / md
 ```
 
-The frontend/IR split is the scalability story: JS/TS/Go land later as new
-frontends (tree-sitter) with zero engine changes.
+The frontend/IR split is the scalability story — proven, not promised: the
+JS/TS frontend landed with **zero engine changes**, and the same YAML rules
+match both languages (`chat.completions.create`, `eval`,
+`child_process.exec` are just dotted paths). Go and more come the same way.
 
 ## Safety of the tool itself
 

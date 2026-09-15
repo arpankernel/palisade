@@ -145,6 +145,59 @@ def scan(
 
 
 @app.command()
+def fix(
+    path: str = typer.Argument(".", help="File or directory to scan."),
+    output: str = typer.Option(
+        "palisade-fixes.md", "--output", help="Remediation plan file to write."
+    ),
+    show_all: bool = typer.Option(
+        False, "--all", help="Also cover MED/LOW findings (default: HIGH + risky)."
+    ),
+    rules: str | None = typer.Option(None, "--rules", help="Extra rules directory."),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+    assume_params_untrusted: bool = typer.Option(
+        False, "--assume-params-untrusted", help="Library mode (see `scan --help`)."
+    ),
+) -> None:
+    """Generate a remediation plan: a guardrail + regression test per finding.
+
+    Deterministic and offline — templates tailored per rule, no LLM calls,
+    and the scanned project is never modified.
+    """
+    from palisade_sec.fix import build_fix_plan
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    result = run_scan(
+        target,
+        config_file=config,
+        rules_dir=rules,
+        assume_params_untrusted=assume_params_untrusted or None,
+    )
+    findings = [f for f in result.findings if show_all or f.severity == "high" or f.risky]
+    console = Console(highlight=False)
+    for w in result.warnings:
+        console.print(f"[yellow]warning:[/yellow] {w}")
+    if not findings:
+        console.print(
+            f"[green]✓ No findings to fix.[/green] ({result.files_scanned} file(s) scanned)"
+        )
+        return
+    out = Path(output)
+    out.write_text(build_fix_plan(findings, result.files_scanned, str(target)), encoding="utf-8")
+    console.print(
+        f"remediation plan for {len(findings)} finding(s) written to {out} — "
+        "each guardrail ships with a regression test; adapt the allowlists, "
+        "then add the tests to your suite."
+    )
+
+
+@app.command()
 def baseline(
     path: str = typer.Argument(".", help="File or directory to scan."),
     output: str | None = typer.Option(

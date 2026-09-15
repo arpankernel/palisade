@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from palisade_sec import ir
-from palisade_sec.engine.findings import Finding, TracePoint
+from palisade_sec.engine.findings import SEVERITY_ORDER, Finding, TracePoint
 from palisade_sec.engine.taint import (
     EMPTY,
     LLM,
@@ -62,12 +62,18 @@ class Engine:
         self.registry: dict[str, tuple[ir.FuncDef, ir.Module]] = {}
         self.by_name: dict[tuple[str, str], list[tuple[ir.FuncDef, ir.Module]]] = {}
         self.methods: dict[tuple[str, str, str], tuple[ir.FuncDef, ir.Module]] = {}
+        # class-hierarchy indexes: (stem, class) -> base names; name -> classes
+        self.class_bases: dict[tuple[str, str], list[str]] = {}
+        self.classes_by_name: dict[str, list[tuple[str, str]]] = {}
         for mod in modules:
             for fn in mod.functions:
                 self.registry[fn.qualname] = (fn, mod)
                 self.by_name.setdefault((mod.stem, fn.name), []).append((fn, mod))
                 if fn.class_name:
                     self.methods[(mod.stem, fn.class_name, fn.name)] = (fn, mod)
+            for cls, bases in mod.class_bases.items():
+                self.class_bases[(mod.stem, cls)] = [b.split(".")[-1] for b in bases]
+                self.classes_by_name.setdefault(cls, []).append((mod.stem, cls))
 
     def run(self) -> EngineResult:
         result = EngineResult()
@@ -103,7 +109,18 @@ class Engine:
                 by_fp[f.fingerprint] = f
             else:
                 prev.count += 1
-        result.findings = sorted(by_fp.values(), key=lambda f: f.sort_key())
+        # cross-rule dedup: one vulnerability (same source -> same sink) is
+        # one finding, even when several rules match it. The most severe
+        # wins; on a tie, the earliest-loaded (most specific) rule wins.
+        by_vuln: dict[tuple, Finding] = {}
+        for f in by_fp.values():
+            key = (f.source.file, f.source.line, f.sink.file, f.sink.line)
+            prev = by_vuln.get(key)
+            if prev is None or SEVERITY_ORDER.get(f.severity, 9) < SEVERITY_ORDER.get(
+                prev.severity, 9
+            ):
+                by_vuln[key] = f
+        result.findings = sorted(by_vuln.values(), key=lambda f: f.sort_key())
         if truncated:
             result.notes.append(
                 f"inter-procedural analysis truncated at {self.max_hops} hops for "
@@ -119,10 +136,7 @@ class Engine:
         if not path or path.startswith("*."):
             return None
         if path.startswith("self.") and class_name:
-            hit = self.methods.get((module.stem, class_name, path[5:]))
-            if hit:
-                return hit
-            return None
+            return self.resolve_method(module.stem, class_name, path[5:])
         if "." not in path:
             cands = self.by_name.get((module.stem, path), [])
             return cands[0] if len(cands) == 1 else None
@@ -132,6 +146,61 @@ class Engine:
         suffix = "." + path
         cands2 = [v for q, v in self.registry.items() if q.endswith(suffix)]
         return cands2[0] if len(cands2) == 1 else None
+
+    def resolve_method(
+        self, stem: str, class_name: str, method: str
+    ) -> tuple[ir.FuncDef, ir.Module] | None:
+        """Resolve self.<method> through the class hierarchy.
+
+        Order: the class itself, then ancestors (template methods defined in
+        a base), then descendants — but only when exactly ONE descendant
+        class implements the method (an abstract hook with a single provider
+        is unambiguous; Vanna-style many-provider dispatch stays unresolved
+        and is handled by stub propagation + custom wrapper rules).
+        """
+        # self + ancestors. A stub hit (abstract `raise NotImplementedError`)
+        # is only provisional: the real implementation may live below.
+        seen: set[tuple[str, str]] = set()
+        stub_hit: tuple[ir.FuncDef, ir.Module] | None = None
+        stack = [(stem, class_name)]
+        while stack:
+            key = stack.pop()
+            if key in seen:
+                continue
+            seen.add(key)
+            hit = self.methods.get((key[0], key[1], method))
+            if hit:
+                if not _is_stub(hit[0]):
+                    return hit
+                stub_hit = stub_hit or hit
+            for base_name in self.class_bases.get(key, []):
+                stack.extend(self.classes_by_name.get(base_name, []))
+        # unique concrete descendant implementation
+        ancestors = seen  # every class visited above is "this class or above"
+        impls = [
+            self.methods[(istem, icls, method)]
+            for (istem, icls, m) in self.methods
+            if m == method
+            and not _is_stub(self.methods[(istem, icls, m)][0])
+            and self._inherits_from(istem, icls, ancestors)
+        ]
+        if len(impls) == 1:
+            return impls[0]
+        return stub_hit
+
+    def _inherits_from(self, stem: str, cls: str, ancestors: set[tuple[str, str]]) -> bool:
+        seen: set[tuple[str, str]] = set()
+        stack = [(stem, cls)]
+        while stack:
+            key = stack.pop()
+            if key in seen:
+                continue
+            seen.add(key)
+            if key in ancestors and key != (stem, cls):
+                return True
+            for base_name in self.class_bases.get(key, []):
+                stack.extend(self.classes_by_name.get(base_name, []))
+        return False
 
     def sanitizer_verified(self, path: str, module: ir.Module, class_name: str | None) -> bool:
         """Is a name-matched sanitizer believable?
@@ -147,10 +216,17 @@ class Engine:
         target = self.resolve(path, module, class_name)
         if target is None:
             return True
-        fn, _ = target
+        fn, fn_mod = target
         cached = self._verify_cache.get(fn.qualname)
         if cached is None:
             cached = _body_validates(fn)
+            if not cached:
+                # one level of delegation: validate() -> _impl() that validates
+                for call_path in _iter_call_paths(fn.body):
+                    inner = self.resolve(call_path, fn_mod, fn.class_name)
+                    if inner is not None and _body_validates(inner[0]):
+                        cached = True
+                        break
             self._verify_cache[fn.qualname] = cached
         return cached
 
@@ -189,12 +265,20 @@ class _RuleRun:
                         _Exec(self, f, mod, env, depth=0).run()
 
     def entry_env(self, fn: ir.FuncDef) -> dict[str, TaintSet]:
-        """Parameter taints for an entry-point analysis. In library mode
-        (--assume-params-untrusted), parameters of public functions are
-        untrusted sources — libraries have no visible caller, so the caller
-        IS the untrusted world (Vanna's `ask(question)`, CVE-2024-5565)."""
+        """Parameter taints for an entry-point analysis.
+
+        Params are untrusted sources when (a) library mode
+        (--assume-params-untrusted) and the function is public — libraries
+        have no visible caller, so the caller IS the untrusted world
+        (Vanna's `ask(question)`, CVE-2024-5565) — or (b) the function is a
+        web-framework entry point per the rule's decorator-kind sources
+        (FastAPI `@app.post` handlers receive the request as parameters)."""
         env: dict[str, TaintSet] = {p: EMPTY for p in fn.params}
-        if self.engine.assume_params_untrusted and not fn.name.startswith("_"):
+        dec_specs = [sp for sp in self.rule.sources if sp.kind == "decorator"]
+        is_route_handler = any(match_any_strict(d, dec_specs) is not None for d in fn.decorators)
+        if is_route_handler or (
+            self.engine.assume_params_untrusted and not fn.name.startswith("_")
+        ):
             for p in fn.params:
                 if p in ("self", "cls"):
                     continue
@@ -455,7 +539,7 @@ class _Exec:
         if isinstance(e, ir.Member):
             ts = self.eval(e.base) if e.base is not None else EMPTY
             if e.path:
-                ts = union(ts, self.source_taint(e.path, e.loc))
+                ts = union(ts, self.source_taint_prefixed(e.path, e.loc))
             return ts
         if isinstance(e, ir.Call):
             return self.eval_call(e)
@@ -469,7 +553,7 @@ class _Exec:
     def eval_varref(self, e: ir.VarRef) -> TaintSet:
         if e.path in self.env:
             return self.env[e.path]
-        src = self.source_taint(e.path, e.loc)
+        src = self.source_taint_prefixed(e.path, e.loc)
         if src:
             return src
         if e.base_var and e.base_var in self.env:
@@ -481,8 +565,20 @@ class _Exec:
                 return self.env[root]
         return EMPTY
 
+    def source_taint_prefixed(self, path: str, loc: ir.Loc) -> TaintSet:
+        """Source match on the path or any dotted prefix: `req.body.q` is a
+        source because `req.body` is (deep attribute reads of a source are
+        still the source — Python hits this via subscripts, JS via chains)."""
+        parts = path.split(".")
+        for i in range(len(parts), 0, -1):
+            ts = self.source_taint(".".join(parts[:i]), loc)
+            if ts:
+                return ts
+        return EMPTY
+
     def source_taint(self, path: str, loc: ir.Loc) -> TaintSet:
-        spec = match_any_strict(path, self.rule.sources)
+        value_specs = [sp for sp in self.rule.sources if sp.kind != "decorator"]
+        spec = match_any_strict(path, value_specs)
         if spec is None:
             return EMPTY
         pattern = next(p for p in spec.patterns if _matched(path, p))
@@ -563,17 +659,21 @@ class _Exec:
 
         # 6) sinks. taint_args restricts which positional args are dangerous
         #    (exec's code argument, not its globals/locals dicts); star-args
-        #    stay included since their position is unknown.
+        #    stay included since their position is unknown. A sink-named call
+        #    that resolves to a real project function is followed instead —
+        #    the true sink (or its absence) inside beats the name heuristic.
         sink_spec = match_any_strict(path, self.rule.sinks)
         if sink_spec is not None and _sink_armed(c, sink_spec):
-            if sink_spec.taint_args is None:
-                candidates = all_args
-            else:
-                sel = [pos_sets[i] for i in sink_spec.taint_args if i < len(pos_sets)]
-                candidates = union(*sel, *star_sets)
-            for t in candidates:
-                self.rr.emit(t, c.loc, path)
-            return EMPTY
+            target = self.engine_resolve(path)
+            if target is None or _is_stub(target[0]):
+                if sink_spec.taint_args is None:
+                    candidates = all_args
+                else:
+                    sel = [pos_sets[i] for i in sink_spec.taint_args if i < len(pos_sets)]
+                    candidates = union(*sel, *star_sets)
+                for t in candidates:
+                    self.rr.emit(t, c.loc, path)
+                return EMPTY
 
         # 7) mutating collection methods: x.append(tainted) taints x
         if c.receiver is not None and path.rsplit(".", 1)[-1] in _MUTATORS and all_args:
@@ -638,22 +738,17 @@ def _sink_armed(c: ir.Call, spec) -> bool:
     return True
 
 
-def _body_validates(fn: ir.FuncDef) -> bool:
-    """Heuristic: does this function's body look like real validation?
+# Calls that constitute validation on their own (pattern matching / strict
+# parsing of the whole value). Language-agnostic names welcome here.
+_VALIDATOR_CALLS = frozenset({"re.fullmatch", "re.match", "uuid.UUID", "ipaddress.ip_address"})
 
-    Signals: a membership test anywhere (`x in ALLOWED`), or a guard branch
-    (an if that raises/returns, or an enum-literal membership). A body that
-    only transforms its input (e.g. `.replace(...)` then return) has none of
-    these and is treated as unverified.
-    """
-    if fn.has_membership_test:
-        return True
-    stack: list[ir.Stmt] = list(fn.body)
+
+def _walk_stmts(stmts: list[ir.Stmt]):
+    stack: list[ir.Stmt] = list(stmts)
     while stack:
         s = stack.pop()
+        yield s
         if isinstance(s, ir.IfBranch):
-            if s.terminates or s.literal_membership:
-                return True
             stack.extend(s.body)
             stack.extend(s.orelse)
         elif isinstance(s, (ir.ForLoop, ir.WhileLoop, ir.WithBlock)):
@@ -663,4 +758,57 @@ def _body_validates(fn: ir.FuncDef) -> bool:
             for h in s.handlers:
                 stack.extend(h)
             stack.extend(s.finalbody)
-    return False
+
+
+def _stmt_exprs(s: ir.Stmt):
+    if isinstance(s, (ir.Assign, ir.ExprStmt, ir.Return)) and s.value is not None:
+        yield s.value
+    elif isinstance(s, ir.IfBranch) and s.test is not None:
+        yield s.test
+    elif isinstance(s, ir.ForLoop) and s.iter is not None:
+        yield s.iter
+    elif isinstance(s, ir.WithBlock):
+        for _, e in s.items:
+            yield e
+
+
+def _iter_call_paths(stmts: list[ir.Stmt]):
+    for s in _walk_stmts(stmts):
+        for root in _stmt_exprs(s):
+            stack: list[ir.Expr] = [root]
+            while stack:
+                e = stack.pop()
+                if isinstance(e, ir.Call):
+                    if e.func_path:
+                        yield e.func_path
+                    stack.extend(e.args)
+                    stack.extend(e.star_args)
+                    stack.extend(e.kwargs.values())
+                    if e.receiver is not None:
+                        stack.append(e.receiver)
+                elif isinstance(e, ir.Member) and e.base is not None:
+                    stack.append(e.base)
+                elif isinstance(e, (ir.StrJoin, ir.Collection)):
+                    stack.extend(e.parts if isinstance(e, ir.StrJoin) else e.items)
+                elif isinstance(e, ir.Unknown):
+                    stack.extend(e.children)
+
+
+def _body_validates(fn: ir.FuncDef) -> bool:
+    """Heuristic: does this function's body look like real validation?
+
+    Signals: a membership test anywhere (`x in ALLOWED`), a guard branch (an
+    if that raises/returns, or an enum-literal membership), a raise anywhere
+    (validators reject by raising, including inside try/except), or a call
+    to a strict-matching validator (re.fullmatch & co). A body that only
+    transforms its input (e.g. `.replace(...)` then return) has none of
+    these and is treated as unverified.
+    """
+    if fn.has_membership_test:
+        return True
+    for s in _walk_stmts(fn.body):
+        if isinstance(s, ir.IfBranch) and (s.terminates or s.literal_membership):
+            return True
+        if isinstance(s, ir.Return) and s.raises:
+            return True
+    return any(p in _VALIDATOR_CALLS for p in _iter_call_paths(fn.body))

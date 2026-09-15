@@ -125,6 +125,24 @@ Items 1–3 below are implemented:
 Still open from this list: FastAPI sources (L1) and pipeline-framework rules
 (P1); class-hierarchy resolution (the custom-rule recipe covers V2 for now).
 
+## Status update — v0.3 (2026-09-16)
+
+Everything above is now closed:
+
+- **L1 (FastAPI sources)**: decorator-kind rule sources ship in all builtin
+  rules; `@app.post` handler params (incl. pydantic bodies) are sources.
+- **V2 (class-hierarchy resolution)**: `self.m()` resolves through bases and
+  unique concrete subclass implementations; ambiguous provider dispatch
+  stays unresolved by design.
+- **P1 (pipeline-framework rules)**: `PI-FRAMEWORK-EXEC` ships wrapper-LLM
+  signatures (`submit_prompt`, `call_llm`, `generate_code`, ...). Builtin
+  rules + library mode now flag the real vanna v0.5.5 CVE sink with **no
+  custom rule**. PandasAI v2's fully dynamic pipeline dispatch remains out
+  of reach for bounded static analysis — documented, not hidden.
+- Also landed: the JS/TS tree-sitter frontend (zero engine changes — the
+  1,576 mixed-language Langflow tree scans in ~36s, still zero FPs) and the
+  offline `fix` command.
+
 ## Takeaways for v0.2
 
 Priority order implied by these scans:

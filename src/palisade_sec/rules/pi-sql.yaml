@@ -16,10 +16,25 @@ sources:
       - "request.data"
       - "request.cookies"
       - "sys.argv"
+      - "req.body"
+      - "req.query"
+      - "req.params"
+      - "req.cookies"
+      - "process.argv"
   - kind: call
     patterns:
       - "input"
       - "request.get_json"
+  - kind: decorator
+    patterns:
+      - "*.route"
+      - "*.api_route"
+      - "*.get"
+      - "*.post"
+      - "*.put"
+      - "*.patch"
+      - "*.delete"
+      - "*.websocket"
 llm_signatures:
   - kind: call
     patterns:
@@ -51,6 +66,11 @@ sinks:
       - "*.executemany"
       - "*.executescript"
       - "*.raw"
+      - "db.query"
+      - "pool.query"
+      - "conn.query"
+      - "connection.query"
+      - "client.query"
     safe_if_extra_args: true
     taint_args: [0]
 sanitizers:

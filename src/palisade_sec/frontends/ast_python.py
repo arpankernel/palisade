@@ -53,6 +53,7 @@ class _Lowerer:
         self.lines = lines
         self.aliases: dict[str, str] = {}
         self.functions: list[ir.FuncDef] = []
+        self.class_bases: dict[str, list[str]] = {}
 
     # -- helpers ----------------------------------------------------------
 
@@ -112,6 +113,7 @@ class _Lowerer:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 self.collect_function(node, class_name=None, prefix=self.stem)
             elif isinstance(node, ast.ClassDef):
+                self.class_bases[node.name] = [p for b in node.bases if (p := self.dotted_path(b))]
                 for item in node.body:
                     if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         self.collect_function(
@@ -136,6 +138,7 @@ class _Lowerer:
             functions=self.functions,
             toplevel=toplevel,
             imports=dict(self.aliases),
+            class_bases=dict(self.class_bases),
         )
 
     def collect_function(
@@ -153,6 +156,9 @@ class _Lowerer:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 self.collect_function(child, class_name=None, prefix=f"{prefix}.{node.name}")
             elif isinstance(child, ast.ClassDef):
+                self.class_bases[child.name] = [
+                    p for b in child.bases if (p := self.dotted_path(b))
+                ]
                 for item in child.body:
                     if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         self.collect_function(
@@ -165,6 +171,11 @@ class _Lowerer:
             and any(isinstance(op, (ast.In, ast.NotIn)) for op in sub.ops)
             for sub in ast.walk(node)
         )
+        decorators = [
+            p
+            for d in node.decorator_list
+            if (p := self.dotted_path(d.func if isinstance(d, ast.Call) else d))
+        ]
         self.functions.append(
             ir.FuncDef(
                 name=node.name,
@@ -174,6 +185,7 @@ class _Lowerer:
                 loc=self.loc(node),
                 class_name=class_name,
                 has_membership_test=has_membership,
+                decorators=decorators,
             )
         )
 
@@ -218,7 +230,8 @@ class _Lowerer:
         if isinstance(node, (ast.Import, ast.ImportFrom, ast.Pass, ast.Global, ast.Nonlocal)):
             return []
         if isinstance(node, ast.Raise):
-            return [ir.Return(loc=loc, value=None)]  # terminates like a return
+            # terminates like a return; `raises` feeds sanitizer verification
+            return [ir.Return(loc=loc, value=None, raises=True)]
         if isinstance(node, (ast.Assert, ast.Delete, ast.Break, ast.Continue)):
             return []
         # Anything else: keep expressions visible so calls inside still count.

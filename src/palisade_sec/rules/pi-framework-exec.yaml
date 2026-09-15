@@ -1,0 +1,110 @@
+id: PI-FRAMEWORK-EXEC
+title: Prompt injection via a framework LLM wrapper reaching code execution
+severity: high
+description: >
+  Agent/pipeline frameworks (PandasAI-style code pipelines, Vanna-style
+  provider bases) rarely call the LLM SDK directly at the vulnerable site —
+  they route through a project wrapper method (call_llm, generate_code,
+  submit_prompt, ...). This rule recognizes those wrapper signatures so the
+  source -> LLM -> exec chain is visible even when the SDK call lives
+  elsewhere. Pairs well with --assume-params-untrusted for libraries.
+sources:
+  - kind: attribute
+    patterns:
+      - "request.args"
+      - "request.form"
+      - "request.json"
+      - "request.values"
+      - "request.data"
+      - "request.cookies"
+      - "sys.argv"
+      - "req.body"
+      - "req.query"
+      - "req.params"
+      - "req.cookies"
+      - "process.argv"
+  - kind: call
+    patterns:
+      - "input"
+      - "request.get_json"
+  - kind: decorator
+    patterns:
+      - "*.route"
+      - "*.api_route"
+      - "*.get"
+      - "*.post"
+      - "*.put"
+      - "*.patch"
+      - "*.delete"
+      - "*.websocket"
+llm_signatures:
+  - kind: call
+    patterns:
+      - "*.submit_prompt"
+      - "*.call_llm"
+      - "*.llm_call"
+      - "*.ask_llm"
+      - "*.query_llm"
+      - "*.call_model"
+      - "*.generate_code"
+      - "*.code_generation"
+      - "*.chat_completion"
+      - "*.get_completion"
+      - "*.completion_with_retry"
+      - "*.generate_sql"
+      - "*.generate_response"
+sinks:
+  - kind: call
+    patterns:
+      - "exec"
+      - "eval"
+      - "compile"
+      - "PythonREPL.run"
+      - "*.run_code"
+      - "*.execute_code"
+      - "*.execute_plan"
+      - "*.run_python"
+    taint_args: [0]
+sanitizers:
+  - kind: call
+    trusted: true
+    patterns:
+      - "model_validate"
+      - "parse_obj"
+      - "parse_raw"
+      - "schema.load"
+  - kind: call
+    patterns:
+      - "allowlist"
+      - "allow_list"
+      - "allowed"
+      - "whitelist"
+      - "validate"
+      - "sanitize"
+      - "is_safe"
+partial_defenses:
+  - kind: call
+    patterns:
+      - "denylist"
+      - "deny_list"
+      - "blacklist"
+      - "blocklist"
+      - "blocked"
+      - "banned"
+      - "forbidden"
+      - "command_execution_functions"
+      - "confirm"
+      - "approval"
+      - "approve"
+      - "auto_run"
+      - "human_review"
+references:
+  - "CVE-2024-5565 (Vanna.ai — submit_prompt wrapper)"
+  - "CVE-2024-12366 (PandasAI — code-generation pipeline)"
+attack: >
+  Crafted input steers the framework's LLM wrapper into emitting Python that
+  the framework's own execution step runs.
+fix: >
+  Treat the output of any LLM wrapper as attacker-influenced. Do not feed it
+  to exec or a code-execution step without sandboxing plus a strict
+  allowlist validator on the generated code.

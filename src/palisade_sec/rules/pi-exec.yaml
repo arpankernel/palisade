@@ -17,10 +17,25 @@ sources:
       - "request.data"
       - "request.cookies"
       - "sys.argv"
+      - "req.body"
+      - "req.query"
+      - "req.params"
+      - "req.cookies"
+      - "process.argv"
   - kind: call
     patterns:
       - "input"
       - "request.get_json"
+  - kind: decorator
+    patterns:
+      - "*.route"
+      - "*.api_route"
+      - "*.get"
+      - "*.post"
+      - "*.put"
+      - "*.patch"
+      - "*.delete"
+      - "*.websocket"
 llm_signatures:
   - kind: call
     patterns:
@@ -54,6 +69,10 @@ sinks:
       - "PythonREPL.run"
       - "python_repl.run"
       - "repl.run"
+      - "Function"
+      - "vm.runInNewContext"
+      - "vm.runInThisContext"
+      - "vm.runInContext"
     taint_args: [0]
 sanitizers:
   # Trusted validation frameworks: a name match fully suppresses.

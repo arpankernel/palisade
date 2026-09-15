@@ -28,7 +28,10 @@ class PatternSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["call", "attribute", "name"] = "call"
+    # "decorator" (sources only): functions decorated with a matching path
+    # (e.g. "*.post" for FastAPI routes) are entry points whose parameters
+    # are untrusted. Never matched against expression paths.
+    kind: Literal["call", "attribute", "name", "decorator"] = "call"
     patterns: list[str] = Field(min_length=1)
     # Sink-only options:
     require_kwargs: dict[str, bool | str | int] | None = None  # e.g. {shell: true}

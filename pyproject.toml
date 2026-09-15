@@ -1,6 +1,6 @@
 [project]
 name = "palisade-sec"
-version = "0.2.0"
+version = "0.3.0"
 description = "A linter for LLM security: statically detects prompt-injection-to-sink vulnerabilities in Python codebases."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,13 @@ Issues = "https://github.com/arpankernel/palisade/issues"
 [project.scripts]
 palisade-sec = "palisade_sec.cli:app"
 
+[project.optional-dependencies]
+js = [
+    "tree-sitter>=0.23",
+    "tree-sitter-javascript>=0.23",
+    "tree-sitter-typescript>=0.23",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -44,6 +51,9 @@ packages = ["src/palisade_sec"]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
+    "tree-sitter>=0.23",
+    "tree-sitter-javascript>=0.23",
+    "tree-sitter-typescript>=0.23",
 ]
 
 [tool.ruff]

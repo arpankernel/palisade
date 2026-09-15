@@ -60,6 +60,16 @@ as `subprocess.run`):
 | `chat.completions.create` | `client.chat.completions.create` | `completions.update` |
 | `*.execute` | `cur.execute`, `conn.execute` | bare `execute` |
 
+A source spec may use `kind: decorator` (e.g. `*.post`, `*.route`): functions
+carrying a matching decorator are treated as web entry points and their
+parameters become untrusted sources. Decorator patterns are never matched
+against ordinary calls (`requests.post` is not a source).
+
+Patterns are language-neutral dotted paths: the same rule matches
+`client.chat.completions.create` in Python and JavaScript, `eval` in both,
+and `child_process.exec` after `const { exec } = require("child_process")`
+alias resolution.
+
 Defense categories (`sanitizers`, `partial_defenses`) match as
 **case-insensitive substrings** of the call path, so `validate` also catches
 `validate_code` and `CodeModel.model_validate_json`.
