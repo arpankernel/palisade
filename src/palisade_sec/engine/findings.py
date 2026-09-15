@@ -106,7 +106,7 @@ class Finding:
                 },
             },
             "partial_defenses": [
-                {"pattern": p.pattern, "file": p.file, "line": p.line}
+                {"pattern": p.pattern, "kind": p.kind, "file": p.file, "line": p.line}
                 for p in self.partial_defenses
             ],
             "attack": self.attack.strip(),

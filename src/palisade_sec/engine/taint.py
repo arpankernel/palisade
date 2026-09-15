@@ -15,15 +15,21 @@ LLM = "llm"
 
 @dataclass(frozen=True)
 class PartialHit:
-    """A partial defense (denylist / confirmation gate) seen on the path.
+    """A weak defense seen on the path. Never suppresses — downgrades to MED.
 
-    Partial defenses do NOT suppress a finding — they downgrade it to MED
-    "risky". Real CVEs were exploited despite exactly these defenses.
+    kind:
+      "partial_defense"      denylist / confirmation gate (real CVEs were
+                             exploited despite these)
+      "unverified_sanitizer" a call matched a sanitizer pattern by name only,
+                             and its resolved body shows no allowlist or
+                             validation shape (Vanna's _sanitize_plotly_code
+                             is the canonical example, CVE-2024-5565)
     """
 
     pattern: str
     file: str
     line: int
+    kind: str = "partial_defense"
 
 
 @dataclass(frozen=True)

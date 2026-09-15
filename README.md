@@ -53,6 +53,10 @@ Palisade runs **taint analysis, not grep**: it only reports a *complete*
 - Allowlist / pydantic validation on the path? **Silent** — sanitized.
 - Denylist or human-confirmation gate? **Flagged MED "risky"** — real CVEs
   were exploited despite exactly those defenses. That is deliberate.
+- A "sanitizer" in name only — a project function matching `sanitize`/
+  `validate` whose body never actually validates? **Flagged MED "unverified
+  sanitizer"** — Vanna's cosmetic `_sanitize_plotly_code` shipped
+  CVE-2024-5565 straight through such a function.
 
 ## Install & run
 
@@ -74,7 +78,23 @@ palisade-sec scan . --all          # also show MED/LOW findings
 palisade-sec scan . --json         # stable machine-readable output
 palisade-sec scan . --report       # write palisade-report.md
 palisade-sec scan . --rules ./my-rules   # add your own YAML rules
+palisade-sec scan . --assume-params-untrusted   # library mode, see below
 ```
+
+### Scanning libraries
+
+Apps read untrusted input from `request.*` / `input()` / `sys.argv`. A
+*library* has no visible caller — its public parameters ARE the untrusted
+world (Vanna's `ask(question)`, CVE-2024-5565). Library mode treats the
+parameters of public (non-underscore) functions as untrusted sources:
+
+```bash
+palisade-sec scan path/to/library --assume-params-untrusted
+```
+
+If the library routes LLM calls through its own wrapper method, add the
+wrapper to a custom rule's `llm_signatures` (e.g. `"*.submit_prompt"`) — see
+the rules guide.
 
 ## CI
 
@@ -105,6 +125,7 @@ GitHub Actions:
 paths_ignore = ["migrations/*", "sandbox/*"]
 include_tests = false   # tests/** and conftest.py are skipped by default
 max_hops = 3            # inter-procedural depth bound
+assume_params_untrusted = false   # library mode (see "Scanning libraries")
 ```
 
 Or the same keys in `.palisade.toml`.

@@ -160,6 +160,11 @@ class _Lowerer:
                         )
             else:
                 body.extend(self.lower_stmt(child))
+        has_membership = any(
+            isinstance(sub, ast.Compare)
+            and any(isinstance(op, (ast.In, ast.NotIn)) for op in sub.ops)
+            for sub in ast.walk(node)
+        )
         self.functions.append(
             ir.FuncDef(
                 name=node.name,
@@ -168,6 +173,7 @@ class _Lowerer:
                 body=body,
                 loc=self.loc(node),
                 class_name=class_name,
+                has_membership_test=has_membership,
             )
         )
 
@@ -280,6 +286,7 @@ class _Lowerer:
             test = test.operand
         literal_membership = False
         guard_var = ""
+        membership_name = ""
         if (
             isinstance(test, ast.Compare)
             and len(test.ops) == 1
@@ -293,6 +300,8 @@ class _Lowerer:
                 isinstance(e, ast.Constant) for e in comparator.elts
             ):
                 literal_membership = True
+            elif isinstance(comparator, (ast.Name, ast.Attribute)):
+                membership_name = self.dotted_path(comparator)
         elif isinstance(test, ast.Compare) and any(isinstance(op, ast.NotIn) for op in test.ops):
             negated = not negated
         for sub in ast.walk(node.test):
@@ -319,6 +328,7 @@ class _Lowerer:
             negated=negated,
             literal_membership=literal_membership,
             guard_var=guard_var,
+            membership_name=membership_name,
         )
 
     # -- expressions --------------------------------------------------------

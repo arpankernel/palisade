@@ -67,6 +67,14 @@ def scan(
     config: str | None = typer.Option(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
+    assume_params_untrusted: bool = typer.Option(
+        False,
+        "--assume-params-untrusted",
+        help=(
+            "Library mode: treat parameters of public functions as untrusted "
+            "sources (for auditing libraries, which have no visible caller)."
+        ),
+    ),
 ) -> None:
     """Scan a Python project for prompt-injection-to-sink paths."""
     target = Path(path)
@@ -74,7 +82,12 @@ def scan(
         typer.echo(f"error: path does not exist: {path}", err=True)
         raise typer.Exit(2)
 
-    result = run_scan(target, config_file=config, rules_dir=rules)
+    result = run_scan(
+        target,
+        config_file=config,
+        rules_dir=rules,
+        assume_params_untrusted=assume_params_untrusted or None,
+    )
     findings = result.findings
 
     baseline_known = 0

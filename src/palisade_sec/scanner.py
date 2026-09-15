@@ -45,6 +45,8 @@ class ScanConfig(BaseModel):
     include_tests: bool = False
     max_hops: int = 3
     rules_dir: str | None = None
+    # Library mode: treat parameters of public functions as untrusted sources.
+    assume_params_untrusted: bool = False
 
 
 def load_config(root: Path, config_file: str | None) -> tuple[ScanConfig, list[str]]:
@@ -165,6 +167,7 @@ def run_scan(
     config_file: str | None = None,
     rules_dir: str | None = None,
     max_hops: int | None = None,
+    assume_params_untrusted: bool | None = None,
 ) -> ScanResult:
     result = ScanResult()
     root = target.resolve()
@@ -194,7 +197,16 @@ def run_scan(
         modules.append(lowered)
         result.files_scanned += 1
 
-    engine = Engine(modules, rules_result.rules, max_hops=max_hops or cfg.max_hops)
+    engine = Engine(
+        modules,
+        rules_result.rules,
+        max_hops=max_hops or cfg.max_hops,
+        assume_params_untrusted=(
+            cfg.assume_params_untrusted
+            if assume_params_untrusted is None
+            else assume_params_untrusted
+        ),
+    )
     engine_result = engine.run()
     result.findings = engine_result.findings
     result.notes.extend(engine_result.notes)

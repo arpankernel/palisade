@@ -90,6 +90,41 @@ worth adding for the LLM-path cases in FastAPI apps.
 - Scans ran with `--all --json`; nothing was hidden by severity filtering.
 - "CVE caught" means a finding whose sink is the CVE's actual sink line.
 
+## Status update — v0.2 (2026-09-16)
+
+Items 1–3 below are implemented:
+
+- **Library mode** shipped as `--assume-params-untrusted` (also a config
+  key). Parameters of public functions become untrusted sources
+  (`param:<name>` in the trace).
+- **Sanitizer strictness** shipped: name-heuristic sanitizer matches now
+  suppress only when the resolved project-local body shows a real
+  allowlist/validation shape; otherwise the finding is downgraded to MED
+  "unverified sanitizer". Known frameworks are marked `trusted: true` in the
+  rules and still suppress on name match.
+- **The real CVE is now caught.** Rescanning the actual vanna `v0.5.5` tree
+  with library mode plus a custom rule adding `*.submit_prompt` to
+  `llm_signatures` yields exactly one finding — the CVE-2024-5565 sink
+  itself:
+
+  ```
+  MED  src/vanna/base/base.py:1998   exec(plotly_code, globals(), ldict)
+       source: param:question (ask(), base.py:1594)
+       llm:    self.submit_prompt
+       unverified sanitizer: self._sanitize_plotly_code
+  ```
+
+  Zero other findings across the repo. Getting here required two further
+  engine fixes the real code exposed: abstract stub methods (`...`/`pass`/
+  bare-raise bodies) now propagate taint instead of silently dropping it,
+  and sinks declare which argument is dangerous (`taint_args: [0]` — a
+  tainted `exec(..., globals(), ldict)` environment dict is not code
+  execution). An offline fixture mirroring this exact shape is pinned by
+  tests/test_vanna_regression.py.
+
+Still open from this list: FastAPI sources (L1) and pipeline-framework rules
+(P1); class-hierarchy resolution (the custom-rule recipe covers V2 for now).
+
 ## Takeaways for v0.2
 
 Priority order implied by these scans:

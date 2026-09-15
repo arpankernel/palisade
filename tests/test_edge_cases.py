@@ -434,3 +434,73 @@ def test_sf_never_executes_scanned_code(tmp_path):
     res = run_scan(tmp_path)
     assert res.files_scanned == 1
     assert not marker.exists(), "scanner executed scanned code — critical safety violation"
+
+
+# ---------------------------------------------------------------------------
+# v0.2 engine precision (stub propagation, sink taint_args, accumulators)
+# ---------------------------------------------------------------------------
+
+
+def test_fp_exec_env_dict_not_flagged(tmp_path):
+    """exec's globals/locals dicts are not code: tainted data there is not a
+    finding (taint_args: [0] on the exec sink)."""
+    res = scan_files(
+        tmp_path,
+        app__py="""
+        from flask import request
+        from openai import OpenAI
+        client = OpenAI()
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            answer = resp.choices[0].message.content
+            env = {"answer": answer}
+            exec("print(answer)", globals(), env)
+        """,
+    )
+    assert res.findings == []
+
+
+def test_fn_stub_method_taint_propagates(tmp_path):
+    """An abstract stub (`...` body) is a placeholder, not a taint sink —
+    calls through it propagate (the real Vanna system_message shape)."""
+    res = scan_files(
+        tmp_path,
+        app__py="""
+        from flask import request
+        from openai import OpenAI
+        client = OpenAI()
+
+        def wrap_message(text):
+            ...
+
+        def handler():
+            q = request.json["q"]
+            msg = wrap_message(q)
+            resp = client.chat.completions.create(messages=[msg])
+            exec(resp.choices[0].message.content)
+        """,
+    )
+    assert [f.rule_id for f in res.findings] == ["PI-EXEC"]
+
+
+def test_fn_append_accumulator_flow(tmp_path):
+    """x.append(tainted) taints x (the Vanna _extract_python_code shape)."""
+    res = scan_files(
+        tmp_path,
+        app__py="""
+        from flask import request
+        from openai import OpenAI
+        client = OpenAI()
+
+        def handler():
+            parts = []
+            parts.append(request.json["q"])
+            resp = client.chat.completions.create(
+                messages=[{"role": "user", "content": "\\n".join(parts)}]
+            )
+            exec(resp.choices[0].message.content)
+        """,
+    )
+    assert [f.rule_id for f in res.findings] == ["PI-EXEC"]

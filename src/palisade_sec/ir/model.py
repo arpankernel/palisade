@@ -152,6 +152,7 @@ class IfBranch(Stmt):
     negated: bool = False  # test was `x not in Y` / `not f(x)`
     literal_membership: bool = False  # test was `x in ("a", "b", ...)` (enum guard)
     guard_var: str = ""  # the compared variable for membership tests
+    membership_name: str = ""  # dotted name of the collection in `x in NAME`
 
 
 @dataclass
@@ -193,6 +194,9 @@ class FuncDef:
     loc: Loc
     class_name: str | None = None
     is_test: bool = False
+    # True when the body contains a membership test (`x in y`) — one signal
+    # that a sanitizer-named function really validates (see engine docs).
+    has_membership_test: bool = False
 
 
 @dataclass

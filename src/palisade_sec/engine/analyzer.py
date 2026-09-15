@@ -32,7 +32,7 @@ from palisade_sec.engine.taint import (
     union,
     with_partial,
 )
-from palisade_sec.rules.schema import Rule, match_any_strict, match_lenient
+from palisade_sec.rules.schema import Rule, match_any_strict, match_lenient, match_lenient_spec
 
 # Builtin conversions that constrain the value enough to kill string taint.
 _CAST_SANITIZERS = frozenset({"int", "float", "bool", "len", "abs", "hash", "ord", "round"})
@@ -45,10 +45,19 @@ class EngineResult:
 
 
 class Engine:
-    def __init__(self, modules: list[ir.Module], rules: list[Rule], max_hops: int = 3):
+    def __init__(
+        self,
+        modules: list[ir.Module],
+        rules: list[Rule],
+        max_hops: int = 3,
+        assume_params_untrusted: bool = False,
+    ):
         self.modules = modules
         self.rules = rules
         self.max_hops = max_hops
+        # Library mode: parameters of public functions are untrusted sources.
+        self.assume_params_untrusted = assume_params_untrusted
+        self._verify_cache: dict[str, bool] = {}
         # function resolution indexes (shared across rules)
         self.registry: dict[str, tuple[ir.FuncDef, ir.Module]] = {}
         self.by_name: dict[tuple[str, str], list[tuple[ir.FuncDef, ir.Module]]] = {}
@@ -124,6 +133,27 @@ class Engine:
         cands2 = [v for q, v in self.registry.items() if q.endswith(suffix)]
         return cands2[0] if len(cands2) == 1 else None
 
+    def sanitizer_verified(self, path: str, module: ir.Module, class_name: str | None) -> bool:
+        """Is a name-matched sanitizer believable?
+
+        - Unresolvable (external library): True — we can't inspect it, and
+          flagging every third-party sanitizer would violate precision.
+          Known frameworks should use `trusted: true` in the rule instead.
+        - Resolved project-local function: True only if its body shows a real
+          allowlist/validation shape (a membership test, or a guard branch
+          that raises/returns). Vanna's `_sanitize_plotly_code` — a cosmetic
+          .replace() — fails this and gets downgraded, not suppressed.
+        """
+        target = self.resolve(path, module, class_name)
+        if target is None:
+            return True
+        fn, _ = target
+        cached = self._verify_cache.get(fn.qualname)
+        if cached is None:
+            cached = _body_validates(fn)
+            self._verify_cache[fn.qualname] = cached
+        return cached
+
 
 class _RuleRun:
     def __init__(self, engine: Engine, rule: Rule):
@@ -147,17 +177,39 @@ class _RuleRun:
                 if f.class_name:
                     classes.setdefault(f.class_name, []).append(f)
             for f in plain:
-                env = {p: EMPTY for p in f.params}
-                _Exec(self, f, mod, env, depth=0).run()
+                _Exec(self, f, mod, self.entry_env(f), depth=0).run()
             for cname, methods in classes.items():
                 # pass 1 collects taints assigned to self.<field>; pass 2
                 # re-analyzes with those fields pre-seeded (FN-5).
                 for _pass in (1, 2):
                     fields = dict(self.class_fields.get((mod.stem, cname), {}))
                     for f in methods:
-                        env: dict[str, TaintSet] = {p: EMPTY for p in f.params}
+                        env = self.entry_env(f)
                         env.update(fields)
                         _Exec(self, f, mod, env, depth=0).run()
+
+    def entry_env(self, fn: ir.FuncDef) -> dict[str, TaintSet]:
+        """Parameter taints for an entry-point analysis. In library mode
+        (--assume-params-untrusted), parameters of public functions are
+        untrusted sources — libraries have no visible caller, so the caller
+        IS the untrusted world (Vanna's `ask(question)`, CVE-2024-5565)."""
+        env: dict[str, TaintSet] = {p: EMPTY for p in fn.params}
+        if self.engine.assume_params_untrusted and not fn.name.startswith("_"):
+            for p in fn.params:
+                if p in ("self", "cls"):
+                    continue
+                env[p] = frozenset(
+                    {
+                        Taint(
+                            kind=SOURCE,
+                            src_pattern=f"param:{p}",
+                            src_file=fn.loc.file,
+                            src_line=fn.loc.line,
+                            src_snippet=fn.loc.snippet,
+                        )
+                    }
+                )
+        return env
 
     def call_function(
         self,
@@ -310,15 +362,29 @@ class _Exec:
             self.eval(s.test)  # side effects (calls) inside the test still count
 
         guard_paths = list(s.test_names) + list(s.test_calls)
-        san_hit = any(match_lenient(p, self.rule.sanitizers) for p in guard_paths)
         par_pat = next(
             (m for p in guard_paths if (m := match_lenient(p, self.rule.partial_defenses))),
             None,
         )
-        # Enum/allowlist membership against a literal collection is a full
-        # sanitizer (FP-3), unless the guard itself is a denylist by name.
-        if s.literal_membership and not par_pat:
-            san_hit = True
+        # Sanitizer guards: a literal-enum membership (FP-3) or a trusted /
+        # body-verified sanitizer name fully sanitizes; a sanitizer-named
+        # project function whose body shows no validation shape only
+        # downgrades (unverified sanitizer). A denylist name wins over both.
+        san_hit = False
+        unverified_san: str | None = None
+        if not par_pat:
+            if s.literal_membership:
+                san_hit = True
+            for p in guard_paths:
+                m = match_lenient_spec(p, self.rule.sanitizers)
+                if m is None:
+                    continue
+                if m[1].trusted or self.rr.engine.sanitizer_verified(
+                    p, self.mod, self.fn.class_name
+                ):
+                    san_hit = True
+                else:
+                    unverified_san = p
 
         guarded = [
             p.split(".")[0]
@@ -331,7 +397,7 @@ class _Exec:
         env_body = dict(outer)
         env_else = dict(outer)
 
-        if san_hit and not par_pat:
+        if san_hit:
             if s.negated:
                 # `if x not in ALLOWED: <reject>` — the else/fall-through is safe
                 for v in guarded:
@@ -341,11 +407,20 @@ class _Exec:
                 for v in guarded:
                     env_body[v] = EMPTY
 
+        hit: PartialHit | None = None
         if par_pat:
-            hit = PartialHit(pattern=par_pat, file=s.loc.file, line=s.loc.line)
             # A denylist/confirmation gate was consulted: keep the taint but
             # mark everything it guards as only partially defended, on every
             # path from here on.
+            hit = PartialHit(pattern=par_pat, file=s.loc.file, line=s.loc.line)
+        elif unverified_san and not san_hit:
+            hit = PartialHit(
+                pattern=unverified_san,
+                file=s.loc.file,
+                line=s.loc.line,
+                kind="unverified_sanitizer",
+            )
+        if hit is not None:
             for e in (env_body, env_else):
                 for k, ts in list(e.items()):
                     if ts:
@@ -361,7 +436,7 @@ class _Exec:
 
         if s.terminates:
             merged = env_else
-            if san_hit and not par_pat and s.negated:
+            if san_hit and s.negated:
                 for v in guarded:
                     merged[v] = EMPTY
         else:
@@ -424,8 +499,9 @@ class _Exec:
         )
 
     def eval_call(self, c: ir.Call) -> TaintSet:
-        arg_sets = [self.eval(a) for a in c.args]
-        arg_sets += [self.eval(a) for a in c.star_args]
+        pos_sets = [self.eval(a) for a in c.args]
+        star_sets = [self.eval(a) for a in c.star_args]
+        arg_sets = pos_sets + star_sets
         kw_sets = {k: self.eval(v) for k, v in c.kwargs.items()}
         recv = self.eval(c.receiver) if c.receiver is not None else EMPTY
         all_args = union(*arg_sets, *kw_sets.values(), recv)
@@ -440,9 +516,20 @@ class _Exec:
         if path in _CAST_SANITIZERS:
             return EMPTY
 
-        # 3) sanitizers suppress (FP-1)
-        if match_lenient(path, self.rule.sanitizers):
-            return EMPTY
+        # 3) sanitizers (FP-1): trusted frameworks and body-verified project
+        #    functions suppress; a sanitizer in name only (resolved body with
+        #    no validation shape) downgrades to MED "unverified sanitizer" —
+        #    Vanna's cosmetic _sanitize_plotly_code shipped CVE-2024-5565.
+        san = match_lenient_spec(path, self.rule.sanitizers)
+        if san is not None:
+            if san[1].trusted or self.rr.engine.sanitizer_verified(
+                path, self.mod, self.fn.class_name
+            ):
+                return EMPTY
+            hit = PartialHit(
+                pattern=path, file=c.loc.file, line=c.loc.line, kind="unverified_sanitizer"
+            )
+            return with_partial(all_args, hit)
 
         # 4) partial defenses keep the taint, flagged (FN-11)
         par = match_lenient(path, self.rule.partial_defenses)
@@ -474,20 +561,42 @@ class _Exec:
                     out.add(t)  # chained LLM calls keep the original trace
             return frozenset(out)
 
-        # 6) sinks
+        # 6) sinks. taint_args restricts which positional args are dangerous
+        #    (exec's code argument, not its globals/locals dicts); star-args
+        #    stay included since their position is unknown.
         sink_spec = match_any_strict(path, self.rule.sinks)
         if sink_spec is not None and _sink_armed(c, sink_spec):
-            for t in all_args:
+            if sink_spec.taint_args is None:
+                candidates = all_args
+            else:
+                sel = [pos_sets[i] for i in sink_spec.taint_args if i < len(pos_sets)]
+                candidates = union(*sel, *star_sets)
+            for t in candidates:
                 self.rr.emit(t, c.loc, path)
             return EMPTY
 
-        # 7) project-local functions: follow in, bounded (FN-1, FN-8)
+        # 7) mutating collection methods: x.append(tainted) taints x
+        if c.receiver is not None and path.rsplit(".", 1)[-1] in _MUTATORS and all_args:
+            recv_var = ""
+            if isinstance(c.receiver, ir.VarRef):
+                recv_var = c.receiver.base_var
+            if recv_var and recv_var in self.env:
+                self.env[recv_var] = union(self.env[recv_var], all_args)
+            return EMPTY
+
+        # 8) project-local functions: follow in, bounded (FN-1, FN-8).
+        #    A stub body (abstract method: pass / ... / docstring /
+        #    raise NotImplementedError) is a placeholder, not evidence the
+        #    value is clean — propagate like an unknown call. Vanna's
+        #    abstract system_message/user_message are the canonical case.
         callee = self.engine_resolve(path)
         if callee is not None:
             fn, mod = callee
+            if _is_stub(fn):
+                return all_args
             return self.rr.call_function(fn, mod, arg_sets, kw_sets, self.depth + 1)
 
-        # 8) unknown call: conservatively propagate argument taint
+        # 9) unknown call: conservatively propagate argument taint
         #    (covers json.loads, .strip(), str(), custom helpers we can't see)
         return all_args
 
@@ -499,6 +608,18 @@ def _matched(path: str, pattern: str) -> bool:
     from palisade_sec.rules.schema import match_strict
 
     return match_strict(path, pattern)
+
+
+_MUTATORS = frozenset({"append", "extend", "insert", "add", "appendleft", "update"})
+
+
+def _is_stub(fn: ir.FuncDef) -> bool:
+    """A body with no behavior: pass / ... / docstring-only / bare raise."""
+    return all(
+        (isinstance(s, ir.ExprStmt) and isinstance(s.value, ir.Const))
+        or (isinstance(s, ir.Return) and s.value is None)
+        for s in fn.body
+    )
 
 
 def _sink_armed(c: ir.Call, spec) -> bool:
@@ -515,3 +636,31 @@ def _sink_armed(c: ir.Call, spec) -> bool:
         if any(k in c.kwargs for k in ("params", "parameters", "args", "vars")):
             return False
     return True
+
+
+def _body_validates(fn: ir.FuncDef) -> bool:
+    """Heuristic: does this function's body look like real validation?
+
+    Signals: a membership test anywhere (`x in ALLOWED`), or a guard branch
+    (an if that raises/returns, or an enum-literal membership). A body that
+    only transforms its input (e.g. `.replace(...)` then return) has none of
+    these and is treated as unverified.
+    """
+    if fn.has_membership_test:
+        return True
+    stack: list[ir.Stmt] = list(fn.body)
+    while stack:
+        s = stack.pop()
+        if isinstance(s, ir.IfBranch):
+            if s.terminates or s.literal_membership:
+                return True
+            stack.extend(s.body)
+            stack.extend(s.orelse)
+        elif isinstance(s, (ir.ForLoop, ir.WhileLoop, ir.WithBlock)):
+            stack.extend(s.body)
+        elif isinstance(s, ir.TryBlock):
+            stack.extend(s.body)
+            for h in s.handlers:
+                stack.extend(h)
+            stack.extend(s.finalbody)
+    return False

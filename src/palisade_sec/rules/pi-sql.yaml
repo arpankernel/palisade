@@ -52,7 +52,20 @@ sinks:
       - "*.executescript"
       - "*.raw"
     safe_if_extra_args: true
+    taint_args: [0]
 sanitizers:
+  # Trusted validation frameworks: a name match fully suppresses.
+  - kind: call
+    trusted: true
+    patterns:
+      - "model_validate"
+      - "parse_obj"
+      - "parse_raw"
+      - "schema.load"
+      - "sqlglot.parse"
+  # Name heuristics: suppress only when the resolved function body
+  # shows a real allowlist/validation shape; otherwise downgrade to MED
+  # "unverified sanitizer" (Vanna's _sanitize_plotly_code, CVE-2024-5565).
   - kind: call
     patterns:
       - "allowlist"
@@ -60,13 +73,8 @@ sanitizers:
       - "allowed"
       - "whitelist"
       - "validate"
-      - "model_validate"
-      - "parse_obj"
-      - "parse_raw"
-      - "schema.load"
       - "sanitize"
       - "is_safe"
-      - "sqlglot.parse"
 partial_defenses:
   - kind: call
     patterns:

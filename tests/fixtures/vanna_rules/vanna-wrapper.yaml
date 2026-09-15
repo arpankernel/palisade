@@ -1,0 +1,40 @@
+# Custom rule demonstrating the documented recipe for Vanna-style codebases:
+# the LLM lives behind an abstract project wrapper (`self.submit_prompt`),
+# so add the wrapper to llm_signatures. Combined with --assume-params-untrusted
+# this catches the CVE-2024-5565 shape offline (see tests/test_vanna_regression.py).
+id: PI-VANNA-EXEC
+title: Prompt injection via provider wrapper reaching code execution
+severity: high
+description: >
+  Untrusted input flows through a project-local LLM provider wrapper
+  (submit_prompt) into exec.
+llm_signatures:
+  - kind: call
+    patterns:
+      - "*.submit_prompt"
+sinks:
+  - kind: call
+    patterns:
+      - "exec"
+      - "eval"
+    taint_args: [0]
+sanitizers:
+  - kind: call
+    trusted: true
+    patterns:
+      - "model_validate"
+      - "parse_obj"
+  - kind: call
+    patterns:
+      - "allowlist"
+      - "allowed"
+      - "whitelist"
+      - "validate"
+      - "sanitize"
+references:
+  - "CVE-2024-5565 (Vanna.ai)"
+attack: >
+  A crafted question steers the provider LLM into emitting Python that the
+  library executes.
+fix: >
+  Do not exec model output; validate against a strict allowlist in a sandbox.

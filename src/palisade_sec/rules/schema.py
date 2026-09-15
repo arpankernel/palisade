@@ -33,6 +33,16 @@ class PatternSpec(BaseModel):
     # Sink-only options:
     require_kwargs: dict[str, bool | str | int] | None = None  # e.g. {shell: true}
     safe_if_extra_args: bool = False  # parameterized SQL: execute(q, params) is safe
+    # Which positional args are dangerous. None = any argument. [0] for
+    # exec/eval & co: exec(code, globals(), locals()) is only exploitable
+    # through the CODE argument — a tainted environment dict is not.
+    taint_args: list[int] | None = None
+    # Sanitizer-only option: trusted sanitizers (known validation frameworks
+    # like pydantic model_validate) fully suppress on a name match. Untrusted
+    # (name-heuristic) sanitizer matches suppress only when the resolved
+    # project-local function body shows a real allowlist/validation shape;
+    # otherwise the finding is downgraded to MED "unverified sanitizer".
+    trusted: bool = False
 
 
 class Rule(BaseModel):
@@ -74,11 +84,21 @@ def match_any_strict(path: str, specs: list[PatternSpec]) -> PatternSpec | None:
 
 def match_lenient(path: str, specs: list[PatternSpec]) -> str | None:
     """Match for sanitizers / partial defenses: case-insensitive substring."""
+    hit = match_lenient_spec(path, specs)
+    return hit[0] if hit else None
+
+
+def match_lenient_spec(path: str, specs: list[PatternSpec]) -> tuple[str, PatternSpec] | None:
+    """Like match_lenient but also returns the matching spec (for `trusted`).
+    Trusted specs win over untrusted ones when both match."""
     if not path:
         return None
     low = path.lower()
+    fallback: tuple[str, PatternSpec] | None = None
     for spec in specs:
         for pat in spec.patterns:
             if pat.lower() in low:
-                return pat
-    return None
+                if spec.trusted:
+                    return pat, spec
+                fallback = fallback or (pat, spec)
+    return fallback

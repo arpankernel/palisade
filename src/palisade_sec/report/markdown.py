@@ -54,14 +54,23 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
                 "",
             ]
             if f.partial_defenses:
-                what = ", ".join(
-                    f"`{p.pattern}` at `{p.file}:{p.line}`" for p in f.partial_defenses
-                )
-                lines += [
-                    f"**Partial defense only:** {what}. Denylists and confirmation "
-                    "gates have been bypassed in real CVEs — this path is still risky.",
-                    "",
-                ]
+                gates = [p for p in f.partial_defenses if p.kind != "unverified_sanitizer"]
+                unverified = [p for p in f.partial_defenses if p.kind == "unverified_sanitizer"]
+                if gates:
+                    what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in gates)
+                    lines += [
+                        f"**Partial defense only:** {what}. Denylists and confirmation "
+                        "gates have been bypassed in real CVEs — this path is still risky.",
+                        "",
+                    ]
+                if unverified:
+                    what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in unverified)
+                    lines += [
+                        f"**Unverified sanitizer:** {what}. It matches a sanitizer name, "
+                        "but its body shows no allowlist/validation shape — this path "
+                        "is still risky.",
+                        "",
+                    ]
             else:
                 lines += [f"No sanitizer on path. Confidence: **{f.confidence}**.", ""]
             if f.fix.strip():

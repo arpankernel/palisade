@@ -64,6 +64,20 @@ Defense categories (`sanitizers`, `partial_defenses`) match as
 **case-insensitive substrings** of the call path, so `validate` also catches
 `validate_code` and `CodeModel.model_validate_json`.
 
+Sanitizer specs come in two tiers (since v0.2):
+
+- `trusted: true` — known validation frameworks (pydantic `model_validate`,
+  marshmallow `schema.load`, `shlex.quote`, ...). A name match fully
+  suppresses the finding.
+- default (untrusted) — name heuristics like `validate`/`sanitize`/`allow`.
+  A match suppresses only when the call resolves to a project-local function
+  whose body shows a real allowlist/validation shape (a membership test, or
+  a guard branch that raises/returns). A sanitizer in name only — e.g. a
+  cosmetic `.replace()` like Vanna's `_sanitize_plotly_code`
+  (CVE-2024-5565) — downgrades the finding to MED "unverified sanitizer"
+  instead of silencing it. Unresolvable third-party calls keep the benefit
+  of the doubt; promote the ones you rely on to a `trusted` spec.
+
 A rule id that already exists overrides the builtin — that's how you tune a
 builtin rule for your codebase without forking.
 
@@ -75,3 +89,9 @@ builtin rule for your codebase without forking.
 - Sinks and sanitizers behind third-party classes Palisade can't see into
   (e.g. `self.db.raw_query(...)`) are matched by pattern only; project-local
   wrapper *functions* are followed one level in.
+- An LLM call behind an abstract provider method (Vanna's
+  `self.submit_prompt`, implemented per provider in subclasses) is invisible
+  to same-class resolution. Recipe: add the wrapper to `llm_signatures` in a
+  custom rule (`"*.submit_prompt"`) and scan with
+  `--assume-params-untrusted` for library code — this combination catches
+  the CVE-2024-5565 shape (see tests/test_vanna_regression.py).

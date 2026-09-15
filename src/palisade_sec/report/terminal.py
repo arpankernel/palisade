@@ -55,11 +55,21 @@ def print_findings(
         arrow("sink", f.sink)
 
         if f.partial_defenses:
-            what = ", ".join(f"{p.pattern} ({p.file}:{p.line})" for p in f.partial_defenses)
-            console.print(
-                f"  [yellow]Partial defense only:[/yellow] {what} — "
-                "denylists and confirmation gates have been bypassed in real CVEs."
-            )
+            gates = [p for p in f.partial_defenses if p.kind != "unverified_sanitizer"]
+            unverified = [p for p in f.partial_defenses if p.kind == "unverified_sanitizer"]
+            if gates:
+                what = ", ".join(f"{p.pattern} ({p.file}:{p.line})" for p in gates)
+                console.print(
+                    f"  [yellow]Partial defense only:[/yellow] {what} — "
+                    "denylists and confirmation gates have been bypassed in real CVEs."
+                )
+            if unverified:
+                what = ", ".join(f"{p.pattern} ({p.file}:{p.line})" for p in unverified)
+                console.print(
+                    f"  [yellow]Unverified sanitizer:[/yellow] {what} — "
+                    "matches a sanitizer name, but its body shows no "
+                    "allowlist/validation shape."
+                )
         else:
             console.print("  [dim]No sanitizer on path.[/dim]", end="")
             console.print(f"  Confidence: [bold]{f.confidence}[/bold]")
