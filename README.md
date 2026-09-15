@@ -1,0 +1,150 @@
+# Palisade
+
+**A linter for LLM security.** Palisade statically detects prompt-injection
+vulnerabilities in Python codebases — untrusted input flowing through an LLM
+into a dangerous sink — in CI, before they ship.
+
+```
+untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
+```
+
+No API key. No signup. No network calls. Pure static analysis.
+
+```bash
+uvx palisade-sec scan .
+```
+
+```
+HIGH  app.py:31  [PI-EXEC] Prompt injection reaching code execution
+  ↳ source:  question = request.json["question"]        (app.py:31)
+  ↳ llm:     resp = client.chat.completions.create(     (app.py:32)
+  ↳ sink:    exec(code)                                 (app.py:40)
+  No sanitizer on path.  Confidence: HIGH
+  Attack: crafted input makes the model emit Python that executes on your server.
+  Fix:    never exec model output; sandbox + strict allowlist (denylists are bypassable).
+  Refs:   CVE-2024-12366 (PandasAI); CVE-2025-3248 (Langflow, CISA KEV)
+```
+
+## Why
+
+This exact pattern is behind real, exploited CVEs: **Langflow**
+(CVE-2025-3248, on CISA KEV, exploited in the wild), **PandasAI**
+(CVE-2024-12366, CVSS 9.8), **Vanna.ai** (CVE-2024-5565), **LangChain**
+PAL/LLMMath chains (CVE-2023-36258, CVE-2023-29374). Almost nobody defends it
+at the code level: existing tools are runtime proxies (paid, in the traffic
+path) or guardrail libraries you have to know to wire in. Palisade is the
+missing piece — **free, static, LLM-dataflow-aware, and CI-native**, like
+ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
+
+## What it detects (v1)
+
+| Rule | Path | Real-world precedent |
+|------|------|----------------------|
+| `PI-EXEC` | input → LLM → `exec` / `eval` / `compile` / `PythonREPL` | PandasAI, Langflow, LangChain PAL |
+| `PI-SHELL` | input → LLM → `os.system` / `subprocess(shell=True)` | Open Interpreter (by design) |
+| `PI-SQL` | input → LLM → raw non-parameterized SQL | Vanna.ai |
+
+Palisade runs **taint analysis, not grep**: it only reports a *complete*
+`source → LLM → sink` data-flow path with no sanitizer in between.
+
+- Constant developer prompt → LLM → `exec`? **Silent** — no untrusted source.
+- `subprocess.run([...])` with an arg list? **Silent** — safe sink shape.
+- Parameterized `cursor.execute(q, params)`? **Silent.**
+- Allowlist / pydantic validation on the path? **Silent** — sanitized.
+- Denylist or human-confirmation gate? **Flagged MED "risky"** — real CVEs
+  were exploited despite exactly those defenses. That is deliberate.
+
+## Install & run
+
+```bash
+# one-shot, no install
+uvx palisade-sec scan path/to/project
+
+# or
+pipx run palisade-sec scan .
+
+# or as a dev dependency
+uv add --dev palisade-sec
+```
+
+Useful flags:
+
+```bash
+palisade-sec scan . --all          # also show MED/LOW findings
+palisade-sec scan . --json         # stable machine-readable output
+palisade-sec scan . --report       # write palisade-report.md
+palisade-sec scan . --rules ./my-rules   # add your own YAML rules
+```
+
+## CI
+
+Gate pull requests on **new** findings only — adopt Palisade on an imperfect
+codebase without a wall of pre-existing failures:
+
+```bash
+palisade-sec baseline .                 # once; commit .palisade/baseline.json
+palisade-sec scan . --ci --baseline .palisade/baseline.json
+```
+
+`--ci` exits non-zero only if a **new HIGH** finding appears. Fingerprints are
+line-number independent, so refactors don't churn the baseline.
+
+GitHub Actions:
+
+```yaml
+- uses: astral-sh/setup-uv@v5
+- run: uvx palisade-sec scan . --ci --baseline .palisade/baseline.json
+```
+
+## Configuration
+
+`pyproject.toml`:
+
+```toml
+[tool.palisade]
+paths_ignore = ["migrations/*", "sandbox/*"]
+include_tests = false   # tests/** and conftest.py are skipped by default
+max_hops = 3            # inter-procedural depth bound
+```
+
+Or the same keys in `.palisade.toml`.
+
+## Custom rules
+
+Rules are plain YAML validated by a pydantic schema — sources, LLM call
+signatures, sinks, sanitizers, partial defenses. Adding coverage for a new
+framework is a small PR with **no engine changes**. See
+[`src/palisade_sec/rules/README.md`](src/palisade_sec/rules/README.md) for
+the 5-minute guide.
+
+## Architecture
+
+```
+source ──▶ language frontend (Python: stdlib ast) ──▶ normalized taint IR
+                                                        │
+                              language-agnostic engine ─┤ taint propagation,
+                              sanitizer resolution, confidence scoring
+                                                        │
+             YAML rules ──▶ findings ──▶ baseline diff ──▶ terminal / json / md
+```
+
+The frontend/IR split is the scalability story: JS/TS/Go land later as new
+frontends (tree-sitter) with zero engine changes.
+
+## Safety of the tool itself
+
+- Palisade **never executes, imports, or evaluates scanned code** — it only
+  parses source text with `ast.parse`.
+- `scan` makes **no network calls** and needs no API key or account.
+- No telemetry. Nothing leaves your machine.
+
+## An honest note on scope
+
+Palisade is **one layer** of defense against **one class** of vulnerability.
+A clean scan means no *detected* injection-to-sink path — it does not mean
+your application is secure. Keep your runtime guardrails, permissions
+boundaries, and sandboxes; Palisade complements them, before merge.
+
+## License
+
+MIT

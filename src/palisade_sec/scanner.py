@@ -1,0 +1,201 @@
+"""Scan orchestration: config, file discovery, frontend -> engine.
+
+SAFETY (SF-1..SF-3): scanning only reads source text and parses it with
+`ast.parse`. It never imports or executes scanned code, makes no network
+calls, and writes nothing (the CLI owns the only writes: `.palisade/` and an
+explicitly requested report file).
+"""
+
+from __future__ import annotations
+
+import fnmatch
+import os
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, ValidationError
+
+from palisade_sec.engine import Engine, Finding
+from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
+from palisade_sec.rules import load_rules
+
+ALWAYS_EXCLUDE_DIRS = {
+    ".venv",
+    "venv",
+    ".git",
+    "site-packages",
+    "build",
+    "dist",
+    "node_modules",
+    "__pycache__",
+    ".palisade",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".tox",
+    ".eggs",
+}
+
+
+class ScanConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    paths_ignore: list[str] = []
+    include_tests: bool = False
+    max_hops: int = 3
+    rules_dir: str | None = None
+
+
+def load_config(root: Path, config_file: str | None) -> tuple[ScanConfig, list[str]]:
+    """Config from --config, .palisade.toml, or pyproject [tool.palisade].
+    Invalid config -> warning + defaults, never a crash (MT-3, RB-4)."""
+    warnings: list[str] = []
+    candidates: list[tuple[Path, str | None]] = []
+    if config_file:
+        candidates.append((Path(config_file), None))
+    candidates.append((root / ".palisade.toml", None))
+    candidates.append((root / "pyproject.toml", "palisade"))
+    for path, tool_key in candidates:
+        if not path.is_file():
+            if config_file and path == Path(config_file):
+                warnings.append(f"config file not found, using defaults: {path}")
+            continue
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, OSError, UnicodeDecodeError) as exc:
+            warnings.append(f"invalid config skipped: {path}: {exc}")
+            continue
+        if tool_key:
+            data = data.get("tool", {}).get(tool_key)
+            if data is None:
+                continue
+        try:
+            return ScanConfig.model_validate(data), warnings
+        except ValidationError as exc:
+            warnings.append(f"invalid config skipped: {path}: {exc.errors()[0].get('msg', exc)}")
+    return ScanConfig(), warnings
+
+
+def _load_gitignore(root: Path) -> list[str]:
+    gi = root / ".gitignore"
+    patterns: list[str] = []
+    if gi.is_file():
+        try:
+            for line in gi.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or line.startswith("!"):
+                    continue
+                patterns.append(line.rstrip("/"))
+        except OSError:
+            pass
+    return patterns
+
+
+def _ignored(rel: str, patterns: list[str]) -> bool:
+    parts = rel.split("/")
+    for pat in patterns:
+        if "/" in pat:
+            if fnmatch.fnmatch(rel, pat.lstrip("/")) or fnmatch.fnmatch(
+                rel, pat.lstrip("/") + "/*"
+            ):
+                return True
+        else:
+            if any(fnmatch.fnmatch(p, pat) for p in parts):
+                return True
+    return False
+
+
+def _is_test_path(rel: str) -> bool:
+    parts = rel.split("/")
+    name = parts[-1]
+    if name == "conftest.py":
+        return True
+    if any(p in ("tests", "test") for p in parts[:-1]):
+        return True
+    return name.startswith("test_") or name.endswith("_test.py")
+
+
+def collect_files(root: Path, cfg: ScanConfig) -> list[Path]:
+    if root.is_file():
+        return [root]
+    gitignore = _load_gitignore(root)
+    files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        dirnames[:] = [
+            d
+            for d in sorted(dirnames)
+            if d not in ALWAYS_EXCLUDE_DIRS
+            and not _ignored(f"{rel_dir}/{d}".lstrip("./"), gitignore)
+            and not _ignored_by_cfg(f"{rel_dir}/{d}".lstrip("./"), cfg)
+        ]
+        for fname in sorted(filenames):
+            if not fname.endswith((".py", ".pyi")):
+                continue
+            rel = f"{rel_dir}/{fname}".lstrip("./").lstrip("/")
+            if rel_dir == ".":
+                rel = fname
+            if _ignored(rel, gitignore) or _ignored_by_cfg(rel, cfg):
+                continue
+            if not cfg.include_tests and _is_test_path(rel):
+                continue
+            files.append(Path(dirpath) / fname)
+    return files
+
+
+def _ignored_by_cfg(rel: str, cfg: ScanConfig) -> bool:
+    return any(
+        fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(rel, pat.rstrip("/") + "/*")
+        for pat in cfg.paths_ignore
+    )
+
+
+@dataclass
+class ScanResult:
+    findings: list[Finding] = field(default_factory=list)
+    files_scanned: int = 0
+    skipped: list[str] = field(default_factory=list)  # parse failures etc.
+    warnings: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+def run_scan(
+    target: Path,
+    config_file: str | None = None,
+    rules_dir: str | None = None,
+    max_hops: int | None = None,
+) -> ScanResult:
+    result = ScanResult()
+    root = target.resolve()
+    cfg, cfg_warnings = load_config(root if root.is_dir() else root.parent, config_file)
+    result.warnings.extend(cfg_warnings)
+
+    rules_result = load_rules(rules_dir or cfg.rules_dir)
+    result.warnings.extend(rules_result.warnings)
+    if not rules_result.rules:
+        result.warnings.append("no valid rules loaded; nothing to scan for")
+        return result
+
+    frontend = PythonFrontend()
+    base = root if root.is_dir() else root.parent
+    modules = []
+    for path in collect_files(root, cfg):
+        rel = path.relative_to(base).as_posix()
+        try:
+            source = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            result.skipped.append(f"{rel}: unreadable ({exc})")
+            continue
+        lowered = frontend.lower_file(str(path), rel, source)
+        if isinstance(lowered, ParseFailure):
+            result.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
+            continue
+        modules.append(lowered)
+        result.files_scanned += 1
+
+    engine = Engine(modules, rules_result.rules, max_hops=max_hops or cfg.max_hops)
+    engine_result = engine.run()
+    result.findings = engine_result.findings
+    result.notes.extend(engine_result.notes)
+    return result

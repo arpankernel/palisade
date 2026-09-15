@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: uv sync --dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check src tests
+      - name: Tests
+        run: uv run pytest -q
+      - name: Self-check — the example app must fail CI mode
+        run: |
+          if uv run palisade-sec scan examples/vulnerable-app --ci; then
+            echo "expected non-zero exit on the vulnerable example app" && exit 1
+          fi
+      - name: Self-check — palisade's own source must be clean
+        run: uv run palisade-sec scan src --ci
