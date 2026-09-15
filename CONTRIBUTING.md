@@ -25,7 +25,7 @@ flagged, one same-shaped safe variant that must stay silent.
 ## Dev setup
 
 ```bash
-git clone https://github.com/palisade-sec/palisade && cd palisade
+git clone https://github.com/arpankernel/palisade && cd palisade
 uv sync
 uv run pytest          # the example-app FP tests are the ones that gate merges
 uv run ruff check .

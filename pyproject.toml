@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/palisade-sec/palisade"
-Issues = "https://github.com/palisade-sec/palisade/issues"
+Homepage = "https://github.com/arpankernel/palisade"
+Issues = "https://github.com/arpankernel/palisade/issues"
 
 [project.scripts]
 palisade-sec = "palisade_sec.cli:app"
