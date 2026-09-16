@@ -21,9 +21,15 @@ jobs:
       - name: Lint
         run: uv run ruff check .
       - name: Format check
-        run: uv run ruff format --check src tests
+        run: uv run ruff format --check src tests scripts
+      - name: Types
+        run: uv run mypy src/palisade_sec
       - name: Tests
         run: uv run pytest -q
+      - name: Self-security — no code execution over the hostile corpus
+        run: uv run pytest tests/test_self_security.py -q
+      - name: Precision gate (Phase 0)
+        run: uv run python scripts/precision.py corpus/manifest.yaml
       - name: Self-check — the example app must fail CI mode
         run: |
           if uv run palisade-sec scan examples/vulnerable-app --ci; then

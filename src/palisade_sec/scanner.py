@@ -9,16 +9,27 @@ explicitly requested report file).
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import os
+import time
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from palisade_sec import ir
 from palisade_sec.engine import Engine, Finding
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.rules import load_rules
+
+
+class Frontend(Protocol):
+    """What the scanner needs from a language frontend."""
+
+    def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure: ...
+
 
 PY_EXTENSIONS = (".py", ".pyi")
 JS_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx")
@@ -50,6 +61,11 @@ class ScanConfig(BaseModel):
     rules_dir: str | None = None
     # Library mode: treat parameters of public functions as untrusted sources.
     assume_params_untrusted: bool = False
+    # Resource caps (self-DoS protection; a hostile file must never take the
+    # scan down): files larger than this are skipped with a warning, and a
+    # soft wall-clock budget skips remaining files once exceeded.
+    max_file_bytes: int = 2_000_000
+    max_scan_seconds: float | None = None
 
 
 def load_config(root: Path, config_file: str | None) -> tuple[ScanConfig, list[str]]:
@@ -183,7 +199,7 @@ def run_scan(
         result.warnings.append("no valid rules loaded; nothing to scan for")
         return result
 
-    frontends: dict[str, object] = {ext: PythonFrontend() for ext in PY_EXTENSIONS}
+    frontends: dict[str, Frontend] = {ext: PythonFrontend() for ext in PY_EXTENSIONS}
     js_frontend = None
     js_unavailable = False
     try:
@@ -199,25 +215,50 @@ def run_scan(
         frontends.update({ext: js_frontend for ext in JS_EXTENSIONS})
 
     base = root if root.is_dir() else root.parent
+    resolved_base = base.resolve()
     modules = []
     js_skipped = 0
+    started = time.monotonic()
     for path in collect_files(root, cfg):
         rel = path.relative_to(base).as_posix()
+        if cfg.max_scan_seconds is not None and time.monotonic() - started > cfg.max_scan_seconds:
+            result.warnings.append(
+                f"scan time budget ({cfg.max_scan_seconds}s) exceeded; remaining files skipped"
+            )
+            break
         ext = path.suffix.lower()
         frontend = frontends.get(ext)
         if frontend is None:
             if js_unavailable and ext in JS_EXTENSIONS:
                 js_skipped += 1
             continue
+        # SF-3: never read outside the target. A symlink inside the tree that
+        # resolves outside the scan root is skipped, not followed.
         try:
-            source = path.read_text(encoding="utf-8", errors="replace")
+            resolved = path.resolve()
+            if root.is_dir() and not resolved.is_relative_to(resolved_base):
+                result.skipped.append(f"{rel}: symlink escapes the scan root, skipped")
+                continue
+            size = path.stat().st_size
         except OSError as exc:
             result.skipped.append(f"{rel}: unreadable ({exc})")
             continue
+        if size > cfg.max_file_bytes:
+            result.skipped.append(
+                f"{rel}: exceeds max_file_bytes ({size} > {cfg.max_file_bytes}), skipped"
+            )
+            continue
+        try:
+            raw = path.read_bytes()
+        except OSError as exc:
+            result.skipped.append(f"{rel}: unreadable ({exc})")
+            continue
+        source = raw.decode("utf-8", errors="replace")
         lowered = frontend.lower_file(str(path), rel, source)
         if isinstance(lowered, ParseFailure):
             result.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
             continue
+        lowered.content_hash = hashlib.sha256(raw).hexdigest()[:16]
         modules.append(lowered)
         result.files_scanned += 1
     if js_skipped:

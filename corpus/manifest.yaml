@@ -1,0 +1,16 @@
+# Phase-0 precision corpus (seed). Grows with pinned real-repo targets;
+# every reported FP becomes a permanent must-stay-silent entry.
+threshold: 0.90
+targets:
+  - path: ../examples/support-bot
+    expect:
+      - {file: app.py, line: 33, rule: PI-SQL,   verdict: flag}
+      - {file: app.py, line: 48, rule: PI-SHELL, verdict: flag}
+      - {file: app.py, line: 63, rule: PI-EXEC,  verdict: flag}
+  - path: ../examples/vulnerable-app
+    expect:
+      - {file: app.py, line: 40, rule: PI-EXEC,  verdict: flag}
+      - {file: app.py, line: 54, rule: PI-SQL,   verdict: flag}
+      - {file: app.py, line: 67, rule: PI-SHELL, verdict: flag}
+      - {file: executor.py, line: 5, rule: PI-EXEC, verdict: flag}
+      - {file: app.py, line: 97, rule: PI-EXEC,  verdict: flag}   # MED partial-defense

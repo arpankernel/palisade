@@ -42,7 +42,11 @@ class PythonFrontend:
         if stem.endswith(".__init__"):
             stem = stem[: -len(".__init__")]
         lowerer = _Lowerer(path=path, rel_path=rel_path, stem=stem, lines=lines)
-        return lowerer.lower_module(tree)
+        try:
+            return lowerer.lower_module(tree)
+        except RecursionError:
+            # pathologically nested source: skip, never crash (RB-3)
+            return ParseFailure(path=path, reason="nesting too deep to analyze")
 
 
 class _Lowerer:
@@ -60,6 +64,8 @@ class _Lowerer:
     def loc(self, node: ast.AST) -> ir.Loc:
         line = getattr(node, "lineno", 0)
         snippet = self.lines[line - 1].strip() if 0 < line <= len(self.lines) else ""
+        if len(snippet) > 200:  # redaction: never carry whole pathological lines
+            snippet = snippet[:200] + "…"
         return ir.Loc(
             file=self.rel_path, line=line, col=getattr(node, "col_offset", 0), snippet=snippet
         )

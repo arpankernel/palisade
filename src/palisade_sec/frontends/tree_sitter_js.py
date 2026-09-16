@@ -70,7 +70,10 @@ class JavaScriptFrontend:
                 break
         stem = stem.replace("/", ".").replace("\\", ".")
         lowerer = _JsLowerer(path, rel_path, stem, data, source.splitlines())
-        return lowerer.lower(tree.root_node)
+        try:
+            return lowerer.lower(tree.root_node)
+        except RecursionError:
+            return ParseFailure(path=path, reason="nesting too deep to analyze")
 
 
 class _JsLowerer:
@@ -93,6 +96,8 @@ class _JsLowerer:
     def loc(self, node) -> ir.Loc:
         row = node.start_point[0]
         snippet = self.lines[row].strip() if row < len(self.lines) else ""
+        if len(snippet) > 200:  # redaction: never carry whole pathological lines
+            snippet = snippet[:200] + "…"
         return ir.Loc(file=self.rel_path, line=row + 1, col=node.start_point[1], snippet=snippet)
 
     def _unwrap(self, node):

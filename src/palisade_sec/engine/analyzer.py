@@ -112,14 +112,14 @@ class Engine:
         # cross-rule dedup: one vulnerability (same source -> same sink) is
         # one finding, even when several rules match it. The most severe
         # wins; on a tie, the earliest-loaded (most specific) rule wins.
-        by_vuln: dict[tuple, Finding] = {}
+        by_vuln: dict[tuple[str, int, str, int], Finding] = {}
         for f in by_fp.values():
-            key = (f.source.file, f.source.line, f.sink.file, f.sink.line)
-            prev = by_vuln.get(key)
-            if prev is None or SEVERITY_ORDER.get(f.severity, 9) < SEVERITY_ORDER.get(
-                prev.severity, 9
+            vuln_key = (f.source.file, f.source.line, f.sink.file, f.sink.line)
+            prev_f = by_vuln.get(vuln_key)
+            if prev_f is None or SEVERITY_ORDER.get(f.severity, 9) < SEVERITY_ORDER.get(
+                prev_f.severity, 9
             ):
-                by_vuln[key] = f
+                by_vuln[vuln_key] = f
         result.findings = sorted(by_vuln.values(), key=lambda f: f.sort_key())
         if truncated:
             result.notes.append(
@@ -460,10 +460,10 @@ class _Exec:
             if s.literal_membership:
                 san_hit = True
             for p in guard_paths:
-                m = match_lenient_spec(p, self.rule.sanitizers)
-                if m is None:
+                spec_hit = match_lenient_spec(p, self.rule.sanitizers)
+                if spec_hit is None:
                     continue
-                if m[1].trusted or self.rr.engine.sanitizer_verified(
+                if spec_hit[1].trusted or self.rr.engine.sanitizer_verified(
                     p, self.mod, self.fn.class_name
                 ):
                     san_hit = True

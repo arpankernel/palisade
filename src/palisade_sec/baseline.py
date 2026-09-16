@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding
@@ -19,7 +20,7 @@ SCHEMA_VERSION = 1
 
 
 def write_baseline(findings: list[Finding], path: Path) -> None:
-    entries = {}
+    entries: dict[str, dict[str, Any]] = {}
     for f in findings:
         fp = f.fingerprint
         if fp in entries:

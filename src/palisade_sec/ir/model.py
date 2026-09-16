@@ -214,3 +214,6 @@ class Module:
     # class name -> base-class dotted paths (alias-resolved), for
     # class-hierarchy method resolution.
     class_bases: dict[str, list[str]] = field(default_factory=dict)
+    # sha256[:16] of the raw file bytes — the seam for future incremental
+    # scanning / caching (unused by the engine itself).
+    content_hash: str = ""
