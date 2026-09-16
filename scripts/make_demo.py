@@ -39,9 +39,7 @@ def main() -> None:
     match = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
     if match and "width=" not in svg[: svg.index(">")]:
         w, h = match.group(1), match.group(2)
-        svg = svg.replace(
-            'viewBox="0 0', f'width="{w}" height="{h}" viewBox="0 0', 1
-        )
+        svg = svg.replace('viewBox="0 0', f'width="{w}" height="{h}" viewBox="0 0', 1)
     OUT.write_text(svg, encoding="utf-8")
     print(f"wrote {OUT}")
 
