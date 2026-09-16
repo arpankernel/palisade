@@ -1,5 +1,7 @@
 # Palisade
 
+> **Website:** https://arpankernel.github.io/palisade/
+
 **A linter for LLM security.** Palisade statically detects prompt-injection
 vulnerabilities in Python and JavaScript/TypeScript codebases — untrusted
 input flowing through an LLM into a dangerous sink — in CI, before they ship.
