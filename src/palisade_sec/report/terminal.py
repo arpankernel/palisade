@@ -27,6 +27,7 @@ def print_findings(
     shown_all: bool = False,
     hidden_count: int = 0,
     baseline_known: int = 0,
+    suppressed: int = 0,
 ) -> None:
     for w in warnings:
         console.print(f"[yellow]warning:[/yellow] {escape(w)}")
@@ -86,6 +87,10 @@ def print_findings(
             console.print(f"  [dim]({f.count} occurrences share this fingerprint)[/dim]")
 
     console.print()
+    if suppressed:
+        console.print(
+            f"[dim]{suppressed} finding(s) silenced by inline `palisade: ignore` comments.[/dim]"
+        )
     for n in notes:
         console.print(f"[dim]note: {escape(n)}[/dim]")
     if not findings:

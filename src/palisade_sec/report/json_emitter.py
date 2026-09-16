@@ -30,6 +30,7 @@ def to_json(
     warnings: list[str],
     notes: list[str],
     baseline_suppressed: int = 0,
+    suppressed: list[dict] | None = None,
 ) -> str:
     doc = {
         "schema_version": SCHEMA_VERSION,
@@ -40,8 +41,10 @@ def to_json(
             "med": sum(1 for f in findings if f.severity == "med"),
             "low": sum(1 for f in findings if f.severity == "low"),
             "baseline_suppressed": baseline_suppressed,
+            "suppressed_inline": len(suppressed or []),
         },
         "findings": [f.to_dict() for f in findings],
+        "suppressions": suppressed or [],
         "skipped": skipped,
         "warnings": warnings,
         "notes": notes,

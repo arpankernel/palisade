@@ -23,6 +23,12 @@ from palisade_sec import ir
 from palisade_sec.engine import Engine, Finding
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.rules import load_rules
+from palisade_sec.suppress import (
+    Suppression,
+    apply_suppressions,
+    parse_suppressions,
+    stale_suppressions,
+)
 
 
 class Frontend(Protocol):
@@ -179,6 +185,8 @@ class ScanResult:
     skipped: list[str] = field(default_factory=list)  # parse failures etc.
     warnings: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # findings silenced by inline `palisade: ignore` comments
+    suppressed: list[dict] = field(default_factory=list)
 
 
 def run_scan(
@@ -218,6 +226,7 @@ def run_scan(
     resolved_base = base.resolve()
     modules = []
     js_skipped = 0
+    suppressions: dict[str, dict[int, Suppression]] = {}
     started = time.monotonic()
     for path in collect_files(root, cfg):
         rel = path.relative_to(base).as_posix()
@@ -259,6 +268,9 @@ def run_scan(
             result.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
             continue
         lowered.content_hash = hashlib.sha256(raw).hexdigest()[:16]
+        found = parse_suppressions(source)
+        if found:
+            suppressions[rel] = found
         modules.append(lowered)
         result.files_scanned += 1
     if js_skipped:
@@ -278,6 +290,17 @@ def run_scan(
         ),
     )
     engine_result = engine.run()
-    result.findings = engine_result.findings
+    kept, suppressed = apply_suppressions(engine_result.findings, suppressions)
+    result.findings = kept
+    result.suppressed = suppressed
     result.notes.extend(engine_result.notes)
+    if suppressed:
+        result.notes.append(
+            f"{len(suppressed)} finding(s) silenced by inline `palisade: ignore` comments"
+        )
+    stale = stale_suppressions(suppressions)
+    if stale:
+        result.notes.append(
+            "stale `palisade: ignore` comment(s) matching nothing: " + ", ".join(stale[:10])
+        )
     return result

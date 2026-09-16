@@ -1,0 +1,53 @@
+name: Benchmark corpus
+
+# The Phase 0 precision gate against pinned third-party repos. This needs
+# network and clones gigabytes, so it runs on a schedule and on demand -
+# never on every push. The fast fixture corpus runs in ci.yml instead.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays, 04:17 UTC
+  workflow_dispatch:
+    inputs:
+      triage:
+        description: "Print the full trace for every false positive"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: uv sync --dev
+
+      - name: Fetch the pinned corpus
+        run: uv run python corpus/fetch.py
+
+      - name: Show what was pinned
+        run: cat corpus/repos.lock.json
+
+      - name: Score precision and recall
+        run: |
+          uv run python scripts/precision.py corpus/repos.yaml --repos \
+            ${{ inputs.triage && '--triage' || '' }} | tee corpus-score.txt
+
+      - name: Upload the score
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-score
+          path: |
+            corpus-score.txt
+            corpus/repos.lock.json
+          retention-days: 90

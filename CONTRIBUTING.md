@@ -10,6 +10,26 @@ see [`src/palisade_sec/rules/README.md`](src/palisade_sec/rules/README.md)
 for the 5-minute guide. Every rule PR needs two fixtures: one that must be
 flagged, one same-shaped safe variant that must stay silent.
 
+## Reporting a false positive
+
+This is the single most valuable bug report you can file. Palisade's whole
+claim is precision, so a wrong flag is a product failure, not a nitpick.
+
+1. Open an issue with the smallest snippet that misfires.
+2. We reduce it to a fixture in `tests/fixtures/regressions/`, where
+   `tests/test_fp_regressions.py` picks it up automatically and asserts
+   Palisade stays silent on it - permanently.
+3. The rule or engine is fixed until that test passes.
+
+Precision only ratchets upward: a case that lands in that directory can
+never silently come back. See its README for the process, and
+`corpus/repos.yaml` for the pinned third-party repos the scheduled
+benchmark scores against.
+
+If a finding is correct but you cannot act on it, suppress it in place with
+`# palisade: ignore[RULE] - reason` rather than disabling the scanner; see
+the CLI reference.
+
 ## Ground rules (from the design philosophy)
 
 1. **Precision over recall.** A false positive is worse than a miss. If your

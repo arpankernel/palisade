@@ -42,18 +42,26 @@ def test_shell_vuln_flagged_high(example_scan):
 
 
 def test_multi_hop_vuln_flagged(example_scan):
-    """Source in app.py, LLM in llm_utils.py, sink in executor.py."""
+    """Source in app.py, LLM in llm_utils.py, sink in executor.py.
+
+    Which rule wins this sink is an engine detail: PI-EXEC and
+    PI-FRAMEWORK-EXEC both match it, and sink-dedup keeps the
+    best-evidenced trace. The contract is that the sink is reported once,
+    as HIGH, with the trace pointing back to the real source across files.
+    """
     line = find_line(EXECUTOR, "exec(code)")
-    hits = [
-        f
-        for f in example_scan.findings
-        if f.rule_id == "PI-EXEC" and (f.sink.file, f.sink.line) == ("executor.py", line)
-    ]
+    hits = [f for f in example_scan.findings if (f.sink.file, f.sink.line) == ("executor.py", line)]
     assert hits, "multi-hop source->LLM->sink path across files was not flagged"
+    assert len(hits) == 1, f"one sink must be reported once, got {len(hits)}"
     f = hits[0]
     assert f.severity == "high"
     assert f.source.file == "app.py"  # trace points back to the real source
-    assert f.llm.file == "llm_utils.py"
+    # Which file the LLM hop lands in depends on which rule wins the sink:
+    # PI-FRAMEWORK-EXEC matches the `ask_llm` wrapper in agent_pipeline.py,
+    # PI-EXEC matches the SDK call inside llm_utils.py. Both are truthful
+    # LLM boundaries, so pin the endpoints and not the intermediate hop.
+    assert f.llm.file in {"llm_utils.py", "agent_pipeline.py"}
+    assert f.count >= 2  # collapsed duplicates are counted, not discarded
 
 
 # ---------------------------------------------------------------------------

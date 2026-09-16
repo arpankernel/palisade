@@ -1,0 +1,49 @@
+# Phase 0 benchmark corpus.
+#
+# Two halves, both load-bearing:
+#   cve / patched - real repos at the exact commit a CVE was live, and at a
+#                   later fixed release. Measures recall and guards against
+#                   regressions that would re-miss a known vulnerability.
+#   clean         - popular Python AI repos with no known injection-to-sink
+#                   CVE. Every HIGH finding here is a candidate false positive
+#                   and must be triaged. This half is what keeps precision
+#                   honest and stops the rules overfitting to the CVE set.
+#
+# Refs are pinned. fetch.py records the resolved commit SHA in repos.lock.json
+# so a run is reproducible even for entries tracking a default branch.
+threshold: 0.90
+
+repos:
+  # ---- known-vulnerable releases -----------------------------------------
+  - {name: vanna-cve,    url: https://github.com/vanna-ai/vanna,        ref: v0.5.5,  kind: cve,     cve: CVE-2024-5565,  library_mode: true}
+  - {name: pandasai-cve, url: https://github.com/sinaptik-ai/pandas-ai, ref: v2.4.2,  kind: cve,     cve: CVE-2024-12366, library_mode: true}
+  - {name: langflow-cve, url: https://github.com/langflow-ai/langflow,  ref: "1.2.0", kind: cve,     cve: CVE-2025-3248}
+
+  # ---- later releases of the same projects -------------------------------
+  - {name: vanna-later,    url: https://github.com/vanna-ai/vanna,        ref: v0.7.9, kind: patched, library_mode: true}
+  # NOTE: pandas-ai has no post-CVE 2.4.x tag (the line ends at the
+  # vulnerable v2.4.2), so there is no patched counterpart to pin here.
+
+  # ---- clean popular Python AI repos (anti-overfitting half) -------------
+  - {name: openai-python,    url: https://github.com/openai/openai-python,          kind: clean}
+  - {name: anthropic-sdk,    url: https://github.com/anthropics/anthropic-sdk-python, kind: clean}
+  - {name: llm-cli,          url: https://github.com/simonw/llm,                    kind: clean}
+  - {name: instructor,       url: https://github.com/jxnl/instructor,               kind: clean}
+  - {name: guardrails,       url: https://github.com/guardrails-ai/guardrails,      kind: clean}
+  - {name: dspy,             url: https://github.com/stanfordnlp/dspy,              kind: clean}
+  - {name: outlines,         url: https://github.com/dottxt-ai/outlines,            kind: clean}
+  - {name: crewai,           url: https://github.com/crewAIInc/crewAI,              kind: clean}
+  - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean}
+  - {name: pydantic-ai,      url: https://github.com/pydantic/pydantic-ai,          kind: clean}
+  - {name: mem0,             url: https://github.com/mem0ai/mem0,                   kind: clean}
+  - {name: ollama-python,    url: https://github.com/ollama/ollama-python,          kind: clean}
+  - {name: swarm,            url: https://github.com/openai/swarm,                  kind: clean}
+  - {name: chroma,           url: https://github.com/chroma-core/chroma,            kind: clean}
+  - {name: litellm,          url: https://github.com/BerriAI/litellm,               kind: clean}
+  - {name: haystack,         url: https://github.com/deepset-ai/haystack,           kind: clean}
+  - {name: ragas,            url: https://github.com/explodinggradients/ragas,       kind: clean}
+  - {name: txtai,            url: https://github.com/neuml/txtai,                   kind: clean}
+  - {name: marvin,           url: https://github.com/PrefectHQ/marvin,              kind: clean}
+  - {name: semantic-kernel,  url: https://github.com/microsoft/semantic-kernel,     kind: clean}
+  - {name: griptape,         url: https://github.com/griptape-ai/griptape,          kind: clean}
+  - {name: autogen,          url: https://github.com/microsoft/autogen,             kind: clean}

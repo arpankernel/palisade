@@ -1,0 +1,132 @@
+{
+  "anthropic-sdk": {
+    "ref": null,
+    "sha": "7e5ca5c94126a6d7de159a169ff43eb9b1cac57f",
+    "url": "https://github.com/anthropics/anthropic-sdk-python"
+  },
+  "autogen": {
+    "ref": null,
+    "sha": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+    "url": "https://github.com/microsoft/autogen"
+  },
+  "chroma": {
+    "ref": null,
+    "sha": "7edf9b451d727d1115e293e7f1f2100ba8414afc",
+    "url": "https://github.com/chroma-core/chroma"
+  },
+  "crewai": {
+    "ref": null,
+    "sha": "2c24b95eae2b0270b2513f9e24c3f4e536a22f0d",
+    "url": "https://github.com/crewAIInc/crewAI"
+  },
+  "dspy": {
+    "ref": null,
+    "sha": "bb8ba59c0c6d7c7337af3b14a18994eb8cee501b",
+    "url": "https://github.com/stanfordnlp/dspy"
+  },
+  "griptape": {
+    "ref": null,
+    "sha": "aa146655de8b94c64132d6a2141f629ddee2e2da",
+    "url": "https://github.com/griptape-ai/griptape"
+  },
+  "guardrails": {
+    "ref": null,
+    "sha": "06d0ff2c5f9bcb493d976b76f885e37e41ce845d",
+    "url": "https://github.com/guardrails-ai/guardrails"
+  },
+  "haystack": {
+    "ref": null,
+    "sha": "0defdcff64950ca54f4dac0d21fe4eb30ed745d7",
+    "url": "https://github.com/deepset-ai/haystack"
+  },
+  "instructor": {
+    "ref": null,
+    "sha": "e12f8b49203b0c1f253d27c1e709d0a09b9fc5a8",
+    "url": "https://github.com/jxnl/instructor"
+  },
+  "langflow-cve": {
+    "ref": "1.2.0",
+    "sha": "0134485d5d29e384ce6be42b9deef6b64ffe8f89",
+    "url": "https://github.com/langflow-ai/langflow"
+  },
+  "langgraph": {
+    "ref": null,
+    "sha": "230927fb3a9ac9b2893a30322b4dfea7cdea9a8f",
+    "url": "https://github.com/langchain-ai/langgraph"
+  },
+  "litellm": {
+    "ref": null,
+    "sha": "a8979fe05466346d78ab4573c8a61b53a4dd9cf6",
+    "url": "https://github.com/BerriAI/litellm"
+  },
+  "llm-cli": {
+    "ref": null,
+    "sha": "1df47ddcac20d58726a993949da8ef84f4081085",
+    "url": "https://github.com/simonw/llm"
+  },
+  "marvin": {
+    "ref": null,
+    "sha": "98d5bfa31494daaad4667ac2b5623ea699a7f12c",
+    "url": "https://github.com/PrefectHQ/marvin"
+  },
+  "mem0": {
+    "ref": null,
+    "sha": "b51f7692f002d4f8719dd5c0f23d4d129003757d",
+    "url": "https://github.com/mem0ai/mem0"
+  },
+  "ollama-python": {
+    "ref": null,
+    "sha": "b28b1e8a8cf5436d06805e5bb211904e9ff53ef9",
+    "url": "https://github.com/ollama/ollama-python"
+  },
+  "openai-python": {
+    "ref": null,
+    "sha": "98e1d24f4902ab58830adf0e2b6a729a5d5429b1",
+    "url": "https://github.com/openai/openai-python"
+  },
+  "outlines": {
+    "ref": null,
+    "sha": "c52af8472c6fe8a607a733ec11b709476af77a96",
+    "url": "https://github.com/dottxt-ai/outlines"
+  },
+  "pandasai-cve": {
+    "ref": "v2.4.2",
+    "sha": "cf33faa5de1fd6ae565240b8eb4373f5de7c929f",
+    "url": "https://github.com/sinaptik-ai/pandas-ai"
+  },
+  "pydantic-ai": {
+    "ref": null,
+    "sha": "c92e9c1e1915d071969a46900ba898f014a286d9",
+    "url": "https://github.com/pydantic/pydantic-ai"
+  },
+  "ragas": {
+    "ref": null,
+    "sha": "298b68274234c060deacab3cf5fb52aa3a20e885",
+    "url": "https://github.com/explodinggradients/ragas"
+  },
+  "semantic-kernel": {
+    "ref": null,
+    "sha": "ca40aa7226531d28a721d0ca0e451d0aaf86dafc",
+    "url": "https://github.com/microsoft/semantic-kernel"
+  },
+  "swarm": {
+    "ref": null,
+    "sha": "6af0b4caf37dca4526dfd98e9fbd8ce36e7eeb22",
+    "url": "https://github.com/openai/swarm"
+  },
+  "txtai": {
+    "ref": null,
+    "sha": "19ff237c3758ba7aab9a01fdd576271b4a647fd7",
+    "url": "https://github.com/neuml/txtai"
+  },
+  "vanna-cve": {
+    "ref": "v0.5.5",
+    "sha": "a72b842d420cf1fa061e5f97d45ea08051651ebb",
+    "url": "https://github.com/vanna-ai/vanna"
+  },
+  "vanna-later": {
+    "ref": "v0.7.9",
+    "sha": "4da8dea0ce14a0d1db5a0692a7921d873be91c5f",
+    "url": "https://github.com/vanna-ai/vanna"
+  }
+}

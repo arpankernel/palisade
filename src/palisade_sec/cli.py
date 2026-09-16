@@ -117,6 +117,7 @@ def scan(
                 result.warnings,
                 result.notes,
                 baseline_suppressed=baseline_known,
+                suppressed=result.suppressed,
             ),
             nl=False,
         )
@@ -132,6 +133,7 @@ def scan(
             shown_all=show_all,
             hidden_count=hidden,
             baseline_known=baseline_known,
+            suppressed=len(result.suppressed),
         )
 
     if report:

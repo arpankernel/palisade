@@ -68,6 +68,47 @@ Guardrail families: AST allowlist (exec/eval), argv + executable allowlist
 (shell), single-SELECT parser check (SQL), host allowlist + private-IP block
 (HTTP/SSRF).
 
+## Inline suppressions
+
+Some findings cannot be fixed today: the code is genuinely sandboxed, the
+risk is accepted, or the fix is scheduled. Without a way to silence one,
+"one unfixable finding disables the tool" and the whole scanner gets removed
+from CI. Suppress it in place instead:
+
+```python
+exec(code)  # palisade: ignore[PI-EXEC] - runs in a locked-down sandbox
+```
+
+```javascript
+eval(code); // palisade: ignore[PI-EXEC] - input is schema-validated upstream
+```
+
+| Form | Effect |
+|---|---|
+| `# palisade: ignore[PI-EXEC]` | silences that rule on this finding |
+| `# palisade: ignore[PI-EXEC,PI-SQL]` | silences any of the listed rules |
+| `# palisade: ignore` | silences every rule on this finding |
+| `- reason` or `: reason` after the brackets | recorded and reported |
+
+The comment goes on the **sink line**, or the line directly above it. `#`
+and `//` are both accepted, so the same syntax works in Python and JS/TS.
+Rule ids are case-insensitive.
+
+Suppressions are deliberately loud, because a silent one is how a
+vulnerability quietly comes back:
+
+- suppressed findings are **counted**, not discarded, and reported in the
+  terminal summary and in `summary.suppressed_inline`
+- each one appears in the `suppressions` array of `--json` with its rule,
+  location, severity and reason
+- a comment that stops matching anything is reported as **stale**, so dead
+  suppressions get cleaned up instead of masking a future finding
+
+A suppression lives in the code being scanned, so anyone who can edit the
+code can silence a finding. That is the same trust model as `# noqa`, and
+the reason suppressions are counted and attributable rather than invisible.
+Review them in code review like any other change.
+
 ## Configuration
 
 `pyproject.toml` under `[tool.palisade]`, or the same keys in
@@ -98,8 +139,13 @@ parse defensively on any other value.
   "summary": {
     "files_scanned": 6,
     "high": 4, "med": 1, "low": 0,
-    "baseline_suppressed": 0          // known findings hidden by --baseline
+    "baseline_suppressed": 0,         // known findings hidden by --baseline
+    "suppressed_inline": 0            // findings silenced by `palisade: ignore`
   },
+  "suppressions": [                    // each silenced finding, never hidden
+    {"rule": "PI-EXEC", "file": "app.py", "line": 42,
+     "severity": "high", "reason": "sandboxed", "suppressed_at": 42}
+  ],
   "findings": [                        // sorted: severity, file, line, rule
     {
       "rule": "PI-EXEC",

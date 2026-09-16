@@ -14,6 +14,7 @@ Responsibilities:
 from __future__ import annotations
 
 import ast
+import warnings
 from dataclasses import dataclass
 
 from palisade_sec import ir
@@ -33,7 +34,13 @@ class PythonFrontend:
 
     def lower_file(self, path: str, rel_path: str, source: str) -> ir.Module | ParseFailure:
         try:
-            tree = ast.parse(source, filename=path)
+            # Scanned source must never be able to write to our output.
+            # ast.parse emits SyntaxWarning for things like invalid escape
+            # sequences, and Python echoes the *entire* offending line, which
+            # both floods stderr and defeats the 200-char snippet redaction.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tree = ast.parse(source, filename=path)
         except (SyntaxError, ValueError, RecursionError) as exc:
             return ParseFailure(path=path, reason=str(exc))
         lines = source.splitlines()

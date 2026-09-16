@@ -109,17 +109,38 @@ class Engine:
                 by_fp[f.fingerprint] = f
             else:
                 prev.count += 1
-        # cross-rule dedup: one vulnerability (same source -> same sink) is
-        # one finding, even when several rules match it. The most severe
-        # wins; on a tie, the earliest-loaded (most specific) rule wins.
-        by_vuln: dict[tuple[str, int, str, int], Finding] = {}
+        # Dedup by SINK. One dangerous line is one thing to fix, even when
+        # several rules match it or several untrusted sources reach it. A
+        # library entry point commonly has both an `input()` path and a
+        # public-parameter path converging on the same exec, and reporting
+        # that twice is noise the developer cannot act on separately.
+        # Keep the best-evidenced trace: most severe, then most direct
+        # (fewest hops, i.e. highest confidence), then earliest rule.
+        conf_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+
+        def better(a: Finding, b: Finding) -> bool:
+            """Is `a` a better representative of this sink than `b`?"""
+            return (
+                SEVERITY_ORDER.get(a.severity, 9),
+                conf_rank.get(a.confidence, 9),
+                len(a.partial_defenses),
+            ) < (
+                SEVERITY_ORDER.get(b.severity, 9),
+                conf_rank.get(b.confidence, 9),
+                len(b.partial_defenses),
+            )
+
+        by_vuln: dict[tuple[str, int], Finding] = {}
         for f in by_fp.values():
-            vuln_key = (f.source.file, f.source.line, f.sink.file, f.sink.line)
+            vuln_key = (f.sink.file, f.sink.line)
             prev_f = by_vuln.get(vuln_key)
-            if prev_f is None or SEVERITY_ORDER.get(f.severity, 9) < SEVERITY_ORDER.get(
-                prev_f.severity, 9
-            ):
+            if prev_f is None:
                 by_vuln[vuln_key] = f
+            elif better(f, prev_f):
+                f.count = max(f.count, prev_f.count + 1)
+                by_vuln[vuln_key] = f
+            else:
+                prev_f.count += 1
         result.findings = sorted(by_vuln.values(), key=lambda f: f.sort_key())
         if truncated:
             result.notes.append(

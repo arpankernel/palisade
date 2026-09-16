@@ -8,3 +8,6 @@ build/
 .ruff_cache/
 palisade-report.md
 .palisade/
+
+# Benchmark corpus clones (fetched by corpus/fetch.py, gigabytes)
+corpus/repos/

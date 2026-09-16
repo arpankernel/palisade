@@ -15,7 +15,12 @@ uv run pytest -q                          # full suite - must stay green
 uv run ruff check . && uv run ruff format --check src tests scripts
 uv run mypy src/palisade_sec              # must stay clean
 uv run pytest tests/test_self_security.py # SF-1/2/3 tripwire over hostile corpus
-uv run python scripts/precision.py corpus/manifest.yaml   # Phase-0 precision gate
+uv run python scripts/precision.py corpus/manifest.yaml   # fast fixture precision gate
+uv run pytest tests/test_fp_regressions.py # false-positive corpus - must stay silent
+
+# the pinned third-party benchmark (network, gigabytes, scheduled in CI):
+uv run python corpus/fetch.py                            # clone + pin the corpus
+uv run python scripts/precision.py corpus/repos.yaml --repos --triage
 uv run palisade-sec scan examples/vulnerable-app --all   # 4 high + 1 med, always
 uv run palisade-sec scan src --ci         # self-scan - must exit 0
 uv run python scripts/make_demo.py        # regenerate docs/demo.svg after output changes
@@ -41,7 +46,9 @@ examples/vulnerable-app/   # acceptance fixtures - tests pin exact findings
 examples/support-bot/      # docs/tutorial.md sample app
 tests/                     # ~112 tests; FP tests are the highest-value ones
 tests/fixtures/hostile/    # adversarial corpus for the self-security suite
-corpus/                    # Phase-0 precision manifest (ground-truth labels)
+tests/fixtures/regressions/ # false-positive cases that must stay silent, forever
+corpus/                    # Phase-0 benchmark: fixture manifest + pinned repos
+corpus/repos/              # the clones themselves (gitignored, ~2.5 GB)
 docs/                      # markdown source of record for the docs
 docs-site/                 # Astro + Starlight site that renders docs/
 website/                   # marketing site (static, zero-dependency)
@@ -91,6 +98,15 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
    escape dynamic text (`rich.markup.escape`).
 7. **Determinism.** Findings, JSON, and baseline files are sorted; no
    wall-clock or randomness in scan results.
+9. **Precision only ratchets upward.** Every reported false positive
+   becomes a permanent fixture in `tests/fixtures/regressions/`. Never
+   silence one by weakening an assertion, and never delete a regression
+   fixture unless the code it represents turns out to be genuinely
+   dangerous - which belongs in the commit message.
+10. **Suppressions stay loud.** `# palisade: ignore[RULE]` must keep being
+   counted, attributable and stale-checked. A silent suppression mechanism
+   is how a vulnerability quietly returns.
+
 8. **Self-defense is a hard gate.** The audit-hook suite in
    `tests/test_self_security.py` must stay green: no exec/import of target
    code, no subprocess, no sockets during a scan; symlinks escaping the scan
@@ -119,4 +135,6 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
 | New source/sink *shape* (kwargs, arg positions) | `rules/schema.py` + `engine/analyzer.py` sink/source handling + tests |
 | New language | new `frontends/<lang>.py` emitting the IR + scanner dispatch + a `tests/test_<lang>_frontend.py` mirroring `test_js_frontend.py` - zero engine edits expected |
 | New output format (e.g. SARIF) | `report/` + CLI flag + schema doc |
+| A reported false positive | a fixture in `tests/fixtures/regressions/`, then fix the rule or engine until it stays silent |
+| New benchmark repo | an entry in `corpus/repos.yaml` + `corpus/fetch.py` to pin it |
 | Engine precision change | `engine/analyzer.py` + BOTH FN and FP tests + verify example-app pins still hold |

@@ -195,9 +195,12 @@ def test_fn_input_and_sys_argv_sources(tmp_path):
             eval(resp.choices[0].message.content)
         """,
     )
-    # two distinct sources (input, sys.argv) reach the sink: one trace each
-    assert {f.rule_id for f in res.findings} == {"PI-EXEC"}
-    assert {f.source.detail for f in res.findings} == {"input", "sys.argv"}
+    # Two distinct sources (input, sys.argv) converge on one eval. That is
+    # one line to fix, so it is reported once; the collapsed duplicate is
+    # recorded in `count` rather than shown twice.
+    assert [f.rule_id for f in res.findings] == ["PI-EXEC"]
+    assert res.findings[0].source.detail in {"input", "sys.argv"}
+    assert res.findings[0].count == 2
 
 
 def test_fn_dict_tuple_comprehension_flow(tmp_path):
