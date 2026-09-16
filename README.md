@@ -69,6 +69,13 @@ ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
 | `PI-FRAMEWORK-EXEC` | input → framework LLM wrapper (`submit_prompt`, `generate_code`, ...) → execution step | Vanna.ai, PandasAI |
 | `PI-HTTP` | input → LLM → model-chosen URL fetched (SSRF/exfil; advisory) | OWASP LLM Top-10 |
 
+**Measured, not asserted.** Against a pinned benchmark corpus of 26
+third-party repos (17,343 files): **precision 1.000, recall 0.667, F1 0.800**
+- zero false positives, with the one miss (PandasAI's dynamically dispatched
+pipeline) labelled as a miss rather than deleted. The gate runs in CI, so
+precision can only ratchet upward. See
+[docs/proof-scans.md](https://arpankernel.github.io/palisade/docs/proof-scans/).
+
 Sources cover Flask (`request.*`), FastAPI (`@app.post` route params and
 pydantic bodies), Express (`req.body`/`req.query`), CLIs (`input()`,
 `sys.argv`, `process.argv`) - and, in library mode, public function

@@ -6,7 +6,7 @@
 <title>Palisade - a linter for LLM security</title>
 <meta name="description" content="Palisade statically detects prompt-injection paths - untrusted input → LLM → dangerous sink - in Python and JavaScript/TypeScript, in CI, before they ship. Free, open source, no API key.">
 <meta property="og:title" content="Palisade - a linter for LLM security">
-<meta property="og:description" content="Catches untrusted input → LLM → exec/shell/SQL paths in CI. Zero false positives across 2,040 real files. Finds the exact CVE-2024-5565 line. MIT, no API key.">
+<meta property="og:description" content="Catches untrusted input → LLM → exec/shell/SQL paths in CI. Precision 1.000 across a pinned 26-repo benchmark corpus. Finds the exact CVE-2024-5565 line. MIT, no API key.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -385,7 +385,7 @@
   <section style="padding-top:40px">
     <div class="wrap">
       <div class="stats reveal stagger">
-        <div class="stat"><div class="n"><em class="count" data-to="2040">0</em></div><div class="l">real files scanned · zero false positives</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="17343">0</em></div><div class="l">files in the benchmark corpus · zero false positives</div></div>
         <div class="stat"><div class="n"><em class="count" data-to="1">0</em> CVE</div><div class="l">exact vanna cve-2024-5565 line found</div></div>
         <div class="stat"><div class="n">~<em class="count" data-to="36" data-suffix="s">0</em></div><div class="l">1,576-file python + ts monorepo</div></div>
         <div class="stat"><div class="n"><em class="count" data-to="5">0</em> rules</div><div class="l">python · js/ts - same engine, same rules</div></div>
@@ -523,7 +523,7 @@
         </div>
         <div class="receipt-notes">
           <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules + library mode land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> - the sink NVD lists for CVE-2024-5565 - and correctly call out the cosmetic sanitizer that failed in the wild.</p></div>
-          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>Vanna, PandasAI, and Langflow - 2,040 real files, including Langflow's 1,576-file Python + TypeScript tree - with no crashes, no skipped files, and not one wrong flag.</p></div>
+          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 26 third-party repos, 17,343 files, scored in CI: precision 1.000, recall 0.667. Not one wrong flag, and the single miss is labelled as a miss rather than deleted.</p></div>
           <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="./docs/proof-scans/">Read the full proof-scan report →</a></p></div>
         </div>
       </div>
@@ -591,7 +591,7 @@
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">What's the false-positive story, honestly?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>Zero across 2,040 files of Vanna, PandasAI, and Langflow - including Langflow's 1,576-file Python + TypeScript tree. The mechanism: findings require the full path, safe shapes (arg-list subprocess, parameterized SQL, verified sanitizers, constant prompts) are recognized, and every reported FP becomes a permanent must-stay-silent test. Misses are documented publicly in the proof-scan report.</p></div></div>
+          <div class="faq-a"><div><p>Zero across a pinned benchmark corpus of 26 third-party repos and 17,343 files, measured in CI rather than claimed. The mechanism: findings require the full path, safe shapes (arg-list subprocess, parameterized SQL, verified sanitizers, constant prompts) are recognized, and every reported FP becomes a permanent must-stay-silent test. Misses are documented publicly in the proof-scan report.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Does it work on JavaScript / TypeScript?<span class="ic">+</span></button>

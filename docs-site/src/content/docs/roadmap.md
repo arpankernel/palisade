@@ -25,25 +25,38 @@ open-source *security* tool, three facts fix the order:
 Through-line: **Measure → Distribute → Cover → Scale → Certify → Expand →
 Remediate.** Trust before reach before depth.
 
-## Where we are (v0.3.x)
+## Where we are (v0.3.4)
 
-The engine, five rules, both frontends, library mode, the baseline/CI flow,
-and a template-based `fix` are shipped, published, and pinned by 112 tests
-plus real-repo evidence ([proof-scans.md](../proof-scans/)): zero false
-positives across 2,040 real files, and the actual Vanna CVE-2024-5565 sink
-flagged with builtin rules. Two items originally sequenced late were
-deliberately pulled forward in v0.3 with reduced scope - noted in their
-phases below.
+**Phase 0 is complete.** The engine, five rules, both frontends, library
+mode, the baseline/CI flow and a template-based `fix` are shipped and
+published, pinned by 134 tests. Quality is now measured rather than
+asserted, against a pinned benchmark corpus of 26 third-party repos
+(17,343 files Palisade actually scans):
+
+| Metric | Value |
+|---|---|
+| Precision | **1.000** (tp=2, fp=0) |
+| Recall | **0.667** (tp=2, fn=1) |
+| F1 | **0.800** |
+
+Zero false positives across 17,343 files of real third-party code. The one
+miss is PandasAI's CVE-2024-12366, whose exec sits behind dynamically
+dispatched pipeline steps that bounded static taint cannot follow. It is
+labelled as a miss on purpose rather than deleted, so recall stays honest
+and the gap stays visible. Full detail in [proof-scans.md](proof-scans.md).
 
 | Phase | Theme | Status |
 |---|---|---|
-| 0 | Measure | **Mostly done** - precision harness + regression gate live in CI, self-security enforced over a hostile corpus; the *seed* corpus is our own fixtures, so the pinned third-party benchmark corpus and inline suppressions remain |
+| 0 | Measure | **Done.** P/R published and gated in CI; corpus pinned with recorded SHAs; FP regression harness live; inline suppressions shipped; self-security enforced over an adversarial corpus |
 | 1 | Distribute | **Next up** - SARIF, GitHub Action, pre-commit; the public-launch gate lives here |
-| 2 | Cover | Open - notebooks, framework breadth, rule-test framework for community PRs |
+| 2 | Cover | Partial - notebooks, framework breadth, rule-test framework for community PRs |
 | 3 | Scale | Open - incremental scanning, caching, perf gates |
-| 4 | Certify | Open - signing, SBOM, provenance, disclosure process |
+| 4 | Certify | Started - SECURITY.md and release discipline shipped; signing, SBOM, provenance remain |
 | 5 | Expand | **v1 pulled forward** (JS/TS frontend shipped as the architecture proof); the JS benchmark corpus + precision gate remain |
 | 6 | Remediate | **v1 pulled forward** (deterministic template `fix`); the LLM-assisted, eval-gated diff engine remains |
+
+Two items originally sequenced late were deliberately pulled forward in v0.3
+with reduced scope, noted in their phases below.
 
 ## The phases
 
@@ -59,15 +72,18 @@ without silently breaking it."
   should-be-silent`.
 - Precision/Recall/F1 harness in CI that **fails the build if precision
   drops** below threshold (~90% to start). The published number is a
-  byproduct; the regression gate is the point. *(Shipped:
-  `scripts/precision.py` + `corpus/manifest.yaml`, wired into CI - but the
-  corpus is currently seeded with our own fixtures, not pinned third-party
-  repos. That substitution is the remaining work.)*
+  byproduct; the regression gate is the point. *(Done: scores both the fast
+  fixture corpus on every push and the pinned 26-repo third-party corpus
+  weekly. The harness now also fails when it measures nothing, after an
+  unlabelled run reported precision=1.000 on tp=0 fp=0 fn=0.)*
 - FP regression harness: every reported false positive becomes a permanent
   must-stay-silent fixture. *(Already practiced informally - the test suite
   grew exactly this way - needs formalizing against the corpus.)*
 - Inline suppressions: `# palisade: ignore[PI-EXEC] - reviewed, sandboxed`,
-  tracked and surfaced in reports.
+  tracked and surfaced in reports. *(Done: `#` and `//` forms, on the sink
+  line or the one above; suppressed findings are counted, carry their reason
+  into `--json`, and a comment that stops matching anything is reported as
+  stale. A silent suppression is how a vulnerability quietly returns.)*
 - Self-safety guarantees: never-execute and never-crash assertions.
   *(Shipped: `tests/fixtures/hostile/` adversarial corpus driven by a
   `sys.addaudithook` tripwire - no exec/import of target code, no

@@ -14,7 +14,8 @@ each CVE's actual code path by hand to classify hits and misses.
 
 What held up, and matters as much as the misses:
 
-- **Zero false positives across 1,075 real-world files.** The precision
+- **Zero false positives across 1,075 real-world files.** *(Figure from
+  this original pass; superseded by the formal corpus below.)* The precision
   contract ("a false positive is worse than a miss") survived contact with
   three large, messy, real codebases.
 - **Zero crashes, zero skipped files**, and the largest repo (Langflow,
@@ -150,7 +151,61 @@ skipped**. The only finding across all three is Vanna's CVE-2024-5565 sink at
 `base.py:1998`, and it is now caught by the *default* rules (PI-FRAMEWORK-EXEC
 via the `input()` source) without needing library mode. Earlier drafts of this
 report quoted "~2,600 files"; that double-counted Langflow's Python files, and
-is corrected here.
+is corrected here. *(That pass counted only the three CVE
+repos; the authoritative figure is now the 26-repo benchmark corpus in
+"Formal benchmark corpus" below.)*
+
+
+## Formal benchmark corpus (Phase 0, 2026-09-16)
+
+The ad-hoc scans above became a pinned, labelled corpus: 26 third-party repos
+(2 at known-vulnerable releases, 1 later release, 23 clean popular AI repos as
+the anti-overfitting half), cloned at recorded SHAs by `corpus/fetch.py` and
+scored by `scripts/precision.py`.
+
+| Metric | Value |
+|--------|-------|
+| Repos | 26 |
+| Files scanned | 17,343 |
+| Precision | **1.000** (tp=2, fp=0) |
+| Recall | **0.667** (tp=2, fn=1) |
+| F1 | **0.800** |
+
+| Repo | Expected | Result |
+|------|----------|--------|
+| vanna v0.5.5 | `base.py:1998` (CVE-2024-5565) | found, MED (cosmetic sanitizer downgrades it) |
+| vanna v0.7.9 | `base.py:2088` | found; the same shape survives into the later release |
+| PandasAI v2.4.2 | `code_execution.py:174` (CVE-2024-12366) | **missed** |
+| Langflow 1.2.0 | nothing | silent, correctly |
+| 22 clean repos | nothing | silent, zero false positives |
+
+**The miss is recorded, not hidden.** PandasAI's exec sits behind pipeline step
+objects dispatched dynamically at runtime, which bounded static taint cannot
+follow. Deleting that label would flatter recall to 1.000; keeping it holds the
+gap visible until the engine closes it.
+
+**Langflow is scored as clean, not as a miss.** Its CVE reaches exec with no LLM
+anywhere on the path, so it is plain code injection rather than prompt
+injection, and out of Palisade's contract by design. It stays in the corpus as
+1,576 files of real AI-adjacent code that must stay silent.
+
+### What building this corpus caught
+
+Pointing the harness at real repos surfaced four defects our own fixtures never
+could:
+
+- **One sink reported twice.** Vanna's exec is reached by both `input()` and a
+  public parameter; dedup keyed on source-and-sink and emitted duplicates. It
+  now keys on the sink and records collapsed duplicates in `count`.
+- **A 40 KB output leak.** Scanning vanna printed the scanned file's own CSS to
+  stderr, because `ast.parse` raises `SyntaxWarning` and Python echoes the whole
+  source line, bypassing the 200-char snippet redaction.
+- **Recall was scored wrongly.** The harness counted only HIGH findings, which
+  would have marked the real Vanna CVE a false negative, since Palisade
+  deliberately downgrades it to MED.
+- **The gate passed vacuously.** The first full run reported precision=1.000 on
+  tp=0 fp=0 fn=0, because the corpus carried `cve:` annotations but no `expect:`
+  labels. The harness now fails when it measures nothing.
 
 ## Takeaways for v0.2
 
