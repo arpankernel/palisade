@@ -1,5 +1,7 @@
 # Palisade documentation
 
+> Rendered and searchable at **https://arpankernel.github.io/palisade/docs/** — this directory is the source.
+
 **Palisade is a linter for LLM security**: it statically detects
 prompt-injection paths — untrusted input → LLM → dangerous sink — in Python
 and JavaScript/TypeScript, in CI, before they ship.

@@ -1,0 +1,43 @@
+/* Palisade docs — crimson + cream, matched to the marketing site */
+:root {
+  --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+/* Light theme = cream canvas, crimson accent */
+:root[data-theme="light"] {
+  --sl-color-accent-low: #f3d9d3;
+  --sl-color-accent: #a31621;
+  --sl-color-accent-high: #7c0e13;
+  --sl-color-white: #2a1512;
+  --sl-color-gray-1: #3a2420;
+  --sl-color-gray-2: #4a322d;
+  --sl-color-gray-3: #6b524c;
+  --sl-color-gray-4: #8a716b;
+  --sl-color-gray-5: #b8a59f;
+  --sl-color-gray-6: #ece1d6;
+  --sl-color-gray-7: #f4ebdf;
+  --sl-color-black: #f7efe1;
+  --sl-color-bg: #f7efe1;
+  --sl-color-bg-nav: #fbeedc;
+  --sl-color-bg-sidebar: #fbeedc;
+}
+/* Dark theme = warm charcoal with crimson accent */
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #3a1114;
+  --sl-color-accent: #d8323f;
+  --sl-color-accent-high: #f4d0d0;
+  --sl-color-bg: #1a1210;
+  --sl-color-bg-nav: #211714;
+  --sl-color-bg-sidebar: #211714;
+}
+/* neo-brutalist: kill rounded corners across the docs chrome */
+.sl-markdown-content :is(pre, code, table, img, blockquote),
+.card, .sl-link-button, dialog, .sidebar-pane, details {
+  border-radius: 0 !important;
+}
+.site-title { font-family: var(--sl-font-mono); font-weight: 700; letter-spacing: 0.04em; }
+.sl-markdown-content h1, .sl-markdown-content h2, .sl-markdown-content h3 {
+  letter-spacing: -0.02em;
+}
+/* crimson left-rule on blockquotes, code chips tinted warm */
+.sl-markdown-content blockquote { border-inline-start: 2px solid var(--sl-color-accent); }

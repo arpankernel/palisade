@@ -3,7 +3,11 @@ name: Deploy website
 on:
   push:
     branches: [main]
-    paths: ["website/**", ".github/workflows/pages.yml"]
+    paths:
+      - "website/**"
+      - "docs-site/**"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -23,8 +27,32 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Build docs site (Astro + Starlight)
+        working-directory: docs-site
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble site — marketing at /, docs at /docs/
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp -R website/. _site/
+          mkdir -p _site/docs
+          cp -R docs-site/dist/. _site/docs/
+          test -f _site/index.html
+          test -f _site/docs/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: website
+          path: _site
+
       - id: deployment
         uses: actions/deploy-pages@v4

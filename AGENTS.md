@@ -13,6 +13,9 @@ Two distinct audiences; make sure you're the right one:
 uv sync                                   # deps (dev group includes tree-sitter)
 uv run pytest -q                          # full suite — must stay green
 uv run ruff check . && uv run ruff format --check src tests scripts
+uv run mypy src/palisade_sec              # must stay clean
+uv run pytest tests/test_self_security.py # SF-1/2/3 tripwire over hostile corpus
+uv run python scripts/precision.py corpus/manifest.yaml   # Phase-0 precision gate
 uv run palisade-sec scan examples/vulnerable-app --all   # 4 high + 1 med, always
 uv run palisade-sec scan src --ci         # self-scan — must exit 0
 uv run python scripts/make_demo.py        # regenerate docs/demo.svg after output changes
@@ -36,9 +39,30 @@ src/palisade_sec/
 └── cli.py         # Typer CLI
 examples/vulnerable-app/   # acceptance fixtures — tests pin exact findings
 examples/support-bot/      # docs/tutorial.md sample app
-tests/                     # ~100 tests; FP tests are the highest-value ones
-docs/                      # index, tutorial, architecture, references, roadmap
+tests/                     # ~112 tests; FP tests are the highest-value ones
+tests/fixtures/hostile/    # adversarial corpus for the self-security suite
+corpus/                    # Phase-0 precision manifest (ground-truth labels)
+docs/                      # markdown source of record for the docs
+docs-site/                 # Astro + Starlight site that renders docs/
+website/                   # marketing site (static, zero-dependency)
 ```
+
+### Website & docs site
+
+`docs/*.md` is the **source of record**. `docs-site/` renders it with Astro +
+Starlight; the files under `docs-site/src/content/docs/` are generated copies
+carrying frontmatter — when you change a doc, update `docs/` and mirror it
+there (same filename, keep the frontmatter block).
+
+```bash
+cd docs-site && npm install && npm run dev     # docs at localhost:4321
+cd docs-site && npm run build                  # -> docs-site/dist
+```
+
+The marketing site is a single static `website/index.html`: no build step and
+no external JS — animations are hand-rolled and JS-gated, so the page renders
+fully with JavaScript disabled. CI (`.github/workflows/pages.yml`) assembles
+both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
 
 ## Invariants — violating any of these is a rejected change
 
@@ -67,6 +91,13 @@ docs/                      # index, tutorial, architecture, references, roadmap
    escape dynamic text (`rich.markup.escape`).
 7. **Determinism.** Findings, JSON, and baseline files are sorted; no
    wall-clock or randomness in scan results.
+8. **Self-defense is a hard gate.** The audit-hook suite in
+   `tests/test_self_security.py` must stay green: no exec/import of target
+   code, no subprocess, no sockets during a scan; symlinks escaping the scan
+   root are skipped; oversized/deeply-nested/malformed files are skipped with
+   a warning, never crash. Resource caps (`max_file_bytes`,
+   `max_scan_seconds`) and 200-char snippet redaction are part of the
+   contract — see `SECURITY.md` and `HARDENING-AUDIT.md`.
 
 ## Conventions
 

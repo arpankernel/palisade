@@ -219,6 +219,96 @@
   footer.site a{color:var(--t50);font-weight:500;transition:color .2s}
   footer.site a:hover{color:var(--ink)}
 
+
+  /* ============ motion layer ============ */
+  .scroll-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--crimson);z-index:60;transition:width .1s linear}
+  nav{position:sticky;top:0;z-index:50;background:transparent;transition:background .3s ease,border-color .3s ease,box-shadow .3s ease;border-bottom:1px solid transparent}
+  nav.stuck{background:rgba(247,239,225,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom-color:var(--b04);box-shadow:0 1px 20px rgba(122,24,20,.06)}
+
+  /* staggered reveal children */
+  html.js .stagger > *{opacity:0;transform:translateY(16px);transition:opacity .55s cubic-bezier(.22,1,.36,1),transform .55s cubic-bezier(.22,1,.36,1)}
+  html.js .stagger.in > *{opacity:1;transform:none}
+
+  /* hero entrance */
+  html.js .hero-anim{opacity:0;transform:translateY(20px);animation:heroIn .9s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes heroIn{to{opacity:1;transform:none}}
+  html.js .hero-anim:nth-of-type(1){animation-delay:.05s}
+  .badge .pulse{animation:pulseDot 2.2s ease-in-out infinite}
+  @keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+
+  /* hero flow: travelling arrows */
+  .hero .flow .arrow{position:relative;animation:flowPulse 2.6s ease-in-out infinite}
+  .hero .flow .arrow:nth-of-type(2){animation-delay:.5s}
+  @keyframes flowPulse{0%,100%{opacity:.35}45%{opacity:1;color:var(--crimson)}}
+  .hero .flow .x{animation:xGlow 2.6s ease-in-out infinite;animation-delay:1s}
+  @keyframes xGlow{0%,100%{opacity:.75}50%{opacity:1}}
+
+  /* terminal line-by-line type-on + cursor */
+  html.js .term-body .tline{display:block;opacity:0;transform:translateY(3px);transition:opacity .22s ease,transform .22s ease}
+  html.js .term-body .tline.in{opacity:1;transform:none}
+  .term-cursor{display:inline-block;width:8px;height:14px;background:var(--cream-bright);vertical-align:-2px;margin-left:4px;animation:blink 1.05s steps(2,start) infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+  .terminal-frame{transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease}
+  .terminal-frame:hover{transform:translateY(-3px);box-shadow:0 32px 72px rgba(122,24,20,.28)}
+
+  /* counters */
+  .stat{position:relative;overflow:hidden;transition:background .3s ease}
+  .stat::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--crimson);transition:width .7s cubic-bezier(.22,1,.36,1)}
+  .stats.in .stat::after{width:100%}
+  .stats.in .stat:nth-child(2)::after{transition-delay:.12s}
+  .stats.in .stat:nth-child(3)::after{transition-delay:.24s}
+  .stats.in .stat:nth-child(4)::after{transition-delay:.36s}
+  .stat:hover{background:rgba(122,24,20,.03)}
+
+  /* pipeline: progress rail that draws through the steps */
+  .pipe{position:relative}
+  .pipe::before{content:"";position:absolute;left:0;top:0;height:2px;width:0;background:var(--crimson);transition:width 1.4s cubic-bezier(.22,1,.36,1);z-index:2}
+  .pipe.in::before{width:100%}
+  .pipe-step{transition:background .3s ease}
+  .pipe-step:hover{background:rgba(122,24,20,.03)}
+  .pipe-step .num{transition:color .3s ease}
+  .pipe-step:hover .num{color:var(--crimson)}
+
+  /* rule cards: cursor-tracking warm glow + lift */
+  .rule-card{--mx:50%;--my:0%}
+  .rule-card::after{content:"";position:absolute;inset:0;background:radial-gradient(240px circle at var(--mx) var(--my),rgba(163,22,33,.07),transparent 65%);opacity:0;transition:opacity .35s ease;pointer-events:none}
+  .rule-card:hover::after{opacity:1}
+
+  /* precision rows cascade in */
+  html.js .prec-col li{opacity:0;transform:translateX(-8px);transition:opacity .45s ease,transform .45s ease}
+  html.js .prec.in .prec-col li{opacity:1;transform:none}
+  html.js .prec.in .prec-col li:nth-child(2){transition-delay:.07s}
+  html.js .prec.in .prec-col li:nth-child(3){transition-delay:.14s}
+  html.js .prec.in .prec-col li:nth-child(4){transition-delay:.21s}
+  html.js .prec.in .prec-col li:nth-child(5){transition-delay:.28s}
+  html.js .prec.in .prec-col li:nth-child(6){transition-delay:.35s}
+
+  /* quote bar draws down */
+  html.js .quote{position:relative;border-left-color:transparent}
+  html.js .quote::before{content:"";position:absolute;left:-2px;top:0;width:2px;height:0;background:var(--crimson);transition:height .8s cubic-bezier(.22,1,.36,1)}
+  html.js .quote.in::before{height:100%}
+
+  /* buttons: sheen sweep */
+  .btn-primary,.install{position:relative;overflow:hidden}
+  .btn-primary::after,.install::after{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-18deg);transition:left .65s ease}
+  .btn-primary:hover::after,.install:hover::after{left:140%}
+
+  /* faq chevron rotate */
+  .faq-q .ic{transition:transform .25s ease,color .25s ease}
+  .faq-item.open .faq-q .ic{color:var(--crimson)}
+  .faq-q:hover{background:rgba(122,24,20,.02)}
+
+  /* section kickers draw a rule */
+  .kicker{display:inline-flex;align-items:center;gap:10px}
+  .kicker::after{content:"";display:block;width:0;height:1px;background:var(--crimson);opacity:.5;transition:width .8s cubic-bezier(.22,1,.36,1) .1s}
+  .kicker.in::after{width:52px}
+
+  @media(prefers-reduced-motion:reduce){
+    html.js .stagger > *,html.js .hero-anim,html.js .term-body .tline,html.js .prec-col li{opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
+    .badge .pulse,.hero .flow .arrow,.hero .flow .x,.term-cursor{animation:none!important}
+    .scroll-progress{display:none}
+  }
+
   /* reveal (JS-gated: no-JS contexts see everything immediately) */
   html.js .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
   html.js .reveal.in{opacity:1;transform:none}
@@ -226,6 +316,7 @@
 </style>
 </head>
 <body>
+<div class="scroll-progress" aria-hidden="true"></div>
 <div class="guides" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
 
 <nav>
@@ -238,7 +329,7 @@
       <a href="#rules">Rules</a>
       <a href="#how">How it works</a>
       <a href="#proof">Proof</a>
-      <a href="https://github.com/arpankernel/palisade/blob/main/docs/index.md">Docs</a>
+      <a href="./docs/">Docs</a>
     </div>
     <div class="nav-cta">
       <a class="gh" href="https://github.com/arpankernel/palisade">GitHub</a>
@@ -252,18 +343,18 @@
   <header class="hero">
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
-      <span class="badge"><span class="pulse"></span>Open source · MIT · No API key · v0.3.2</span>
-      <h1>A linter for <span class="accent">LLM security.</span></h1>
-      <p class="sub">Palisade statically catches prompt-injection paths — untrusted input flowing through an LLM into <em>exec</em>, a shell, raw SQL, or an outbound fetch — in CI, before they ship. Python and JavaScript/TypeScript.</p>
-      <div class="flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
-      <div class="cta-row" id="get-started">
+      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · No API key · v0.3.2</span>
+      <h1 class="hero-anim">A linter for <span class="accent">LLM security.</span></h1>
+      <p class="hero-anim sub">Palisade statically catches prompt-injection paths — untrusted input flowing through an LLM into <em>exec</em>, a shell, raw SQL, or an outbound fetch — in CI, before they ship. Python and JavaScript/TypeScript.</p>
+      <div class="hero-anim flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
+      <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
           <span class="prompt">$</span> uvx palisade-sec scan .
           <span class="copy">copy</span>
         </button>
         <a class="btn btn-secondary" href="https://github.com/arpankernel/palisade">Star on GitHub ↗</a>
       </div>
-      <div class="meta-note">pure static analysis — never executes your code · no network calls · no telemetry</div>
+      <div class="hero-anim meta-note">pure static analysis — never executes your code · no network calls · no telemetry</div>
 
       <!-- TERMINAL -->
       <div class="terminal-frame reveal">
@@ -287,11 +378,11 @@
   <!-- STATS -->
   <section style="padding-top:40px">
     <div class="wrap">
-      <div class="stats reveal">
-        <div class="stat"><div class="n"><em>0</em> FPs</div><div class="l">across 2,600+ real files scanned</div></div>
-        <div class="stat"><div class="n">1 <em>CVE</em></div><div class="l">exact vanna cve-2024-5565 line found</div></div>
-        <div class="stat"><div class="n">~36<em>s</em></div><div class="l">1,576-file python + ts monorepo</div></div>
-        <div class="stat"><div class="n">2 <em>langs</em></div><div class="l">python · js/ts — same engine, same rules</div></div>
+      <div class="stats reveal stagger">
+        <div class="stat"><div class="n"><em class="count" data-to="2600" data-suffix="+">0</em></div><div class="l">real files scanned · zero false positives</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="1">0</em> CVE</div><div class="l">exact vanna cve-2024-5565 line found</div></div>
+        <div class="stat"><div class="n">~<em class="count" data-to="36" data-suffix="s">0</em></div><div class="l">1,576-file python + ts monorepo</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="5">0</em> rules</div><div class="l">python · js/ts — same engine, same rules</div></div>
       </div>
     </div>
   </section>
@@ -304,7 +395,7 @@
       <span class="kicker">How it works</span>
       <h2>Taint analysis, not grep.</h2>
       <p class="section-sub">A finding requires the <b>complete</b> source → LLM → sink data-flow path with no real sanitizer in between. Calling an LLM is never a finding. That single rule is why the noise floor is zero.</p>
-      <div class="pipe reveal">
+      <div class="pipe reveal stagger">
         <div class="pipe-step"><span class="num">01</span><span class="tag">FRONTEND</span><h3>Parse</h3><p>Python via stdlib <code>ast</code>, JS/TS via tree-sitter. Source text only — scanned code is <b>never executed</b>.</p></div>
         <div class="pipe-step"><span class="num">02</span><span class="tag">IR</span><h3>Lower</h3><p>Both languages compile to one normalized taint IR. Import aliases resolve, so <code>sp.run</code> is <code>subprocess.run</code>.</p></div>
         <div class="pipe-step"><span class="num">03</span><span class="tag">ENGINE</span><h3>Propagate</h3><p>Taint flows through f-strings, collections, awaits, class fields, and bounded cross-file calls — 3 hops deep.</p></div>
@@ -322,7 +413,7 @@
       <span class="kicker">What it catches</span>
       <h2>Five rules. Every one backed by a real CVE class.</h2>
       <p class="section-sub">Rules are plain YAML — sources, LLM signatures, sinks, sanitizers. Adding coverage for your framework is a data change, never an engine change.</p>
-      <div class="rules reveal">
+      <div class="rules reveal stagger">
         <div class="rule-card">
           <span class="sev high">HIGH</span><div class="rid">PI-EXEC</div>
           <h3>Injection → code execution</h3>
@@ -363,7 +454,7 @@
           <h3>Your framework, one YAML file</h3>
           <p>Your codebase routes LLM calls through <code style="font-family:var(--mono);font-size:11px">self.inference()</code>? Add one line to <code style="font-family:var(--mono);font-size:11px">llm_signatures</code>, pass <code style="font-family:var(--mono);font-size:11px">--rules ./dir</code>. Same id overrides a builtin.</p>
           <div class="sinks">sources · llm_signatures · sinks · sanitizers</div>
-          <div class="cve"><a href="https://github.com/arpankernel/palisade/blob/main/docs/rules-reference.md" style="color:var(--crimson)">rules reference →</a></div>
+          <div class="cve"><a href="./docs/rules-reference/" style="color:var(--crimson)">rules reference →</a></div>
         </div>
       </div>
     </div>
@@ -412,7 +503,7 @@
       <span class="kicker">The receipts</span>
       <h2>Point it at the repo behind a real CVE.</h2>
       <p class="section-sub">We scanned the actual vulnerable releases of the projects that motivated Palisade — and published the misses alongside the hits.</p>
-      <div class="receipt-grid reveal">
+      <div class="receipt-grid reveal stagger">
         <div class="terminal-frame" style="margin:0;max-width:none">
           <div class="term-bar"><i></i><i></i><i class="o"></i><span class="title">vanna v0.5.5 · the release behind CVE-2024-5565</span></div>
           <div class="term-body">
@@ -427,7 +518,7 @@
         <div class="receipt-notes">
           <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules + library mode land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> — the sink NVD lists for CVE-2024-5565 — and correctly call out the cosmetic sanitizer that failed in the wild.</p></div>
           <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>Vanna, PandasAI, and Langflow — 2,600+ real files including an 838-file TypeScript frontend — with no crashes, no skipped files, and not one wrong flag.</p></div>
-          <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="https://github.com/arpankernel/palisade/blob/main/docs/proof-scans.md">Read the full proof-scan report →</a></p></div>
+          <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="./docs/proof-scans/">Read the full proof-scan report →</a></p></div>
         </div>
       </div>
     </div>
@@ -441,7 +532,7 @@
       <span class="kicker">Adopt in an afternoon</span>
       <h2>Scan. Gate. Fix.</h2>
       <p class="section-sub">Baseline your existing debt, fail CI only on <b>new</b> findings, and generate a guardrail + regression test for every finding you burn down.</p>
-      <div class="adopt reveal">
+      <div class="adopt reveal stagger">
         <div class="adopt-card">
           <header><h3>Gate CI on new findings</h3><span class="st">github actions</span></header>
           <pre><span class="c"># .github/workflows/security.yml</span>
@@ -470,7 +561,7 @@
 <span class="c"># stable schema · exit-code contract</span>
 <span class="c"># remediation policy · fingerprint</span>
 <span class="c"># diffing — the full agent contract</span></pre>
-          <footer>Point any coding agent at <a href="https://github.com/arpankernel/palisade/blob/main/docs/agents.md" style="border-bottom:1px solid var(--b05)">docs/agents.md</a> and it knows the rules.</footer>
+          <footer>Point any coding agent at <a href="./docs/agents/" style="border-bottom:1px solid var(--b05)">docs/agents.md</a> and it knows the rules.</footer>
         </div>
       </div>
     </div>
@@ -533,40 +624,142 @@
     <nav class="f">
       <a href="https://github.com/arpankernel/palisade">GitHub</a>
       <a href="https://pypi.org/project/palisade-sec/">PyPI</a>
-      <a href="https://github.com/arpankernel/palisade/blob/main/docs/index.md">Docs</a>
-      <a href="https://github.com/arpankernel/palisade/blob/main/docs/tutorial.md">Tutorial</a>
-      <a href="https://github.com/arpankernel/palisade/blob/main/docs/agents.md">For agents</a>
+      <a href="./docs/">Docs</a>
+      <a href="./docs/tutorial/">Tutorial</a>
+      <a href="./docs/agents/">For agents</a>
       <a href="https://raw.githubusercontent.com/arpankernel/palisade/main/llms.txt">llms.txt</a>
     </nav>
   </div>
 </footer>
 
 <script>
-  document.documentElement.classList.add('js');
-  // copy-to-clipboard on install commands
+(function(){
+  var root = document.documentElement;
+  root.classList.add('js');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- copy to clipboard ---- */
   document.querySelectorAll('[data-copy]').forEach(function(el){
     el.addEventListener('click', function(){
       navigator.clipboard.writeText(el.getAttribute('data-copy')).then(function(){
-        var c = el.querySelector('.copy'); var t = c.textContent;
+        var c = el.querySelector('.copy'), t = c.textContent;
         c.textContent = 'copied'; setTimeout(function(){ c.textContent = t; }, 1600);
       });
     });
   });
-  // accordion
+
+  /* ---- FAQ accordion ---- */
   document.querySelectorAll('.faq-q').forEach(function(btn){
     btn.addEventListener('click', function(){
       var item = btn.parentElement, open = item.classList.contains('open');
-      document.querySelectorAll('.faq-item.open').forEach(function(i){ i.classList.remove('open'); i.querySelector('.ic').textContent='+'; });
-      if(!open){ item.classList.add('open'); btn.querySelector('.ic').textContent='−'; }
+      document.querySelectorAll('.faq-item.open').forEach(function(i){
+        i.classList.remove('open'); i.querySelector('.ic').textContent = '+';
+      });
+      if(!open){ item.classList.add('open'); btn.querySelector('.ic').textContent = '\u2212'; }
     });
   });
-  // scroll reveal
-  // reveal when entering from below — and anything already scrolled past
-  // (huge top rootMargin) so fast scrolling never leaves blank sections.
+
+  /* ---- scroll progress + sticky nav ---- */
+  var bar = document.querySelector('.scroll-progress'), nav = document.querySelector('nav'), ticking = false;
+  function onScroll(){
+    var max = document.documentElement.scrollHeight - innerHeight;
+    var pct = max > 0 ? (scrollY / max) * 100 : 0;
+    if(bar) bar.style.width = pct + '%';
+    if(nav) nav.classList.toggle('stuck', scrollY > 24);
+    ticking = false;
+  }
+  addEventListener('scroll', function(){ if(!ticking){ ticking = true; requestAnimationFrame(onScroll); } }, {passive:true});
+  onScroll();
+
+  /* ---- eased anchor scrolling (Lenis-style exponential out) ---- */
+  if(!reduce){
+    document.querySelectorAll('a[href^="#"]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        var id = a.getAttribute('href');
+        if(id.length < 2) return;
+        var t = document.querySelector(id);
+        if(!t) return;
+        e.preventDefault();
+        var start = scrollY, end = t.getBoundingClientRect().top + scrollY - 70, d = 1100, t0 = null;
+        function step(ts){
+          if(t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / d);
+          var e2 = 1 - Math.pow(2, -10 * p);
+          scrollTo(0, start + (end - start) * e2);
+          if(p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      });
+    });
+  }
+
+  /* ---- terminal: wrap lines so they can type on ---- */
+  document.querySelectorAll('.term-body').forEach(function(body){
+    var html = body.innerHTML.replace(/\s+$/, '');
+    body.innerHTML = html.split('\n').map(function(l){
+      return '<span class="tline">' + (l.length ? l : '&nbsp;') + '</span>';
+    }).join('');
+    var cur = document.createElement('span');
+    cur.className = 'term-cursor'; cur.setAttribute('aria-hidden','true');
+    body.appendChild(cur);
+  });
+  function runTerminal(body){
+    var lines = body.querySelectorAll('.tline');
+    if(reduce){ lines.forEach(function(l){ l.classList.add('in'); }); return; }
+    lines.forEach(function(l, i){ setTimeout(function(){ l.classList.add('in'); }, i * 42); });
+  }
+
+  /* ---- animated counters ---- */
+  function runCounters(scope){
+    scope.querySelectorAll('.count').forEach(function(el){
+      var to = parseFloat(el.getAttribute('data-to')) || 0;
+      var suffix = el.getAttribute('data-suffix') || '';
+      if(reduce){ el.textContent = to.toLocaleString() + suffix; return; }
+      var dur = 1200, t0 = null;
+      function step(ts){
+        if(t0 === null) t0 = ts;
+        var p = Math.min(1, (ts - t0) / dur);
+        var e2 = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * e2).toLocaleString() + suffix;
+        if(p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* ---- one observer drives every on-scroll effect ---- */
   var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, {threshold: 0, rootMargin: '10000px 0px -40px 0px'});
-  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+    entries.forEach(function(e){
+      if(!e.isIntersecting) return;
+      var el = e.target;
+      el.classList.add('in');
+      if(el.classList.contains('stats')) runCounters(el);
+      if(el.classList.contains('terminal-frame')) runTerminal(el.querySelector('.term-body'));
+      io.unobserve(el);
+    });
+  }, {threshold: 0, rootMargin: '10000px 0px -60px 0px'});
+
+  document.querySelectorAll('.reveal, .stagger, .kicker, .quote, .prec, .terminal-frame')
+    .forEach(function(el){ io.observe(el); });
+
+  /* ---- stagger children via transition-delay ---- */
+  document.querySelectorAll('.stagger').forEach(function(g){
+    Array.prototype.forEach.call(g.children, function(c, i){
+      c.style.transitionDelay = Math.min(i * 70, 560) + 'ms';
+    });
+  });
+
+  /* ---- cursor-tracking glow on rule cards ---- */
+  if(!reduce && matchMedia('(hover: hover)').matches){
+    document.querySelectorAll('.rule-card').forEach(function(card){
+      card.addEventListener('mousemove', function(ev){
+        var r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (ev.clientX - r.left) + 'px');
+        card.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+      });
+    });
+  }
+})();
 </script>
 </body>
 </html>

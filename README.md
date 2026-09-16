@@ -1,6 +1,6 @@
 # Palisade
 
-> **Website:** https://arpankernel.github.io/palisade/
+> **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
 
 **A linter for LLM security.** Palisade statically detects prompt-injection
 vulnerabilities in Python and JavaScript/TypeScript codebases — untrusted
@@ -35,18 +35,18 @@ HIGH  app.py:31  [PI-EXEC] Prompt injection reaching code execution
 
 ## Documentation
 
-Full docs live in [`docs/`](docs/index.md):
+Full docs are published at **[https://arpankernel.github.io/palisade/docs/](https://arpankernel.github.io/palisade/docs/)** (source in [`docs/`](docs/index.md)):
 
 | | |
 |---|---|
-| [Getting started](docs/getting-started.md) | Install, first scan, reading a finding, CI gating — 5 minutes |
-| [End-to-end tutorial](docs/tutorial.md) | Full workflow on a sample app ([`examples/support-bot/`](examples/support-bot/)): scan → fix → verify → baseline → CI |
-| [Architecture](docs/architecture.md) | Frontends → taint IR → engine → rules; the precision philosophy; the safety contract |
-| [CLI reference](docs/cli-reference.md) | Every command, flag, exit code, config key; the stable JSON schema |
-| [Rules reference](docs/rules-reference.md) | All five builtin rules; pattern semantics; custom rules |
-| [For AI agents](docs/agents.md) | Machine contract: commands, JSON parsing, remediation policy (also [`llms.txt`](llms.txt), [`AGENTS.md`](AGENTS.md)) |
-| [Roadmap](docs/roadmap.md) | Phases 0–6: Measure → Distribute → Cover → Scale → Certify → Expand → Remediate |
-| [Proof scans](docs/proof-scans.md) | Evidence vs. real CVE repos — including the Vanna CVE-2024-5565 catch |
+| [Getting started](https://arpankernel.github.io/palisade/docs/getting-started/) | Install, first scan, reading a finding, CI gating — 5 minutes |
+| [End-to-end tutorial](https://arpankernel.github.io/palisade/docs/tutorial/) | Full workflow on a sample app ([`examples/support-bot/`](examples/support-bot/)): scan → fix → verify → baseline → CI |
+| [Architecture](https://arpankernel.github.io/palisade/docs/architecture/) | Frontends → taint IR → engine → rules; the precision philosophy; the safety contract |
+| [CLI reference](https://arpankernel.github.io/palisade/docs/cli-reference/) | Every command, flag, exit code, config key; the stable JSON schema |
+| [Rules reference](https://arpankernel.github.io/palisade/docs/rules-reference/) | All five builtin rules; pattern semantics; custom rules |
+| [For AI agents](https://arpankernel.github.io/palisade/docs/agents/) | Machine contract: commands, JSON parsing, remediation policy (also [`llms.txt`](llms.txt), [`AGENTS.md`](AGENTS.md)) |
+| [Roadmap](https://arpankernel.github.io/palisade/docs/roadmap/) | Phases 0–6: Measure → Distribute → Cover → Scale → Certify → Expand → Remediate |
+| [Proof scans](https://arpankernel.github.io/palisade/docs/proof-scans/) | Evidence vs. real CVE repos — including the Vanna CVE-2024-5565 catch |
 
 ## Why
 
