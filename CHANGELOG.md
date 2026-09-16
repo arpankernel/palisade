@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.4.0 - 2026-09-16
+
+Phase 0 of the roadmap is complete: quality is now measured against a pinned
+benchmark corpus instead of asserted. Precision **1.000**, recall **0.667**,
+F1 **0.800** across 26 third-party repos and 17,343 scanned files, with zero
+false positives. The single miss (PandasAI CVE-2024-12366, whose exec sits
+behind dynamically dispatched pipeline steps) is labelled as a miss on
+purpose, so recall stays honest and the gap stays visible.
+
+### Added
+
+- **Inline suppressions.** `# palisade: ignore[PI-EXEC] - reason`, on the
+  sink line or the one above, with `#` and `//` so Python and JS/TS share
+  one syntax. Deliberately loud: suppressed findings are counted, carry
+  their reason into `--json` under `suppressions`, and a comment that stops
+  matching anything is reported as stale. Without this, a single unfixable
+  finding disables the whole scanner.
+- **Benchmark corpus.** `corpus/repos.yaml` pins 26 repos with resolved
+  SHAs, fetched by `corpus/fetch.py`; `scripts/precision.py` scores both it
+  and the fast fixture corpus. A weekly workflow runs the slow one.
+- **False-positive regression harness.** `tests/fixtures/regressions/` with
+  auto-discovery, so any reported false positive becomes a permanent
+  must-stay-silent test and precision only ratchets upward.
+- **Releases via Trusted Publishing.** Tag-triggered OIDC publishing with no
+  API token anywhere, gated on the full test suite, a tag/version match
+  check, an sdist contents check, and a smoke test of the built wheel.
+
+### Changed
+
+- **Findings are deduplicated by sink.** One dangerous line is one thing to
+  fix, so it is reported once even when several rules match it or several
+  untrusted sources converge on it. The best-evidenced trace is kept and
+  collapsed duplicates are recorded in `count`. Previously a library entry
+  point with both an `input()` path and a public-parameter path reaching the
+  same `exec` produced two identical findings.
+- The precision harness scores recall at any severity, since a real
+  vulnerability that Palisade deliberately downgrades to MED is still found,
+  and scores precision on HIGH only, since advisory rules never gate CI.
+
+### Fixed
+
+- Scanning a file with an invalid escape sequence printed the whole source
+  line to stderr, because `ast.parse` raises `SyntaxWarning` and Python
+  echoes the offending line. On one real repo that dumped 40 KB of file
+  contents and bypassed the 200-char snippet redaction.
+- The precision gate reported success on an unlabelled corpus, because
+  precision is defined as 1.0 when tp+fp is 0. It now fails when it measures
+  nothing.
+
 ## 0.3.4 - 2026-09-16
 
 - Packaging fix: the source distribution no longer bundles the documentation
