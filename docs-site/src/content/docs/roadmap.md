@@ -28,16 +28,16 @@ Remediate.** Trust before reach before depth.
 ## Where we are (v0.3.x)
 
 The engine, five rules, both frontends, library mode, the baseline/CI flow,
-and a template-based `fix` are shipped, published, and pinned by ~100 tests
+and a template-based `fix` are shipped, published, and pinned by 112 tests
 plus real-repo evidence ([proof-scans.md](../proof-scans/)): zero false
-positives across ~2,600 real files, and the actual Vanna CVE-2024-5565 sink
+positives across 2,040 real files, and the actual Vanna CVE-2024-5565 sink
 flagged with builtin rules. Two items originally sequenced late were
 deliberately pulled forward in v0.3 with reduced scope — noted in their
 phases below.
 
 | Phase | Theme | Status |
 |---|---|---|
-| 0 | Measure | **Partially done** — FP regression discipline, safety guarantees, and CVE-repo evidence exist; the formal benchmark corpus + precision gate do not yet |
+| 0 | Measure | **Mostly done** — precision harness + regression gate live in CI, self-security enforced over a hostile corpus; the *seed* corpus is our own fixtures, so the pinned third-party benchmark corpus and inline suppressions remain |
 | 1 | Distribute | **Next up** — SARIF, GitHub Action, pre-commit; the public-launch gate lives here |
 | 2 | Cover | Open — notebooks, framework breadth, rule-test framework for community PRs |
 | 3 | Scale | Open — incremental scanning, caching, perf gates |
@@ -59,15 +59,20 @@ without silently breaking it."
   should-be-silent`.
 - Precision/Recall/F1 harness in CI that **fails the build if precision
   drops** below threshold (~90% to start). The published number is a
-  byproduct; the regression gate is the point.
+  byproduct; the regression gate is the point. *(Shipped:
+  `scripts/precision.py` + `corpus/manifest.yaml`, wired into CI — but the
+  corpus is currently seeded with our own fixtures, not pinned third-party
+  repos. That substitution is the remaining work.)*
 - FP regression harness: every reported false positive becomes a permanent
   must-stay-silent fixture. *(Already practiced informally — the test suite
   grew exactly this way — needs formalizing against the corpus.)*
 - Inline suppressions: `# palisade: ignore[PI-EXEC] — reviewed, sandboxed`,
   tracked and surfaced in reports.
 - Self-safety guarantees: never-execute and never-crash assertions.
-  *(Shipped: live never-execute test, parse-failure skip guarantees;
-  adversarial fuzz corpus still to add.)*
+  *(Shipped: `tests/fixtures/hostile/` adversarial corpus driven by a
+  `sys.addaudithook` tripwire — no exec/import of target code, no
+  subprocess, no sockets; plus resource caps and skip-with-warning
+  guarantees. See `HARDENING-AUDIT.md`.)*
 
 **Done when:** published P/R on N repos; precision gate live in CI;
 suppressions shipped. **Trap:** overfitting to the four CVE repos.
@@ -136,6 +141,7 @@ premature (current baseline: ~1,600 files in ~36 s).
 - Sigstore-signed releases, SLSA provenance, CycloneDX SBOM, reproducible
   builds, minimal-dependency audit.
 - `SECURITY.md` + coordinated disclosure (you *will* receive vuln reports).
+  *(Shipped.)*
 - Telemetry: **off by default or not at all** — source never leaves the
   machine. Default-on telemetry is self-sabotage for a security tool.
 - Release discipline: SemVer, changelog *(shipped)*, deprecation/LTS policy.

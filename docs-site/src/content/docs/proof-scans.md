@@ -146,6 +146,15 @@ Everything above is now closed:
   1,576 mixed-language Langflow tree scans in ~36s, still zero FPs) and the
   offline `fix` command.
 
+**Re-derived totals (v0.3.2, JS frontend enabled).** Rescanning all three
+repos with the current builtin rules: vanna 45 files, PandasAI 419, Langflow
+1,576 — **2,040 files total, zero false positives, zero crashes, zero files
+skipped**. The only finding across all three is Vanna's CVE-2024-5565 sink at
+`base.py:1998`, and it is now caught by the *default* rules (PI-FRAMEWORK-EXEC
+via the `input()` source) without needing library mode. Earlier drafts of this
+report quoted "~2,600 files"; that double-counted Langflow's Python files, and
+is corrected here.
+
 ## Takeaways for v0.2
 
 Priority order implied by these scans:
