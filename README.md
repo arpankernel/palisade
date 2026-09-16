@@ -14,7 +14,7 @@ No API key. No signup. No network calls. Pure static analysis.
 uvx palisade-sec scan .
 ```
 
-![palisade-sec scanning the example app](docs/demo.svg)
+![palisade-sec scanning the example app](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/demo.svg)
 
 <details><summary>Same output as text</summary>
 
@@ -168,7 +168,7 @@ Or the same keys in `.palisade.toml`.
 Rules are plain YAML validated by a pydantic schema — sources, LLM call
 signatures, sinks, sanitizers, partial defenses. Adding coverage for a new
 framework is a small PR with **no engine changes**. See
-[`src/palisade_sec/rules/README.md`](src/palisade_sec/rules/README.md) for
+[`src/palisade_sec/rules/README.md`](https://github.com/arpankernel/palisade/blob/main/src/palisade_sec/rules/README.md) for
 the 5-minute guide.
 
 ## Architecture

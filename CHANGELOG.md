@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — 2026-09-16
+
+- PyPI listing health: absolute URLs for the README demo image and the
+  rules-guide link (relative paths render broken on the PyPI project
+  page); package summary now says Python **and JavaScript/TypeScript**.
+
 ## 0.3.1 — 2026-09-16
 
 - Terminal output: escape rich markup in notes/warnings/skips so literal
