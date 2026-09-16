@@ -1,0 +1,155 @@
+# CLI reference
+
+```
+palisade-sec [--version] <command> [args]
+```
+
+Commands: `scan` · `baseline` · `fix`. All are pure local operations — no
+network, no API key, no telemetry.
+
+## Exit codes (the contract)
+
+| Code | Meaning |
+|---|---|
+| `0` | Success. Includes "findings exist but `--ci` not set" and "all findings baselined under `--ci`". |
+| `1` | `--ci` was set and at least one **new HIGH** finding exists. |
+| `2` | Usage error (e.g. target path does not exist). |
+
+## `palisade-sec scan [PATH]`
+
+Scan a file or directory (default `.`) for source → LLM → sink paths.
+
+| Flag | Effect |
+|---|---|
+| `--all` | Show MED/LOW findings too. Default view: HIGH + "risky" downgraded findings. |
+| `--json` | Emit the stable JSON document (below) to stdout instead of terminal output. |
+| `--report` | Also write `palisade-report.md` — a shareable mini threat model grouped by severity. |
+| `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists. |
+| `--baseline FILE` | Diff against a baseline; only new findings are reported/counted. Stale entries are noted. |
+| `--rules DIR` | Load additional/overriding YAML rules from a directory (same `id` overrides a builtin). |
+| `--config FILE` | Explicit config file (`.palisade.toml` format). |
+| `--assume-params-untrusted` | **Library mode**: parameters of public (non-underscore) functions become untrusted sources (`param:<name>` in traces). |
+
+File selection: `*.py`/`*.pyi` always; `*.js`/`*.mjs`/`*.cjs`/`*.jsx`/`*.ts`/`*.tsx`
+when the `[js]` extra is installed (otherwise skipped with a note).
+Always excluded: `.venv`, `venv`, `site-packages`, `.git`, `build`, `dist`,
+`node_modules`, caches, plus `.gitignore` patterns. `tests/**`, `test_*.py`,
+`*_test.py`, and `conftest.py` are skipped unless `include_tests = true`.
+Unparseable files are skipped with a warning, never a crash.
+
+## `palisade-sec baseline [PATH]`
+
+Fingerprint current findings so CI fails only on new ones.
+
+| Flag | Effect |
+|---|---|
+| `--output FILE` | Baseline path (default `<PATH>/.palisade/baseline.json`). |
+| `--rules DIR` / `--config FILE` | As in `scan`. |
+
+Fingerprints are `sha256(rule + source file + normalized source snippet +
+sink file + normalized sink snippet)` — line-shift resilient by
+construction. The file is sorted and deterministic (diff-friendly); commit
+it. Duplicate findings collapse to one fingerprint with a count.
+
+## `palisade-sec fix [PATH]`
+
+Write a remediation plan: for each finding, a rule-tailored guardrail plus a
+pytest asserting the guardrail blocks the canonical attack and preserves the
+happy path. Deterministic templates, fully offline, and the scanned project
+is **never modified**.
+
+| Flag | Effect |
+|---|---|
+| `--output FILE` | Plan path (default `palisade-fixes.md`). |
+| `--all` | Cover MED/LOW findings too. |
+| `--rules` / `--config` / `--assume-params-untrusted` | As in `scan`. |
+
+Guardrail families: AST allowlist (exec/eval), argv + executable allowlist
+(shell), single-SELECT parser check (SQL), host allowlist + private-IP block
+(HTTP/SSRF).
+
+## Configuration
+
+`pyproject.toml` under `[tool.palisade]`, or the same keys in
+`.palisade.toml` at the scan root (`--config` overrides discovery). Invalid
+config → warning + defaults, never a crash.
+
+```toml
+[tool.palisade]
+paths_ignore = ["migrations/*", "sandbox/*"]   # glob patterns, relative to root
+include_tests = false                          # scan tests/** too
+max_hops = 3                                   # inter-procedural depth bound
+assume_params_untrusted = false                # library mode default
+rules_dir = "security/palisade-rules"          # extra rules directory
+```
+
+CLI flags override config; an explicit `assume_params_untrusted=False` from
+an API caller overrides both.
+
+## JSON schema
+
+`scan --json` emits one document. `schema_version` gates compatibility —
+parse defensively on any other value.
+
+```jsonc
+{
+  "schema_version": 1,
+  "tool": "palisade-sec 0.3.2",
+  "summary": {
+    "files_scanned": 6,
+    "high": 4, "med": 1, "low": 0,
+    "baseline_suppressed": 0          // known findings hidden by --baseline
+  },
+  "findings": [                        // sorted: severity, file, line, rule
+    {
+      "rule": "PI-EXEC",
+      "title": "Prompt injection reaching code execution",
+      "severity": "high",              // high | med | low
+      "confidence": "HIGH",            // HIGH | MEDIUM | LOW (path directness)
+      "risky_partial_defense": false,  // true when downgraded (see below)
+      "file": "app.py",                // sink location = finding location
+      "line": 64,
+      "fingerprint": "9f2c4a1b8e3d5f07",   // baseline identity, line-independent
+      "count": 1,                      // duplicates collapsed into this entry
+      "trace": {
+        "source": { "file": "app.py", "line": 56, "snippet": "spec = request.json[\"spec\"]", "matched": "request.json" },
+        "llm":    { "file": "app.py", "line": 57, "snippet": "resp = client.chat.completions.create(", "matched": "chat.completions.create" },
+        "sink":   { "file": "app.py", "line": 64, "snippet": "exec(code)", "matched": "exec" }
+      },
+      "partial_defenses": [            // non-empty ⇒ severity was downgraded to med
+        { "pattern": "is_blocked_code", "kind": "partial_defense", "file": "app.py", "line": 95 }
+        // kind: "partial_defense" (denylist/confirmation gate)
+        //     | "unverified_sanitizer" (sanitizer in name only)
+      ],
+      "attack": "...", "fix": "...", "references": ["CVE-...", "..."]
+    }
+  ],
+  "skipped":  ["broken.py: parse error, file skipped (...)"],
+  "warnings": ["invalid rule file skipped: bad.yaml: ..."],
+  "notes":    ["1 JS/TS file(s) skipped — install ... palisade-sec[js] ..."]
+}
+```
+
+Notes for consumers:
+
+- `--json` always includes **all** severities; the HIGH-first display filter
+  applies to terminal output only.
+- In library mode, `trace.source.matched` is `param:<name>`; for route
+  handlers it's the matched source pattern (`request.json`, `req.body`, …).
+- `notes` may include an inter-procedural truncation notice on very deep
+  call chains — recall, not precision, is what truncation affects.
+
+## Baseline file format
+
+```jsonc
+{
+  "schema_version": 1,
+  "tool": "palisade-sec 0.3.2",
+  "findings": {
+    "<fingerprint>": { "rule": "PI-EXEC", "file": "app.py", "severity": "high", "count": 1 }
+  }
+}
+```
+
+Sorted by fingerprint; safe to merge in git. A missing or corrupt baseline
+degrades gracefully: a warning, and all findings treated as new.

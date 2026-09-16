@@ -1,0 +1,35 @@
+# Palisade (palisade-sec)
+
+> A linter for LLM security: statically detects prompt-injection paths —
+> untrusted input → LLM → dangerous sink (exec/eval, shell, raw SQL, URL
+> fetch) — in Python and JavaScript/TypeScript codebases, in CI. Pure static
+> analysis: never executes scanned code, no network calls, no API key.
+> Install: `pip install palisade-sec` (add `[js]` for JS/TS). Run:
+> `palisade-sec scan . --json`. Exit codes: 0 ok, 1 new HIGH under --ci,
+> 2 usage error. JSON schema_version: 1.
+
+Key facts for tools and agents: findings require a complete
+source→LLM→sink data-flow path (near-zero false positives by design);
+denylists/confirmation gates and sanitizers-in-name-only downgrade findings
+to MED "risky" rather than suppressing them; `palisade-sec fix` emits
+guardrail templates + regression tests without modifying code;
+`--assume-params-untrusted` enables library mode (public function params
+become sources); `baseline` + `scan --ci --baseline` gates CI on NEW
+findings only.
+
+## Docs
+
+- [Agent contract](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/agents.md): exact commands, JSON parsing rules, remediation policy — start here if you are an AI agent
+- [CLI reference](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/cli-reference.md): all commands, flags, exit codes, config keys, full JSON + baseline schemas
+- [Rules reference](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/rules-reference.md): the five builtin rules, pattern semantics, sanitizer tiers, custom rules
+- [End-to-end tutorial](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/tutorial.md): scan → fix → verify → baseline → CI on a sample app
+- [Architecture](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/architecture.md): frontends → taint IR → engine → rules; precision decisions; safety contract
+
+## Optional
+
+- [Getting started](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/getting-started.md): 5-minute human onboarding
+- [Proof scans](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/proof-scans.md): evidence vs. real CVE repos (Vanna CVE-2024-5565 caught; misses documented)
+- [Roadmap](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/roadmap.md): Phases 0–6, Measure → Remediate, with current status
+- [Contributor agent instructions](https://raw.githubusercontent.com/arpankernel/palisade/main/AGENTS.md): build/test commands and invariants for changing Palisade itself
+- [README](https://raw.githubusercontent.com/arpankernel/palisade/main/README.md): project front page
+- [Changelog](https://raw.githubusercontent.com/arpankernel/palisade/main/CHANGELOG.md): release history
