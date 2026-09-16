@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.4 - 2026-09-16
+
+- Packaging fix: the source distribution no longer bundles the documentation
+  site. The 0.3.3 sdist accidentally swept in docs-site/node_modules, which
+  made it 85 MB across 8,599 files, because hatchling does not honour nested
+  .gitignore files. Wheels were never affected, so normal installs were fine.
+  The sdist now excludes docs-site, website and .github, and is back to
+  roughly 163 KB.
+
+
 ## 0.3.3 - 2026-09-16
 
 - Removed every em dash from the README, docs, website, rule text and code

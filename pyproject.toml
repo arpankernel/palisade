@@ -1,6 +1,6 @@
 [project]
 name = "palisade-sec"
-version = "0.3.3"
+version = "0.3.4"
 description = "A linter for LLM security: statically detects prompt-injection-to-sink vulnerabilities in Python and JavaScript/TypeScript codebases."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -46,6 +46,17 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/palisade_sec"]
+
+[tool.hatch.build.targets.sdist]
+# Keep the source distribution to actual source. The docs site carries
+# node_modules (8,599 files, 85 MB) and the marketing site is not part of
+# the package; hatchling does not honour their nested .gitignore files.
+exclude = [
+    "/docs-site",
+    "/website",
+    "/.github",
+    "/dist",
+]
 
 [dependency-groups]
 dev = [
