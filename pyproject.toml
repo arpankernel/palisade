@@ -1,6 +1,6 @@
 [project]
 name = "palisade-sec"
-version = "0.3.0"
+version = "0.3.1"
 description = "A linter for LLM security: statically detects prompt-injection-to-sink vulnerabilities in Python codebases."
 readme = "README.md"
 requires-python = ">=3.11"

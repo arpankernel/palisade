@@ -101,3 +101,27 @@ def test_version():
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "palisade-sec" in result.output
+
+
+def test_terminal_notes_with_brackets_render_verbatim():
+    """rich markup must not eat literal [brackets] in notes/warnings, e.g.
+    the `pip install 'palisade-sec[js]'` hint."""
+    from io import StringIO
+
+    from rich.console import Console
+
+    from palisade_sec.report.terminal import print_findings
+
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=False, width=200)
+    print_findings(
+        console,
+        findings=[],
+        files_scanned=1,
+        skipped=[],
+        warnings=["config [tool.palisade] ignored"],
+        notes=["install with pip install 'palisade-sec[js]'"],
+    )
+    out = buf.getvalue()
+    assert "palisade-sec[js]" in out
+    assert "[tool.palisade]" in out

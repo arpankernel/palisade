@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.3.0 — unreleased
+## 0.3.1 — 2026-09-16
+
+- Terminal output: escape rich markup in notes/warnings/skips so literal
+  brackets render verbatim (the `pip install 'palisade-sec[js]'` hint was
+  losing its `[js]`). Found by the full-stack verification pass.
+
+## 0.3.0 — 2026-09-16
 
 The "everything deferred" release: multi-language, framework-aware, and
 able to propose fixes.
