@@ -187,6 +187,10 @@ class ScanResult:
     notes: list[str] = field(default_factory=list)
     # findings silenced by inline `palisade: ignore` comments
     suppressed: list[dict] = field(default_factory=list)
+    # Untrusted sources the engine minted. Zero means the scan was never
+    # challenged - taint had nowhere to start - so "no findings" is not
+    # evidence the code is clean. See EngineResult.sources_found.
+    sources_found: int = 0
 
 
 def run_scan(
@@ -293,6 +297,7 @@ def run_scan(
     kept, suppressed = apply_suppressions(engine_result.findings, suppressions)
     result.findings = kept
     result.suppressed = suppressed
+    result.sources_found = engine_result.sources_found
     result.notes.extend(engine_result.notes)
     if suppressed:
         result.notes.append(

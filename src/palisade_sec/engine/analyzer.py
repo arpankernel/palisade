@@ -42,6 +42,19 @@ _CAST_SANITIZERS = frozenset({"int", "float", "bool", "len", "abs", "hash", "ord
 class EngineResult:
     findings: list[Finding] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    # Distinct code locations where an untrusted source was minted, counted
+    # once each no matter how many rules or evaluations touched them. Zero
+    # means taint had nowhere to start, so "no findings" says nothing about
+    # the code - it is an unchallenged scan, not a clean one. Scanning a
+    # library without --assume-params-untrusted is the common way to get
+    # here: library code has no `request.*`, no `input()`, no `sys.argv`, so
+    # there is no source and a finding is impossible by construction.
+    #
+    # Deduplicated on purpose. Counting raw mint events multiplies by the
+    # rule count (5 rules -> every source counted 5x), which reads as a
+    # plausible number and is wrong by 5x - exactly the kind of figure that
+    # ends up quoted in a README.
+    sources_found: int = 0
 
 
 class Engine:
@@ -79,11 +92,14 @@ class Engine:
         result = EngineResult()
         seen: dict[tuple, Finding] = {}
         truncated: set[str] = set()
+        # Unioned across rules so a source every rule matches counts once.
+        sources_seen: set[tuple[str, int, str]] = set()
         for rule in self.rules:
             rr = _RuleRun(self, rule)
             rr.run()
             result.notes.extend(rr.notes)
             truncated |= rr.truncated
+            sources_seen |= rr.sources_seen
             for f in rr.findings:
                 key = (
                     f.rule_id,
@@ -148,6 +164,7 @@ class Engine:
                 f"{len(truncated)} function(s); deeper call chains were not followed"
             )
         result.notes = sorted(set(result.notes))
+        result.sources_found = len(sources_seen)
         return result
 
     def resolve(
@@ -259,6 +276,11 @@ class _RuleRun:
         self.findings: list[Finding] = []
         self.notes: list[str] = []
         self.truncated: set[str] = set()
+        # Distinct (file, line, pattern) sites where this rule minted an
+        # untrusted source. A set, not a counter: the same site is reached
+        # many times per pass and by every rule, and only the site count is
+        # meaningful. See EngineResult.sources_found.
+        self.sources_seen: set[tuple[str, int, str]] = set()
         self.memo: dict[tuple, TaintSet] = {}
         self.in_progress: set[tuple] = set()
         # (module_stem, class_name) -> {"self.x": TaintSet}
@@ -303,6 +325,7 @@ class _RuleRun:
             for p in fn.params:
                 if p in ("self", "cls"):
                     continue
+                self.sources_seen.add((fn.loc.file, fn.loc.line, f"param:{p}"))
                 env[p] = frozenset(
                     {
                         Taint(
@@ -603,6 +626,9 @@ class _Exec:
         if spec is None:
             return EMPTY
         pattern = next(p for p in spec.patterns if _matched(path, p))
+        # Recorded on the rule run, not here: _Exec is per-function-body and
+        # is discarded, while the record has to survive the whole pass.
+        self.rr.sources_seen.add((loc.file, loc.line, pattern))
         return frozenset(
             {
                 Taint(
