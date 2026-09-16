@@ -20,7 +20,10 @@ permissions:
 jobs:
   score:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A full pass is ~25+ min of CPU across ~25k files (litellm alone is
+    # 8,170), plus cloning gigabytes. Give it real headroom: a timeout here
+    # reads as a precision failure when it is only a slow runner.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
