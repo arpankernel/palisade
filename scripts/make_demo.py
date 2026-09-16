@@ -4,6 +4,7 @@ app, rendered by rich and exported as SVG.
 Usage: uv run python scripts/make_demo.py
 """
 
+import re
 from pathlib import Path
 
 from rich.console import Console
@@ -32,7 +33,16 @@ def main() -> None:
         hidden_count=len(result.findings) - len(visible),
     )
     OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(console.export_svg(title="palisade-sec"), encoding="utf-8")
+    svg = console.export_svg(title="palisade-sec")
+    # rich emits viewBox-only SVGs; PyPI's CSS renders those at 0x0 unless
+    # the root carries explicit width/height (GitHub is more forgiving).
+    match = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
+    if match and "width=" not in svg[: svg.index(">")]:
+        w, h = match.group(1), match.group(2)
+        svg = svg.replace(
+            'viewBox="0 0', f'width="{w}" height="{h}" viewBox="0 0', 1
+        )
+    OUT.write_text(svg, encoding="utf-8")
     print(f"wrote {OUT}")
 
 
