@@ -150,6 +150,18 @@ def main() -> int:
     )
     for line in m.detail:
         print(line)
+
+    # A run that measured nothing must never report success. precision is
+    # defined as 1.0 when tp+fp is 0, so an unlabelled corpus otherwise
+    # sails through the gate and manufactures false confidence - which is
+    # exactly the failure this harness exists to prevent.
+    if m.tp + m.fn == 0:
+        print(
+            "\nFAIL: no expected findings were scored. The corpus has no "
+            "ground-truth `expect:` entries, so recall is unmeasurable and "
+            "this run proves nothing."
+        )
+        return 1
     print(
         f"\nprecision={m.precision:.3f} recall={m.recall:.3f} f1={m.f1:.3f} "
         f"(tp={m.tp} fp={m.fp} fn={m.fn}; threshold={threshold})"

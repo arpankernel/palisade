@@ -15,12 +15,52 @@ threshold: 0.90
 
 repos:
   # ---- known-vulnerable releases -----------------------------------------
-  - {name: vanna-cve,    url: https://github.com/vanna-ai/vanna,        ref: v0.5.5,  kind: cve,     cve: CVE-2024-5565,  library_mode: true}
-  - {name: pandasai-cve, url: https://github.com/sinaptik-ai/pandas-ai, ref: v2.4.2,  kind: cve,     cve: CVE-2024-12366, library_mode: true}
-  - {name: langflow-cve, url: https://github.com/langflow-ai/langflow,  ref: "1.2.0", kind: cve,     cve: CVE-2025-3248}
+  - name: vanna-cve
+    url: https://github.com/vanna-ai/vanna
+    ref: v0.5.5
+    kind: cve
+    cve: CVE-2024-5565
+    library_mode: true
+    # Found. Lands at MED, not HIGH, because `_sanitize_plotly_code` is a
+    # sanitizer in name only and Palisade downgrades rather than silences.
+    # Recall counts a hit at any severity, so this scores as a true positive.
+    expect:
+      - {file: src/vanna/base/base.py, line: 1998, rule: PI-FRAMEWORK-EXEC, verdict: flag}
+  - name: pandasai-cve
+    url: https://github.com/sinaptik-ai/pandas-ai
+    ref: v2.4.2
+    kind: cve
+    cve: CVE-2024-12366
+    library_mode: true
+    # MISSED, and scored as a miss on purpose. The exec sits behind pipeline
+    # step objects dispatched dynamically at runtime, which bounded static
+    # taint cannot follow. Deleting this label would flatter the recall
+    # number; leaving it keeps the gap visible until the engine closes it.
+    expect:
+      - {file: pandasai/pipelines/chat/code_execution.py, line: 174, rule: PI-EXEC, verdict: flag}
+  - name: langflow-cve
+    url: https://github.com/langflow-ai/langflow
+    ref: "1.2.0"
+    kind: clean          # deliberately NOT scored as a CVE target
+    cve: CVE-2025-3248
+    # Out of contract by design: the request body reaches exec with no LLM
+    # anywhere on the path, so this is plain code injection (Bandit's job),
+    # not prompt injection. Kept in the corpus as 1,576 files of real
+    # AI-adjacent code that must stay silent.
+    expect: []
 
   # ---- later releases of the same projects -------------------------------
-  - {name: vanna-later,    url: https://github.com/vanna-ai/vanna,        ref: v0.7.9, kind: patched, library_mode: true}
+  - name: vanna-later
+    url: https://github.com/vanna-ai/vanna
+    ref: v0.7.9
+    kind: patched
+    library_mode: true
+    # The same shape survives into v0.7.9 at base.py:2088, so this is not a
+    # "fixed" counterpart. Labelled as expected so it scores as a hit, not
+    # as a false positive - the finding is correct, the release simply
+    # still carries the pattern.
+    expect:
+      - {file: src/vanna/base/base.py, line: 2088, rule: PI-FRAMEWORK-EXEC, verdict: flag}
   # NOTE: pandas-ai has no post-CVE 2.4.x tag (the line ends at the
   # vulnerable v2.4.2), so there is no patched counterpart to pin here.
 
