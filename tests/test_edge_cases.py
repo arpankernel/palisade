@@ -426,14 +426,14 @@ def test_partial_defense_call_downgrades(tmp_path):
 
 
 def test_sf_never_executes_scanned_code(tmp_path):
-    """Scanning must never run the target's code — module level included."""
+    """Scanning must never run the target's code - module level included."""
     marker = tmp_path / "pwned.txt"
     (tmp_path / "evil.py").write_text(
         f"open({str(marker)!r}, 'w').write('executed')\nraise SystemExit(99)\n"
     )
     res = run_scan(tmp_path)
     assert res.files_scanned == 1
-    assert not marker.exists(), "scanner executed scanned code — critical safety violation"
+    assert not marker.exists(), "scanner executed scanned code - critical safety violation"
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +463,7 @@ def test_fp_exec_env_dict_not_flagged(tmp_path):
 
 
 def test_fn_stub_method_taint_propagates(tmp_path):
-    """An abstract stub (`...` body) is a placeholder, not a taint sink —
+    """An abstract stub (`...` body) is a placeholder, not a taint sink -
     calls through it propagate (the real Vanna system_message shape)."""
     res = scan_files(
         tmp_path,

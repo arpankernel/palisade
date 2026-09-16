@@ -263,7 +263,7 @@ def run_scan(
         result.files_scanned += 1
     if js_skipped:
         result.notes.append(
-            f"{js_skipped} JS/TS file(s) skipped — install the JS frontend with "
+            f"{js_skipped} JS/TS file(s) skipped - install the JS frontend with "
             "`pip install 'palisade-sec[js]'` (or `uvx --with 'palisade-sec[js]' ...`)"
         )
 

@@ -12,7 +12,7 @@ export default defineConfig({
     starlight({
       title: "Palisade",
       description:
-        "A linter for LLM security — statically detects prompt-injection paths in Python and JS/TS.",
+        "A linter for LLM security - statically detects prompt-injection paths in Python and JS/TS.",
       tagline: "A linter for LLM security.",
       logo: { src: "./src/assets/logo.svg", replacesTitle: false },
       social: { github: "https://github.com/arpankernel/palisade" },

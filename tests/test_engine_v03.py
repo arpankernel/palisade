@@ -72,7 +72,7 @@ def test_fastapi_pydantic_body_field_flagged(tmp_path):
 
 def test_undecorated_function_params_still_clean(tmp_path):
     """Without a route decorator (and without library mode), params are
-    trusted — the decorator is what makes it an entry point."""
+    trusted - the decorator is what makes it an entry point."""
     res = _scan(tmp_path, app=FASTAPI_VULN.replace('@app.post("/agent")\n        ', ""))
     assert res.findings == []
 
@@ -100,7 +100,7 @@ def test_route_with_constant_prompt_silent(tmp_path):
 
 def test_requests_post_not_treated_as_source(tmp_path):
     """The decorator patterns (*.post etc.) must never match ordinary calls
-    like requests.post — they apply to decorators only."""
+    like requests.post - they apply to decorators only."""
     res = _scan(
         tmp_path,
         app="""

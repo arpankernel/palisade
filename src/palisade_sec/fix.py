@@ -1,6 +1,6 @@
 """`palisade-sec fix`: generate a remediation plan for scan findings.
 
-v1 is deterministic and fully offline — no LLM, no network, in keeping with
+v1 is deterministic and fully offline - no LLM, no network, in keeping with
 the tool's safety contract. For every finding it emits a rule-tailored
 guardrail (ready to adapt into the codebase) plus a pytest that asserts the
 guardrail blocks the canonical attack AND keeps the happy path working.
@@ -28,7 +28,7 @@ ALLOWED_NODES = (
 
 def validate_generated_code(code: str) -> str:
     """Strict AST allowlist for model-generated code. Anything outside the
-    allowlist is rejected — never a denylist, never a confirmation prompt."""
+    allowlist is rejected - never a denylist, never a confirmation prompt."""
     tree = ast.parse(code)
     for node in ast.walk(tree):
         if not isinstance(node, ALLOWED_NODES):
@@ -176,7 +176,7 @@ def build_fix_plan(findings: list[Finding], files_scanned: int, target: str) -> 
     for i, f in enumerate(findings, 1):
         guard, test = _GUARDRAILS[_family(f)]
         lines += [
-            f"## {i}. [{f.rule_id}] {f.title} — `{f.file}:{f.line}`",
+            f"## {i}. [{f.rule_id}] {f.title} - `{f.file}:{f.line}`",
             "",
             f"- severity **{f.severity.upper()}**, confidence {f.confidence}",
             f"- source: `{f.source.snippet}` (`{f.source.file}:{f.source.line}`)",
@@ -188,7 +188,7 @@ def build_fix_plan(findings: list[Finding], files_scanned: int, target: str) -> 
             lines += [
                 f"- existing defense {what} is **not sufficient** "
                 "(denylists/confirmation gates and name-only sanitizers have "
-                "been bypassed in real CVEs) — replace it with the guardrail below",
+                "been bypassed in real CVEs) - replace it with the guardrail below",
             ]
         lines += [
             "",
@@ -206,5 +206,5 @@ def build_fix_plan(findings: list[Finding], files_scanned: int, target: str) -> 
             "",
         ]
     if not findings:
-        lines += ["No findings — nothing to fix.", ""]
+        lines += ["No findings - nothing to fix.", ""]
     return "\n".join(lines)

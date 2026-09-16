@@ -3,8 +3,8 @@
 > **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
 
 **A linter for LLM security.** Palisade statically detects prompt-injection
-vulnerabilities in Python and JavaScript/TypeScript codebases — untrusted
-input flowing through an LLM into a dangerous sink — in CI, before they ship.
+vulnerabilities in Python and JavaScript/TypeScript codebases - untrusted
+input flowing through an LLM into a dangerous sink - in CI, before they ship.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
@@ -39,14 +39,14 @@ Full docs are published at **[https://arpankernel.github.io/palisade/docs/](http
 
 | | |
 |---|---|
-| [Getting started](https://arpankernel.github.io/palisade/docs/getting-started/) | Install, first scan, reading a finding, CI gating — 5 minutes |
+| [Getting started](https://arpankernel.github.io/palisade/docs/getting-started/) | Install, first scan, reading a finding, CI gating - 5 minutes |
 | [End-to-end tutorial](https://arpankernel.github.io/palisade/docs/tutorial/) | Full workflow on a sample app ([`examples/support-bot/`](examples/support-bot/)): scan → fix → verify → baseline → CI |
 | [Architecture](https://arpankernel.github.io/palisade/docs/architecture/) | Frontends → taint IR → engine → rules; the precision philosophy; the safety contract |
 | [CLI reference](https://arpankernel.github.io/palisade/docs/cli-reference/) | Every command, flag, exit code, config key; the stable JSON schema |
 | [Rules reference](https://arpankernel.github.io/palisade/docs/rules-reference/) | All five builtin rules; pattern semantics; custom rules |
 | [For AI agents](https://arpankernel.github.io/palisade/docs/agents/) | Machine contract: commands, JSON parsing, remediation policy (also [`llms.txt`](llms.txt), [`AGENTS.md`](AGENTS.md)) |
 | [Roadmap](https://arpankernel.github.io/palisade/docs/roadmap/) | Phases 0–6: Measure → Distribute → Cover → Scale → Certify → Expand → Remediate |
-| [Proof scans](https://arpankernel.github.io/palisade/docs/proof-scans/) | Evidence vs. real CVE repos — including the Vanna CVE-2024-5565 catch |
+| [Proof scans](https://arpankernel.github.io/palisade/docs/proof-scans/) | Evidence vs. real CVE repos - including the Vanna CVE-2024-5565 catch |
 
 ## Why
 
@@ -56,7 +56,7 @@ This exact pattern is behind real, exploited CVEs: **Langflow**
 PAL/LLMMath chains (CVE-2023-36258, CVE-2023-29374). Almost nobody defends it
 at the code level: existing tools are runtime proxies (paid, in the traffic
 path) or guardrail libraries you have to know to wire in. Palisade is the
-missing piece — **free, static, LLM-dataflow-aware, and CI-native**, like
+missing piece - **free, static, LLM-dataflow-aware, and CI-native**, like
 ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
 
 ## What it detects
@@ -71,7 +71,7 @@ ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
 
 Sources cover Flask (`request.*`), FastAPI (`@app.post` route params and
 pydantic bodies), Express (`req.body`/`req.query`), CLIs (`input()`,
-`sys.argv`, `process.argv`) — and, in library mode, public function
+`sys.argv`, `process.argv`) - and, in library mode, public function
 parameters. **Scanning the real vanna v0.5.5 with
 `--assume-params-untrusted` flags exactly the CVE-2024-5565 sink
 (`base.py:1998`) and nothing else.**
@@ -79,17 +79,17 @@ parameters. **Scanning the real vanna v0.5.5 with
 Palisade runs **taint analysis, not grep**: it only reports a *complete*
 `source → LLM → sink` data-flow path with no sanitizer in between.
 
-- Constant developer prompt → LLM → `exec`? **Silent** — no untrusted source.
-- `subprocess.run([...])` with an arg list? **Silent** — safe sink shape.
+- Constant developer prompt → LLM → `exec`? **Silent** - no untrusted source.
+- `subprocess.run([...])` with an arg list? **Silent** - safe sink shape.
 - Parameterized `cursor.execute(q, params)`? **Silent.**
-- Allowlist / pydantic validation on the path? **Silent** — sanitized.
-- Denylist or human-confirmation gate? **Flagged MED "risky"** — real CVEs
+- Allowlist / pydantic validation on the path? **Silent** - sanitized.
+- Denylist or human-confirmation gate? **Flagged MED "risky"** - real CVEs
   were exploited despite exactly those defenses. That is deliberate.
-- A "sanitizer" in name only — a project function matching `sanitize`/
+- A "sanitizer" in name only - a project function matching `sanitize`/
   `validate` whose body never actually validates? **Flagged MED "unverified
-  sanitizer"** — Vanna's cosmetic `_sanitize_plotly_code` shipped
+  sanitizer"** - Vanna's cosmetic `_sanitize_plotly_code` shipped
   CVE-2024-5565 straight through such a function.
-- Several rules matching one `source → sink` path? **One finding** — the
+- Several rules matching one `source → sink` path? **One finding** - the
   most specific rule wins; no duplicate noise.
 
 ## Install & run
@@ -128,13 +128,13 @@ palisade-sec fix .                 # remediation plan: guardrail + test per find
 finding, a rule-tailored guardrail (AST allowlist for exec, arg-list +
 executable allowlist for shell, SELECT-only parser check for SQL, host
 allowlist + private-IP block for SSRF) **plus a pytest asserting the
-guardrail blocks the canonical attack**. Deterministic and offline — it
+guardrail blocks the canonical attack**. Deterministic and offline - it
 never modifies your code and never calls an LLM.
 
 ### Scanning libraries
 
 Apps read untrusted input from `request.*` / `input()` / `sys.argv`. A
-*library* has no visible caller — its public parameters ARE the untrusted
+*library* has no visible caller - its public parameters ARE the untrusted
 world (Vanna's `ask(question)`, CVE-2024-5565). Library mode treats the
 parameters of public (non-underscore) functions as untrusted sources:
 
@@ -143,12 +143,12 @@ palisade-sec scan path/to/library --assume-params-untrusted
 ```
 
 If the library routes LLM calls through its own wrapper method, add the
-wrapper to a custom rule's `llm_signatures` (e.g. `"*.submit_prompt"`) — see
+wrapper to a custom rule's `llm_signatures` (e.g. `"*.submit_prompt"`) - see
 the rules guide.
 
 ## CI
 
-Gate pull requests on **new** findings only — adopt Palisade on an imperfect
+Gate pull requests on **new** findings only - adopt Palisade on an imperfect
 codebase without a wall of pre-existing failures:
 
 ```bash
@@ -182,7 +182,7 @@ Or the same keys in `.palisade.toml`.
 
 ## Custom rules
 
-Rules are plain YAML validated by a pydantic schema — sources, LLM call
+Rules are plain YAML validated by a pydantic schema - sources, LLM call
 signatures, sinks, sanitizers, partial defenses. Adding coverage for a new
 framework is a small PR with **no engine changes**. See
 [`src/palisade_sec/rules/README.md`](https://github.com/arpankernel/palisade/blob/main/src/palisade_sec/rules/README.md) for
@@ -200,14 +200,14 @@ source ──▶ language frontends ──────────────�
              YAML rules ──▶ findings ──▶ baseline diff ──▶ terminal / json / md
 ```
 
-The frontend/IR split is the scalability story — proven, not promised: the
+The frontend/IR split is the scalability story - proven, not promised: the
 JS/TS frontend landed with **zero engine changes**, and the same YAML rules
 match both languages (`chat.completions.create`, `eval`,
 `child_process.exec` are just dotted paths). Go and more come the same way.
 
 ## Safety of the tool itself
 
-- Palisade **never executes, imports, or evaluates scanned code** — it only
+- Palisade **never executes, imports, or evaluates scanned code** - it only
   parses source text with `ast.parse`.
 - `scan` makes **no network calls** and needs no API key or account.
 - No telemetry. Nothing leaves your machine.
@@ -215,7 +215,7 @@ match both languages (`chat.completions.create`, `eval`,
 ## An honest note on scope
 
 Palisade is **one layer** of defense against **one class** of vulnerability.
-A clean scan means no *detected* injection-to-sink path — it does not mean
+A clean scan means no *detected* injection-to-sink path - it does not mean
 your application is secure. Keep your runtime guardrails, permissions
 boundaries, and sandboxes; Palisade complements them, before merge.
 

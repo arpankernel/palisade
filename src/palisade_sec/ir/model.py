@@ -195,10 +195,10 @@ class FuncDef:
     loc: Loc
     class_name: str | None = None
     is_test: bool = False
-    # True when the body contains a membership test (`x in y`) — one signal
+    # True when the body contains a membership test (`x in y`) - one signal
     # that a sanitizer-named function really validates (see engine docs).
     has_membership_test: bool = False
-    # Dotted paths of decorators (alias-resolved), e.g. "app.post" — used to
+    # Dotted paths of decorators (alias-resolved), e.g. "app.post" - used to
     # recognize web-framework entry points whose params are untrusted.
     decorators: list[str] = field(default_factory=list)
 
@@ -214,6 +214,6 @@ class Module:
     # class name -> base-class dotted paths (alias-resolved), for
     # class-hierarchy method resolution.
     class_bases: dict[str, list[str]] = field(default_factory=dict)
-    # sha256[:16] of the raw file bytes — the seam for future incremental
+    # sha256[:16] of the raw file bytes - the seam for future incremental
     # scanning / caching (unused by the engine itself).
     content_hash: str = ""

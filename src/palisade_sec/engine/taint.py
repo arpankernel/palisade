@@ -15,7 +15,7 @@ LLM = "llm"
 
 @dataclass(frozen=True)
 class PartialHit:
-    """A weak defense seen on the path. Never suppresses — downgrades to MED.
+    """A weak defense seen on the path. Never suppresses - downgrades to MED.
 
     kind:
       "partial_defense"      denylist / confirmation gate (real CVEs were

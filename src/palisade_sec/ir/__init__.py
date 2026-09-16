@@ -1,7 +1,7 @@
 """Normalized, language-agnostic taint IR.
 
 Frontends (one per language) lower source code into this IR. The engine
-operates *only* on the IR — it never sees a language-specific AST.
+operates *only* on the IR - it never sees a language-specific AST.
 """
 
 from palisade_sec.ir.model import (

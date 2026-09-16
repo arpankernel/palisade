@@ -49,7 +49,7 @@ def test_http_llm_url_flagged_med(tmp_path):
 
 
 def test_http_constant_url_silent(tmp_path):
-    """LLM output in the payload of a constant-URL request is fine — only
+    """LLM output in the payload of a constant-URL request is fine - only
     the URL argument is the sink (taint_args)."""
     res = _scan(
         tmp_path,

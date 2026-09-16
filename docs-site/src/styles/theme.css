@@ -1,13 +1,13 @@
-/* Palisade docs — crimson + cream, matched to the marketing site */
+/* Palisade docs - crimson + cream, matched to the marketing site */
 :root {
   --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* Light theme = cream canvas, crimson accent */
 :root[data-theme="light"] {
-  --sl-color-accent-low: #f3d9d3;
-  --sl-color-accent: #a31621;
-  --sl-color-accent-high: #7c0e13;
+  --sl-color-accent-low: #e8d8d5;
+  --sl-color-accent: #6e1f2a;
+  --sl-color-accent-high: #4a131b;
   --sl-color-white: #2a1512;
   --sl-color-gray-1: #3a2420;
   --sl-color-gray-2: #4a322d;
@@ -23,8 +23,8 @@
 }
 /* Dark theme = warm charcoal with crimson accent */
 :root[data-theme="dark"] {
-  --sl-color-accent-low: #3a1114;
-  --sl-color-accent: #d8323f;
+  --sl-color-accent-low: #2e1519;
+  --sl-color-accent: #c98a93;
   --sl-color-accent-high: #f4d0d0;
   --sl-color-bg: #1a1210;
   --sl-color-bg-nav: #211714;

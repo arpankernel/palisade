@@ -38,7 +38,7 @@ class PatternSpec(BaseModel):
     safe_if_extra_args: bool = False  # parameterized SQL: execute(q, params) is safe
     # Which positional args are dangerous. None = any argument. [0] for
     # exec/eval & co: exec(code, globals(), locals()) is only exploitable
-    # through the CODE argument — a tainted environment dict is not.
+    # through the CODE argument - a tainted environment dict is not.
     taint_args: list[int] | None = None
     # Sanitizer-only option: trusted sanitizers (known validation frameworks
     # like pydantic model_validate) fully suppress on a name match. Untrusted

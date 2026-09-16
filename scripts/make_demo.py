@@ -1,4 +1,4 @@
-"""Regenerate docs/demo.svg — the README hero: a real scan of the example
+"""Regenerate docs/demo.svg - the README hero: a real scan of the example
 app, rendered by rich and exported as SVG.
 
 Usage: uv run python scripts/make_demo.py

@@ -26,14 +26,14 @@ jobs:
         run: uv run mypy src/palisade_sec
       - name: Tests
         run: uv run pytest -q
-      - name: Self-security — no code execution over the hostile corpus
+      - name: Self-security - no code execution over the hostile corpus
         run: uv run pytest tests/test_self_security.py -q
       - name: Precision gate (Phase 0)
         run: uv run python scripts/precision.py corpus/manifest.yaml
-      - name: Self-check — the example app must fail CI mode
+      - name: Self-check - the example app must fail CI mode
         run: |
           if uv run palisade-sec scan examples/vulnerable-app --ci; then
             echo "expected non-zero exit on the vulnerable example app" && exit 1
           fi
-      - name: Self-check — palisade's own source must be clean
+      - name: Self-check - palisade's own source must be clean
         run: uv run palisade-sec scan src --ci

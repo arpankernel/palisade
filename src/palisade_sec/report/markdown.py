@@ -25,7 +25,7 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
         f"low: {sum(1 for f in findings if f.severity == 'low')})",
         "",
         "> Palisade detects untrusted input flowing through an LLM into a "
-        "dangerous sink. It is one layer of defense — a clean scan does not "
+        "dangerous sink. It is one layer of defense - a clean scan does not "
         "mean the application is secure.",
         "",
     ]
@@ -40,7 +40,7 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
         lines += [f"## {_SEV_TITLE[sev]}", ""]
         for f in group:
             lines += [
-                f"### [{f.rule_id}] {f.title} — `{f.file}:{f.line}`",
+                f"### [{f.rule_id}] {f.title} - `{f.file}:{f.line}`",
                 "",
                 f.attack.strip() and f"**Attack:** {f.attack.strip()}" or "",
                 "",
@@ -60,14 +60,14 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
                     what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in gates)
                     lines += [
                         f"**Partial defense only:** {what}. Denylists and confirmation "
-                        "gates have been bypassed in real CVEs — this path is still risky.",
+                        "gates have been bypassed in real CVEs - this path is still risky.",
                         "",
                     ]
                 if unverified:
                     what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in unverified)
                     lines += [
                         f"**Unverified sanitizer:** {what}. It matches a sanitizer name, "
-                        "but its body shows no allowlist/validation shape — this path "
+                        "but its body shows no allowlist/validation shape - this path "
                         "is still risky.",
                         "",
                     ]

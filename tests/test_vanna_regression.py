@@ -12,7 +12,7 @@ RULES = Path(__file__).parent / "fixtures" / "vanna_rules"
 
 
 def test_vanna_shape_caught_with_library_mode_and_wrapper_rule():
-    """The custom-wrapper-rule recipe works — and cross-rule dedup reports
+    """The custom-wrapper-rule recipe works - and cross-rule dedup reports
     the vulnerability exactly once even though the builtin
     PI-FRAMEWORK-EXEC rule (since v0.3) matches the same chain."""
     res = run_scan(FIXTURE, rules_dir=str(RULES), assume_params_untrusted=True)
@@ -23,7 +23,7 @@ def test_vanna_shape_caught_with_library_mode_and_wrapper_rule():
     assert "exec(plotly_code" in f.sink.snippet
     assert f.source.detail == "param:question"
     assert f.llm.detail.endswith("submit_prompt")
-    # the cosmetic sanitizer downgrades to MED "risky" — it must NOT silence
+    # the cosmetic sanitizer downgrades to MED "risky" - it must NOT silence
     assert f.severity == "med" and f.risky
     assert [p.kind for p in f.partial_defenses] == ["unverified_sanitizer"]
     assert "_sanitize_plotly_code" in f.partial_defenses[0].pattern

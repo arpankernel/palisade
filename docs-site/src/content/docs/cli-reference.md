@@ -7,7 +7,7 @@ description: "Every command, flag, exit code, config key, and the stable JSON sc
 palisade-sec [--version] <command> [args]
 ```
 
-Commands: `scan` · `baseline` · `fix`. All are pure local operations — no
+Commands: `scan` · `baseline` · `fix`. All are pure local operations - no
 network, no API key, no telemetry.
 
 ## Exit codes (the contract)
@@ -26,7 +26,7 @@ Scan a file or directory (default `.`) for source → LLM → sink paths.
 |---|---|
 | `--all` | Show MED/LOW findings too. Default view: HIGH + "risky" downgraded findings. |
 | `--json` | Emit the stable JSON document (below) to stdout instead of terminal output. |
-| `--report` | Also write `palisade-report.md` — a shareable mini threat model grouped by severity. |
+| `--report` | Also write `palisade-report.md` - a shareable mini threat model grouped by severity. |
 | `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists. |
 | `--baseline FILE` | Diff against a baseline; only new findings are reported/counted. Stale entries are noted. |
 | `--rules DIR` | Load additional/overriding YAML rules from a directory (same `id` overrides a builtin). |
@@ -50,7 +50,7 @@ Fingerprint current findings so CI fails only on new ones.
 | `--rules DIR` / `--config FILE` | As in `scan`. |
 
 Fingerprints are `sha256(rule + source file + normalized source snippet +
-sink file + normalized sink snippet)` — line-shift resilient by
+sink file + normalized sink snippet)` - line-shift resilient by
 construction. The file is sorted and deterministic (diff-friendly); commit
 it. Duplicate findings collapse to one fingerprint with a count.
 
@@ -91,7 +91,7 @@ an API caller overrides both.
 
 ## JSON schema
 
-`scan --json` emits one document. `schema_version` gates compatibility —
+`scan --json` emits one document. `schema_version` gates compatibility -
 parse defensively on any other value.
 
 ```jsonc
@@ -129,7 +129,7 @@ parse defensively on any other value.
   ],
   "skipped":  ["broken.py: parse error, file skipped (...)"],
   "warnings": ["invalid rule file skipped: bad.yaml: ..."],
-  "notes":    ["1 JS/TS file(s) skipped — install ... palisade-sec[js] ..."]
+  "notes":    ["1 JS/TS file(s) skipped - install ... palisade-sec[js] ..."]
 }
 ```
 
@@ -140,7 +140,7 @@ Notes for consumers:
 - In library mode, `trace.source.matched` is `param:<name>`; for route
   handlers it's the matched source pattern (`request.json`, `req.body`, …).
 - `notes` may include an inter-procedural truncation notice on very deep
-  call chains — recall, not precision, is what truncation affects.
+  call chains - recall, not precision, is what truncation affects.
 
 ## Baseline file format
 

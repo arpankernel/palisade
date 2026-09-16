@@ -1,7 +1,7 @@
 """Rich terminal emitter. Scannable and teaching: every finding shows the
 data-flow trace, the concrete attack, and the specific fix.
 
-Color is disabled automatically on non-TTY output (UX-3) — rich handles that,
+Color is disabled automatically on non-TTY output (UX-3) - rich handles that,
 and NO_COLOR is respected.
 """
 
@@ -61,13 +61,13 @@ def print_findings(
             if gates:
                 what = escape(", ".join(f"{p.pattern} ({p.file}:{p.line})" for p in gates))
                 console.print(
-                    f"  [yellow]Partial defense only:[/yellow] {what} — "
+                    f"  [yellow]Partial defense only:[/yellow] {what} - "
                     "denylists and confirmation gates have been bypassed in real CVEs."
                 )
             if unverified:
                 what = escape(", ".join(f"{p.pattern} ({p.file}:{p.line})" for p in unverified))
                 console.print(
-                    f"  [yellow]Unverified sanitizer:[/yellow] {what} — "
+                    f"  [yellow]Unverified sanitizer:[/yellow] {what} - "
                     "matches a sanitizer name, but its body shows no "
                     "allowlist/validation shape."
                 )
@@ -116,5 +116,5 @@ def print_findings(
             console.print(f"[dim]{baseline_known} known finding(s) suppressed by baseline.[/dim]")
     if hidden_count and not shown_all:
         console.print(
-            f"[dim]{hidden_count} MED/LOW finding(s) hidden — run with --all to see them.[/dim]"
+            f"[dim]{hidden_count} MED/LOW finding(s) hidden - run with --all to see them.[/dim]"
         )

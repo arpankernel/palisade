@@ -6,7 +6,7 @@ description: >
   an outbound HTTP request. An attacker can steer the model into requesting
   internal endpoints (SSRF: cloud metadata, admin APIs) or exfiltrating data
   to an attacker-controlled host. Advisory severity: agents that legitimately
-  browse make this pattern intentional in some codebases — review, then
+  browse make this pattern intentional in some codebases - review, then
   either fix or baseline.
 sources:
   - kind: attribute

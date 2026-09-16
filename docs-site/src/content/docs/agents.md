@@ -13,7 +13,7 @@ to be pasted into an agent's context or fetched via [`llms.txt`](https://github.
 **untrusted input → LLM call → dangerous sink** (exec/eval, shell, raw SQL,
 URL fetch) in Python and JavaScript/TypeScript. Pure static analysis: it
 never executes scanned code, makes no network calls, and needs no API key.
-A finding requires the complete path — it is safe to treat every HIGH
+A finding requires the complete path - it is safe to treat every HIGH
 finding as real and actionable.
 
 ## Command palette (deterministic, non-interactive)
@@ -43,10 +43,10 @@ one JSON document to stdout (warnings inside the document, not on stderr).
 
 ## Rules for agents
 
-1. **Always parse `--json`. Never parse terminal output** — it is styled,
+1. **Always parse `--json`. Never parse terminal output** - it is styled,
    wrapped, and not a stable interface. Check `schema_version == 1`; on any
    other value, stop and report incompatibility instead of guessing.
-2. **Exit codes:** `0` success (findings may still exist — read the JSON),
+2. **Exit codes:** `0` success (findings may still exist - read the JSON),
    `1` only with `--ci` and a new HIGH, `2` usage error (bad path). Do not
    infer findings from exit codes except under `--ci`.
 3. **Choose the mode by target shape:** app/service → plain scan; library or
@@ -65,7 +65,7 @@ one JSON document to stdout (warnings inside the document, not on stderr).
    model output); single-`SELECT` parser validation + read-only connection
    for model SQL, parameterized queries for user values; host allowlist +
    private-IP blocking for model-chosen URLs. **Never "fix" a finding with
-   a denylist, a regex strip, or a confirmation prompt** — Palisade will
+   a denylist, a regex strip, or a confirmation prompt** - Palisade will
    (correctly) keep flagging it.
 6. **Verify every fix by re-scanning** and diffing `findings[].fingerprint`
    sets before/after. A fix is complete when the fingerprint disappears
@@ -105,7 +105,7 @@ one JSON document to stdout (warnings inside the document, not on stderr).
   quote all three trace points.
 - `trace.source.matched == "param:<name>"` ⇒ the finding came from library
   mode; it is only meaningful if callers can pass attacker-influenced values.
-- `notes` may report skipped JS/TS files or inter-procedural truncation —
+- `notes` may report skipped JS/TS files or inter-procedural truncation -
   both affect recall, never precision.
 
 ## Suggested agent workflow
@@ -128,7 +128,7 @@ one JSON document to stdout (warnings inside the document, not on stderr).
 
 If the target routes LLM calls through its own wrapper
 (`self.inference(...)`), write a custom rule file and pass `--rules <dir>`
-— same `id` overrides a builtin. Schema and semantics:
+- same `id` overrides a builtin. Schema and semantics:
 [rules-reference.md](../rules-reference/). Keep custom rules in the target
 repo (e.g. `security/palisade-rules/`) so the coverage travels with the code.
 

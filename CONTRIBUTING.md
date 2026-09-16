@@ -5,7 +5,7 @@ Thanks for helping make LLM-security review as routine as running a linter.
 ## The fastest way to contribute: rules
 
 Most coverage gaps are rule gaps, not engine gaps. Adding a framework's
-sources/LLM signatures/sinks is a small YAML PR with no engine changes —
+sources/LLM signatures/sinks is a small YAML PR with no engine changes -
 see [`src/palisade_sec/rules/README.md`](src/palisade_sec/rules/README.md)
 for the 5-minute guide. Every rule PR needs two fixtures: one that must be
 flagged, one same-shaped safe variant that must stay silent.
@@ -19,7 +19,7 @@ flagged, one same-shaped safe variant that must stay silent.
    `engine/` or rules; language specifics belong in `frontends/`.
 4. **The tool never runs scanned code.** `ast.parse` only. No network calls
    in `scan`. Ever.
-5. **Partial defenses (denylists, confirmation gates) downgrade to MED —
+5. **Partial defenses (denylists, confirmation gates) downgrade to MED -
    they never suppress.** Real CVEs shipped with exactly those defenses.
 
 ## Dev setup
@@ -43,12 +43,12 @@ src/palisade_sec/
 ├── report/      # terminal / json / markdown emitters
 ├── baseline.py  # CI baseline (fail only on NEW findings)
 └── cli.py       # Typer CLI
-examples/vulnerable-app/   # the acceptance fixtures — deliberately unsafe
+examples/vulnerable-app/   # the acceptance fixtures - deliberately unsafe
 ```
 
 ## Adding a language frontend (post-v1)
 
-A frontend lowers source into `ir.Module` — see
+A frontend lowers source into `ir.Module` - see
 `frontends/ast_python.py` for the reference implementation. If your frontend
 emits correct IR, every existing rule and the whole engine work unchanged.
 Open an issue first so we can coordinate on tree-sitter setup.

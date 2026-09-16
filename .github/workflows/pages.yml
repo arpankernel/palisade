@@ -40,7 +40,7 @@ jobs:
           npm ci
           npm run build
 
-      - name: Assemble site — marketing at /, docs at /docs/
+      - name: Assemble site - marketing at /, docs at /docs/
         run: |
           rm -rf _site
           mkdir -p _site

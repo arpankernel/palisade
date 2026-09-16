@@ -1,5 +1,5 @@
 """JS/TS frontend (tree-sitter): the multi-language architecture proof.
-Same engine, same YAML rules — a new frontend, zero engine changes."""
+Same engine, same YAML rules - a new frontend, zero engine changes."""
 
 import textwrap
 

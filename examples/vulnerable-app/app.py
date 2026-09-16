@@ -1,4 +1,4 @@
-"""Deliberately vulnerable Flask app — Palisade's acceptance fixtures.
+"""Deliberately vulnerable Flask app - Palisade's acceptance fixtures.
 
 DO NOT DEPLOY. Every route here is either a real LLM prompt-injection
 vulnerability (must be flagged), a safe variant (must stay silent), or a
@@ -21,7 +21,7 @@ MODEL = "gpt-4o-mini"
 
 
 # ---------------------------------------------------------------------------
-# VULNERABLE — must be flagged HIGH
+# VULNERABLE - must be flagged HIGH
 # ---------------------------------------------------------------------------
 
 
@@ -37,7 +37,7 @@ def calc():
         ],
     )
     code = resp.choices[0].message.content
-    exec(code)  # noqa: S102 — the vulnerability under test
+    exec(code)  # noqa: S102 - the vulnerability under test
     return jsonify(status="done")
 
 
@@ -71,14 +71,14 @@ def ops():
 @app.route("/agent", methods=["POST"])
 def agent():
     """VULN 4 (PI-EXEC, multi-hop): source here, LLM in llm_utils.py,
-    sink in executor.py — three functions across three files."""
+    sink in executor.py - three functions across three files."""
     goal = request.json["goal"]
     result = run_agent(goal)
     return jsonify(result=result)
 
 
 # ---------------------------------------------------------------------------
-# PARTIAL DEFENSE — must be flagged MED "risky" (not HIGH, not silent)
+# PARTIAL DEFENSE - must be flagged MED "risky" (not HIGH, not silent)
 # ---------------------------------------------------------------------------
 
 
@@ -94,12 +94,12 @@ def calc_guarded():
     code = resp.choices[0].message.content
     if is_blocked_code(code):
         return jsonify(error="blocked"), 400
-    exec(code)  # noqa: S102 — still exploitable: denylists are bypassable
+    exec(code)  # noqa: S102 - still exploitable: denylists are bypassable
     return jsonify(status="done")
 
 
 # ---------------------------------------------------------------------------
-# SAFE — must NOT be flagged
+# SAFE - must NOT be flagged
 # ---------------------------------------------------------------------------
 
 
@@ -113,14 +113,14 @@ def calc_safe():
         messages=[{"role": "user", "content": f"Write Python that answers: {question}"}],
     )
     code = validate_code(resp.choices[0].message.content)
-    exec(code)  # noqa: S102 — sanitized above
+    exec(code)  # noqa: S102 - sanitized above
     return jsonify(status="done")
 
 
 @app.route("/ping", methods=["POST"])
 def ping():
     """SAFE (b): LLM output used as ONE ARGUMENT in an arg-list subprocess
-    call — no shell, no injection into a command line."""
+    call - no shell, no injection into a command line."""
     where = request.json["where"]
     resp = client.chat.completions.create(
         model=MODEL,
@@ -146,18 +146,18 @@ def lookup():
 
 
 def nightly_report():
-    """SAFE (d): constant developer prompt — no untrusted source at all."""
+    """SAFE (d): constant developer prompt - no untrusted source at all."""
     resp = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": "Write Python that prints yesterday's date."}],
     )
     code = resp.choices[0].message.content
-    exec(code)  # noqa: S102 — developer-controlled prompt, not user input
+    exec(code)  # noqa: S102 - developer-controlled prompt, not user input
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """SAFE (e): LLM output is only logged and returned — never executed."""
+    """SAFE (e): LLM output is only logged and returned - never executed."""
     message = request.json["message"]
     resp = client.chat.completions.create(
         model=MODEL,

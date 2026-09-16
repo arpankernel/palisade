@@ -1,4 +1,4 @@
-"""Load and validate YAML rules. Invalid rules are reported and skipped —
+"""Load and validate YAML rules. Invalid rules are reported and skipped -
 never a crash (MT-3)."""
 
 from __future__ import annotations

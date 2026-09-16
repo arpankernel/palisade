@@ -1,6 +1,6 @@
 """JavaScript/TypeScript frontend: lowers JS/TS source into the taint IR
 via tree-sitter. This is the proof of the frontend/IR split: the engine and
-the YAML rules are untouched — the same `chat.completions.create`, `eval`,
+the YAML rules are untouched - the same `chat.completions.create`, `eval`,
 `child_process.exec` patterns match because the JS SDKs mirror the Python
 ones and IR paths are language-neutral dotted paths.
 

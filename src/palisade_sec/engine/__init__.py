@@ -1,4 +1,4 @@
-"""Language-agnostic taint engine. Operates only on the IR — never on a
+"""Language-agnostic taint engine. Operates only on the IR - never on a
 language-specific AST."""
 
 from palisade_sec.engine.analyzer import Engine

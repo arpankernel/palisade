@@ -2,7 +2,7 @@
 
 This is the full workflow on a realistic sample project: **scan → understand
 → fix → verify the fix → baseline the rest → gate CI**, plus the library-mode
-and JavaScript variants. Every command output shown here is real — the sample
+and JavaScript variants. Every command output shown here is real - the sample
 app ships in the repo at [`examples/support-bot/`](../examples/support-bot/),
 and this exact arc is what Palisade's own test suite pins.
 
@@ -11,11 +11,11 @@ and this exact arc is what Palisade's own test suite pins.
 Your team shipped **SupportPilot**, a small Flask support bot with three
 LLM-powered features:
 
-- `POST /ask` — text-to-SQL over the orders database
-- `POST /diagnose` — runs a shell diagnostic command the model suggests
-- `POST /report` — generates and runs a small Python report snippet
+- `POST /ask` - text-to-SQL over the orders database
+- `POST /diagnose` - runs a shell diagnostic command the model suggests
+- `POST /report` - generates and runs a small Python report snippet
 
-`app.py` (abridged — full file in `examples/support-bot/`):
+`app.py` (abridged - full file in `examples/support-bot/`):
 
 ```python
 @app.route("/ask", methods=["POST"])
@@ -57,7 +57,7 @@ def report():
 ```
 
 Each feature works. Each one is also a textbook prompt-injection
-vulnerability — the same three shapes behind real CVEs (Vanna.ai
+vulnerability - the same three shapes behind real CVEs (Vanna.ai
 CVE-2024-5565, PandasAI CVE-2024-12366, Langflow CVE-2025-3248's problem
 class).
 
@@ -95,11 +95,11 @@ Found 3 high finding(s) in 2 file(s).
 Three findings, one per feature, each with the complete data-flow trace.
 Note what Palisade did **not** flag: the `client.chat.completions.create`
 calls themselves (calling an LLM is not a bug), `jsonify(...)` returns, and
-`get_db()` — no complete source→LLM→sink path, no noise.
+`get_db()` - no complete source→LLM→sink path, no noise.
 
 ## 2. Triage with machine-readable output
 
-For tooling (or an AI agent), use JSON — the schema is stable and versioned
+For tooling (or an AI agent), use JSON - the schema is stable and versioned
 (see the [CLI reference](cli-reference.md#json-schema)):
 
 ```bash
@@ -116,7 +116,7 @@ palisade-sec scan examples/support-bot --json | jq '[.findings[] | {rule, file, 
 
 ## 3. Get remediation templates
 
-`fix` writes a remediation plan — for each finding, a guardrail tailored to
+`fix` writes a remediation plan - for each finding, a guardrail tailored to
 the rule *plus a pytest asserting the guardrail blocks the canonical attack*.
 It's deterministic, offline, and never modifies your code:
 
@@ -127,7 +127,7 @@ palisade-sec fix examples/support-bot
 
 ## 4. Fix the worst one first: `/report` (PI-EXEC)
 
-The plan's PI-EXEC guardrail is an **AST allowlist** — the only defense shape
+The plan's PI-EXEC guardrail is an **AST allowlist** - the only defense shape
 that has held up where denylists and confirmation gates failed (LangChain
 PAL, Open Interpreter). Applied to `app.py`:
 
@@ -157,7 +157,7 @@ and at the sink:
     exec(code, {"__builtins__": {"print": print}})
 ```
 
-Add the plan's regression test to your suite — it's the part you shouldn't
+Add the plan's regression test to your suite - it's the part you shouldn't
 skip:
 
 ```python
@@ -183,16 +183,16 @@ Two things to notice about *why* the finding cleared:
 
 - Palisade didn't just match the name `validate_report_code`. It resolved
   the function and **verified its body has a real validation shape** (a
-  guard branch that raises). A cosmetic sanitizer — say,
-  `code.replace("import os", "")` — would have been reported as
+  guard branch that raises). A cosmetic sanitizer - say,
+  `code.replace("import os", "")` - would have been reported as
   **MED "unverified sanitizer"** instead of silencing the finding. Vanna's
   `_sanitize_plotly_code` shipped CVE-2024-5565 through exactly that trap.
 - If you had "fixed" it with a denylist or an "are you sure?" prompt,
-  Palisade would keep the finding at **MED "risky"** — deliberately.
+  Palisade would keep the finding at **MED "risky"** - deliberately.
 
 ## 5. Fix the other two the same way
 
-**`/diagnose` (PI-SHELL)** — never hand model output to a shell. Parse it,
+**`/diagnose` (PI-SHELL)** - never hand model output to a shell. Parse it,
 allowlist the executable, use an argument list:
 
 ```python
@@ -209,7 +209,7 @@ Palisade recognizes both halves: `subprocess.run([...])` with an arg list and
 no `shell=True` is a **safe sink shape** (never flagged), and the
 allowlist-raise guard is a verified sanitizer.
 
-**`/ask` (PI-SQL)** — model-generated SQL runs only if it parses as a single
+**`/ask` (PI-SQL)** - model-generated SQL runs only if it parses as a single
 `SELECT`, on a read-only connection; user *values* stay parameterized:
 
 ```python
@@ -238,7 +238,7 @@ CI then fails only on **new** HIGH findings:
 
 ```bash
 palisade-sec scan . --ci --baseline .palisade/baseline.json
-# exit 0 — all findings baselined
+# exit 0 - all findings baselined
 ```
 
 ```yaml
@@ -247,18 +247,18 @@ palisade-sec scan . --ci --baseline .palisade/baseline.json
 - run: uvx palisade-sec scan . --ci --baseline .palisade/baseline.json
 ```
 
-Fingerprints are `rule + files + normalized code`, not line numbers — pure
+Fingerprints are `rule + files + normalized code`, not line numbers - pure
 refactors don't churn the baseline. When you fix a baselined finding, the
 scan notes the stale entry; re-run `palisade-sec baseline` to refresh.
 
 Want a shareable writeup for the security review? `--report` writes
-`palisade-report.md` — a mini threat model grouped by severity with every
+`palisade-report.md` - a mini threat model grouped by severity with every
 trace, fix, and CVE reference.
 
 ## 7. Variant: auditing a library
 
 Apps read untrusted input from `request.*`. A **library** has no visible
-caller — its public parameters *are* the untrusted world. Library mode
+caller - its public parameters *are* the untrusted world. Library mode
 treats them as sources:
 
 ```bash
@@ -272,10 +272,10 @@ See [proof-scans.md](proof-scans.md).
 
 ## 8. Variant: the same bugs in JavaScript/TypeScript
 
-The same rules match JS — the SDK call paths are identical dotted paths:
+The same rules match JS - the SDK call paths are identical dotted paths:
 
 ```js
-// routes.js — flagged PI-EXEC, same trace structure
+// routes.js - flagged PI-EXEC, same trace structure
 app.post("/report", async (req, res) => {
   const resp = await client.chat.completions.create({
     messages: [{ role: "user", content: req.body.spec }],

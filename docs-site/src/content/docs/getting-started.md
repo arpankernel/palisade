@@ -26,7 +26,7 @@ pip install "palisade-sec[js]"
 ```
 
 Python files are scanned out of the box. `.js`/`.mjs`/`.cjs`/`.jsx`/`.ts`/`.tsx`
-are scanned when the `[js]` extra is installed — otherwise they're skipped
+are scanned when the `[js]` extra is installed - otherwise they're skipped
 with a note telling you how to enable them.
 
 ## Your first scan
@@ -57,7 +57,7 @@ Every finding answers four questions:
 
 1. **Where does untrusted input enter?** (`source`, with file:line)
 2. **Where does it reach a model?** (`llm`)
-3. **Where does the model's output do something dangerous?** (`sink` — the
+3. **Where does the model's output do something dangerous?** (`sink` - the
    finding's headline location)
 4. **What's the concrete attack, and what's the specific fix?**
 
@@ -65,7 +65,7 @@ Severity vs. confidence:
 
 - **Severity** (`HIGH`/`MED`/`LOW`) is the rule's assessment of the sink. A
   HIGH finding downgraded to MED means a *partial* defense was found on the
-  path (a denylist, a confirmation gate, or a sanitizer-in-name-only) — the
+  path (a denylist, a confirmation gate, or a sanitizer-in-name-only) - the
   path is still risky, and the output says exactly which defense and why it
   doesn't count.
 - **Confidence** (`HIGH`/`MEDIUM`/`LOW`) reflects how direct the data-flow
@@ -77,7 +77,7 @@ findings; `--all` shows everything (e.g. the advisory `PI-HTTP` rule).
 ## Gate your CI
 
 ```bash
-palisade-sec baseline .          # once — fingerprints existing findings
+palisade-sec baseline .          # once - fingerprints existing findings
 git add .palisade/baseline.json
 
 # in CI:
@@ -96,7 +96,7 @@ Actions example:
 ## Next steps
 
 - The [end-to-end tutorial](../tutorial/) walks a realistic app from first
-  scan to a fixed, CI-gated state — including `palisade-sec fix`.
+  scan to a fixed, CI-gated state - including `palisade-sec fix`.
 - Auditing a **library** rather than an app? See library mode
   (`--assume-params-untrusted`) in the [CLI reference](../cli-reference/).
 - Wiring an **AI agent** to run Palisade? Start at [agents.md](../agents/).

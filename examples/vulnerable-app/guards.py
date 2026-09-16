@@ -20,7 +20,7 @@ BLOCKED_TOKENS = ["os.", "subprocess", "open(", "__import__", "eval(", "exec("]
 
 
 def validate_code(code: str) -> str:
-    """A real sanitizer: strict AST allowlist — anything outside a tiny
+    """A real sanitizer: strict AST allowlist - anything outside a tiny
     arithmetic subset is rejected."""
     tree = ast.parse(code)
     for node in ast.walk(tree):
@@ -31,6 +31,6 @@ def validate_code(code: str) -> str:
 
 def is_blocked_code(code: str) -> bool:
     """A PARTIAL defense: a denylist of scary substrings. Trivially
-    bypassable (getattr tricks, encodings, aliasing) — real CVEs shipped
+    bypassable (getattr tricks, encodings, aliasing) - real CVEs shipped
     with exactly this."""
     return any(token in code for token in BLOCKED_TOKENS)

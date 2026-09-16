@@ -1,6 +1,6 @@
 ---
 title: "Proof scans"
-description: "Palisade versus the real CVE repos — the hits, the misses, and the lessons."
+description: "Palisade versus the real CVE repos - the hits, the misses, and the lessons."
 ---
 
 **Date:** 2026-09-16 · **Palisade:** v0.1.0 · **Method:** scanned the last
@@ -11,9 +11,9 @@ each CVE's actual code path by hand to classify hits and misses.
 
 | Repo (tag) | CVE | Files scanned | Findings | CVE caught? |
 |---|---|---|---|---|
-| vanna-ai/vanna `v0.5.5` | CVE-2024-5565 (LLM → plotly `exec`) | 45 | 0 | **No** — see V1/V2/V3 |
-| sinaptik-ai/pandas-ai `v2.4.2` | CVE-2024-12366 (LLM code → `exec`) | 292 | 0 | **No** — see P1 |
-| langflow-ai/langflow `1.2.0` | CVE-2025-3248 (request → `exec`) | 738 | 0 | **No** — out of contract, see L1 |
+| vanna-ai/vanna `v0.5.5` | CVE-2024-5565 (LLM → plotly `exec`) | 45 | 0 | **No** - see V1/V2/V3 |
+| sinaptik-ai/pandas-ai `v2.4.2` | CVE-2024-12366 (LLM code → `exec`) | 292 | 0 | **No** - see P1 |
+| langflow-ai/langflow `1.2.0` | CVE-2025-3248 (request → `exec`) | 738 | 0 | **No** - out of contract, see L1 |
 
 What held up, and matters as much as the misses:
 
@@ -23,7 +23,7 @@ What held up, and matters as much as the misses:
 - **Zero crashes, zero skipped files**, and the largest repo (Langflow,
   738 Python files) scanned in ~10 seconds.
 - The engine *does* catch all three CVE **patterns** when they appear in
-  app-shaped code — the `examples/vulnerable-app` fixtures mirror each one
+  app-shaped code - the `examples/vulnerable-app` fixtures mirror each one
   (PandasAI-style exec, Vanna-style text-to-SQL, shell) and are flagged with
   full traces.
 
@@ -32,7 +32,7 @@ roadmap item. That is exactly what these scans were for.
 
 ## Why each CVE was missed
 
-### Vanna (CVE-2024-5565) — three independent blockers
+### Vanna (CVE-2024-5565) - three independent blockers
 
 The real chain lives entirely in `src/vanna/base/base.py`:
 `ask(question)` → `generate_plotly_code(...)` (line 686) →
@@ -41,13 +41,13 @@ The real chain lives entirely in `src/vanna/base/base.py`:
 `get_plotly_figure(plotly_code)` → `exec(plotly_code, globals(), ldict)`
 (line 1998).
 
-- **V1 — library entry point.** The untrusted input is the `question`
+- **V1 - library entry point.** The untrusted input is the `question`
   *parameter* of a public API method. Palisade v1 sources are app-shaped
   (`request.*`, `input()`, `sys.argv`); function parameters are only tainted
   when the caller is visible. Libraries have no visible caller.
   → Roadmap: opt-in **library mode** (`--assume-params-untrusted`) tainting
   public-function parameters, per the PRD's "params marked untrusted".
-- **V2 — abstract provider dispatch.** `submit_prompt` is `@abstractmethod`
+- **V2 - abstract provider dispatch.** `submit_prompt` is `@abstractmethod`
   in `VannaBase`; the actual `client.chat.completions.create` lives in
   provider subclasses (`openai_chat.py` etc.). Same-class method resolution
   can't link them, so the LLM hop is invisible.
@@ -55,15 +55,15 @@ The real chain lives entirely in `src/vanna/base/base.py`:
   through subclass implementations when unambiguous enough); short-term, a
   custom rule adding `*.submit_prompt` to `llm_signatures` closes this for
   Vanna-style codebases.
-- **V3 — a "sanitizer" in name only.** `_sanitize_plotly_code` merely strips
-  `fig.show()` — cosmetic, and the CVE was exploited straight through it.
+- **V3 - a "sanitizer" in name only.** `_sanitize_plotly_code` merely strips
+  `fig.show()` - cosmetic, and the CVE was exploited straight through it.
   Palisade's lenient name-based sanitizer matching would have *suppressed*
   the finding had V1/V2 been fixed. This cuts against philosophy #7.
-  → Roadmap: tighten sanitizer resolution — name-match alone should perhaps
+  → Roadmap: tighten sanitizer resolution - name-match alone should perhaps
   downgrade (like a partial defense) rather than suppress, unless the
   sanitizer body shows allowlist/validation semantics.
 
-### PandasAI (CVE-2024-12366) — P1: pipeline-object indirection
+### PandasAI (CVE-2024-12366) - P1: pipeline-object indirection
 
 The sink is `exec(code, env)` in `pandasai/pipelines/chat/code_cleaning.py:493`,
 but data flows to it through a chain of pipeline *step objects*
@@ -75,11 +75,11 @@ signatures), or model "output of step N feeds step N+1" for known runners.
 Honest assessment: full generality here is out of scope for a bounded static
 tool; framework-specific rules are the pragmatic path.
 
-### Langflow (CVE-2025-3248) — L1: not an LLM-path vulnerability
+### Langflow (CVE-2025-3248) - L1: not an LLM-path vulnerability
 
 `POST /api/v1/validate/code` passes the request body **directly** to
 `validate_code()` → `exec()` (`langflow/utils/validate.py`). There is no LLM
-between source and sink — this is classic unauthenticated code injection,
+between source and sink - this is classic unauthenticated code injection,
 squarely Bandit-B102 territory, and Palisade's contract (complete
 source → **LLM** → sink path) correctly excludes it. It remains strong
 motivation for the *problem space* (AI tooling ships `exec` on untrusted
@@ -93,7 +93,7 @@ worth adding for the LLM-path cases in FastAPI apps.
 - Scans ran with `--all --json`; nothing was hidden by severity filtering.
 - "CVE caught" means a finding whose sink is the CVE's actual sink line.
 
-## Status update — v0.2 (2026-09-16)
+## Status update - v0.2 (2026-09-16)
 
 Items 1–3 below are implemented:
 
@@ -107,7 +107,7 @@ Items 1–3 below are implemented:
   rules and still suppress on name match.
 - **The real CVE is now caught.** Rescanning the actual vanna `v0.5.5` tree
   with library mode plus a custom rule adding `*.submit_prompt` to
-  `llm_signatures` yields exactly one finding — the CVE-2024-5565 sink
+  `llm_signatures` yields exactly one finding - the CVE-2024-5565 sink
   itself:
 
   ```
@@ -120,7 +120,7 @@ Items 1–3 below are implemented:
   Zero other findings across the repo. Getting here required two further
   engine fixes the real code exposed: abstract stub methods (`...`/`pass`/
   bare-raise bodies) now propagate taint instead of silently dropping it,
-  and sinks declare which argument is dangerous (`taint_args: [0]` — a
+  and sinks declare which argument is dangerous (`taint_args: [0]` - a
   tainted `exec(..., globals(), ldict)` environment dict is not code
   execution). An offline fixture mirroring this exact shape is pinned by
   tests/test_vanna_regression.py.
@@ -128,7 +128,7 @@ Items 1–3 below are implemented:
 Still open from this list: FastAPI sources (L1) and pipeline-framework rules
 (P1); class-hierarchy resolution (the custom-rule recipe covers V2 for now).
 
-## Status update — v0.3 (2026-09-16)
+## Status update - v0.3 (2026-09-16)
 
 Everything above is now closed:
 
@@ -141,14 +141,14 @@ Everything above is now closed:
   signatures (`submit_prompt`, `call_llm`, `generate_code`, ...). Builtin
   rules + library mode now flag the real vanna v0.5.5 CVE sink with **no
   custom rule**. PandasAI v2's fully dynamic pipeline dispatch remains out
-  of reach for bounded static analysis — documented, not hidden.
-- Also landed: the JS/TS tree-sitter frontend (zero engine changes — the
+  of reach for bounded static analysis - documented, not hidden.
+- Also landed: the JS/TS tree-sitter frontend (zero engine changes - the
   1,576 mixed-language Langflow tree scans in ~36s, still zero FPs) and the
   offline `fix` command.
 
 **Re-derived totals (v0.3.2, JS frontend enabled).** Rescanning all three
 repos with the current builtin rules: vanna 45 files, PandasAI 419, Langflow
-1,576 — **2,040 files total, zero false positives, zero crashes, zero files
+1,576 - **2,040 files total, zero false positives, zero crashes, zero files
 skipped**. The only finding across all three is Vanna's CVE-2024-5565 sink at
 `base.py:1998`, and it is now caught by the *default* rules (PI-FRAMEWORK-EXEC
 via the `input()` source) without needing library mode. Earlier drafts of this
@@ -159,12 +159,12 @@ is corrected here.
 
 Priority order implied by these scans:
 
-1. **Library mode** (`--assume-params-untrusted`) — unlocks the entire
+1. **Library mode** (`--assume-params-untrusted`) - unlocks the entire
    library-audit use case (V1).
-2. **Sanitizer strictness** — name-only sanitizer matches downgrade instead
+2. **Sanitizer strictness** - name-only sanitizer matches downgrade instead
    of suppress (V3). Keeps FP=0 shape while honoring philosophy #7.
-3. **Custom-rule story for wrapper LLM methods** — document `*.submit_prompt`
+3. **Custom-rule story for wrapper LLM methods** - document `*.submit_prompt`
    -style signatures now; class-hierarchy resolution later (V2).
 4. **FastAPI sources** (L1).
-5. Framework-specific pipeline rules (P1) — last; lowest generality per
+5. Framework-specific pipeline rules (P1) - last; lowest generality per
    effort.

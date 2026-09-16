@@ -29,7 +29,7 @@ def _hook(event: str, args: tuple) -> None:
         return
     if event == "exec":
         # Only code objects originating from the scanned target are a
-        # violation — the scanner importing its own modules also fires
+        # violation - the scanner importing its own modules also fires
         # 'exec' events for module code objects.
         code = args[0] if args else None
         fname = getattr(code, "co_filename", "")
@@ -42,7 +42,7 @@ def _hook(event: str, args: tuple) -> None:
         if any(k in name for k in ("evil_sideeffect", "hostile", "longline", "deep_")):
             _VIOLATIONS.append(f"import of target module: {name}")
     elif event == "compile":
-        # ast.parse fires 'compile' with PyCF_ONLY_AST — allowed. An actual
+        # ast.parse fires 'compile' with PyCF_ONLY_AST - allowed. An actual
         # compile-to-bytecode of target source would surface via 'exec'.
         pass
 
@@ -140,7 +140,7 @@ def test_scan_time_budget(tmp_path):
 
 
 def test_hostile_corpus_is_deterministic():
-    """Same input, same output — ordering never depends on filesystem order."""
+    """Same input, same output - ordering never depends on filesystem order."""
     a = run_scan(HOSTILE)
     b = run_scan(HOSTILE)
     key = lambda r: [(f.rule_id, f.file, f.line, f.fingerprint) for f in r.findings]  # noqa: E731

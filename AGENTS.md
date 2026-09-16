@@ -1,4 +1,4 @@
-# AGENTS.md — instructions for AI agents working on this repository
+# AGENTS.md - instructions for AI agents working on this repository
 
 Two distinct audiences; make sure you're the right one:
 
@@ -11,13 +11,13 @@ Two distinct audiences; make sure you're the right one:
 
 ```bash
 uv sync                                   # deps (dev group includes tree-sitter)
-uv run pytest -q                          # full suite — must stay green
+uv run pytest -q                          # full suite - must stay green
 uv run ruff check . && uv run ruff format --check src tests scripts
 uv run mypy src/palisade_sec              # must stay clean
 uv run pytest tests/test_self_security.py # SF-1/2/3 tripwire over hostile corpus
 uv run python scripts/precision.py corpus/manifest.yaml   # Phase-0 precision gate
 uv run palisade-sec scan examples/vulnerable-app --all   # 4 high + 1 med, always
-uv run palisade-sec scan src --ci         # self-scan — must exit 0
+uv run palisade-sec scan src --ci         # self-scan - must exit 0
 uv run python scripts/make_demo.py        # regenerate docs/demo.svg after output changes
 ```
 
@@ -29,7 +29,7 @@ CI (`.github/workflows/ci.yml`) runs all of the above on Python
 ```
 src/palisade_sec/
 ├── frontends/     # language → IR lowering (ast_python.py, tree_sitter_js.py)
-├── ir/            # normalized taint IR — language-neutral, no ast/tree-sitter types
+├── ir/            # normalized taint IR - language-neutral, no ast/tree-sitter types
 ├── engine/        # analyzer.py (taint propagation), findings.py, taint.py
 ├── rules/         # builtin YAML rules + pydantic schema + loader
 ├── report/        # terminal / json / markdown emitters
@@ -37,7 +37,7 @@ src/palisade_sec/
 ├── baseline.py    # fingerprints & diffing
 ├── fix.py         # remediation-plan templates
 └── cli.py         # Typer CLI
-examples/vulnerable-app/   # acceptance fixtures — tests pin exact findings
+examples/vulnerable-app/   # acceptance fixtures - tests pin exact findings
 examples/support-bot/      # docs/tutorial.md sample app
 tests/                     # ~112 tests; FP tests are the highest-value ones
 tests/fixtures/hostile/    # adversarial corpus for the self-security suite
@@ -51,7 +51,7 @@ website/                   # marketing site (static, zero-dependency)
 
 `docs/*.md` is the **source of record**. `docs-site/` renders it with Astro +
 Starlight; the files under `docs-site/src/content/docs/` are generated copies
-carrying frontmatter — when you change a doc, update `docs/` and mirror it
+carrying frontmatter - when you change a doc, update `docs/` and mirror it
 there (same filename, keep the frontmatter block).
 
 ```bash
@@ -60,11 +60,11 @@ cd docs-site && npm run build                  # -> docs-site/dist
 ```
 
 The marketing site is a single static `website/index.html`: no build step and
-no external JS — animations are hand-rolled and JS-gated, so the page renders
+no external JS - animations are hand-rolled and JS-gated, so the page renders
 fully with JavaScript disabled. CI (`.github/workflows/pages.yml`) assembles
-both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
+both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
 
-## Invariants — violating any of these is a rejected change
+## Invariants - violating any of these is a rejected change
 
 1. **Precision over recall.** Any change that makes something new get
    flagged MUST ship a matching must-NOT-flag test. The example-app safe
@@ -76,15 +76,15 @@ both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
    belong in `frontends/`.
 3. **The scanner never executes scanned code.** Parse text only. No
    `exec`/`eval`/`import` of target code, no network calls in `scan`, no
-   telemetry. `test_sf_never_executes_scanned_code` enforces this — extend
+   telemetry. `test_sf_never_executes_scanned_code` enforces this - extend
    it if you add I/O.
 4. **Partial defenses never suppress.** Denylists, confirmation gates, and
-   unverified (name-only) sanitizers downgrade to MED — they must never
+   unverified (name-only) sanitizers downgrade to MED - they must never
    silence a finding.
 5. **Rules are data.** New coverage = YAML + fixtures, zero engine changes.
    A rule PR without a must-flag fixture AND a same-shaped must-stay-silent
    fixture is incomplete.
-6. **Stable interfaces:** the `--json` schema (`schema_version: 1` — bump it
+6. **Stable interfaces:** the `--json` schema (`schema_version: 1` - bump it
    for breaking changes and document in `docs/cli-reference.md`), exit codes
    (0/1/2), and baseline fingerprint semantics (line-shift resilient).
    Terminal output is NOT an interface; anything printed through rich must
@@ -97,7 +97,7 @@ both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
    root are skipped; oversized/deeply-nested/malformed files are skipped with
    a warning, never crash. Resource caps (`max_file_bytes`,
    `max_scan_seconds`) and 200-char snippet redaction are part of the
-   contract — see `SECURITY.md` and `HARDENING-AUDIT.md`.
+   contract - see `SECURITY.md` and `HARDENING-AUDIT.md`.
 
 ## Conventions
 
@@ -106,10 +106,10 @@ both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
 - Version lives in BOTH `pyproject.toml` and `src/palisade_sec/__init__.py`;
   update `CHANGELOG.md` with every user-visible change.
 - Docs claims must be real: tutorial/README outputs are captured from actual
-  runs — if you change output formats, re-run the commands and update
+  runs - if you change output formats, re-run the commands and update
   `docs/` plus `scripts/make_demo.py`'s SVG.
 - Releases: tag `vX.Y.Z`, GitHub release, `uv build && uv publish`
-  (maintainer's PyPI token — never commit or echo it).
+  (maintainer's PyPI token - never commit or echo it).
 
 ## Where to add things
 
@@ -117,6 +117,6 @@ both — marketing at `/`, docs at `/docs/` — and publishes to GitHub Pages.
 |---|---|
 | New framework/provider coverage | `src/palisade_sec/rules/*.yaml` + fixture tests |
 | New source/sink *shape* (kwargs, arg positions) | `rules/schema.py` + `engine/analyzer.py` sink/source handling + tests |
-| New language | new `frontends/<lang>.py` emitting the IR + scanner dispatch + a `tests/test_<lang>_frontend.py` mirroring `test_js_frontend.py` — zero engine edits expected |
+| New language | new `frontends/<lang>.py` emitting the IR + scanner dispatch + a `tests/test_<lang>_frontend.py` mirroring `test_js_frontend.py` - zero engine edits expected |
 | New output format (e.g. SARIF) | `report/` + CLI flag + schema doc |
 | Engine precision change | `engine/analyzer.py` + BOTH FN and FP tests + verify example-app pins still hold |

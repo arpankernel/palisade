@@ -1,5 +1,5 @@
 """Sanitizer strictness (v0.2): a sanitizer-by-name-only downgrades to MED
-"unverified sanitizer" instead of suppressing — unless the resolved
+"unverified sanitizer" instead of suppressing - unless the resolved
 project-local body shows a real allowlist/validation shape, or the pattern
 is a trusted framework validator."""
 
@@ -25,7 +25,7 @@ PREAMBLE = """
 
 def test_unverified_transform_sanitizer_downgrades(tmp_path):
     """A cosmetic .replace() 'sanitizer' (the Vanna shape) must not silence
-    the finding — MED 'unverified sanitizer' instead."""
+    the finding - MED 'unverified sanitizer' instead."""
     res = _scan(
         tmp_path,
         app=PREAMBLE
@@ -50,7 +50,7 @@ def test_unverified_transform_sanitizer_downgrades(tmp_path):
 
 
 def test_verified_guard_body_still_suppresses(tmp_path):
-    """A sanitizer whose body raises on invalid input is verified — silent."""
+    """A sanitizer whose body raises on invalid input is verified - silent."""
     res = _scan(
         tmp_path,
         app=PREAMBLE
@@ -78,7 +78,7 @@ def test_verified_guard_body_still_suppresses(tmp_path):
 
 def test_verified_membership_guard_call_suppresses(tmp_path):
     """`if is_safe_cmd(x): sink(x)` where the checker body has a membership
-    test is verified — silent."""
+    test is verified - silent."""
     res = _scan(
         tmp_path,
         app=PREAMBLE

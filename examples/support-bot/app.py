@@ -1,8 +1,8 @@
-"""SupportPilot — the docs tutorial sample app (deliberately vulnerable).
+"""SupportPilot - the docs tutorial sample app (deliberately vulnerable).
 
 A tiny customer-support bot with three LLM-powered features. Each one wires
 untrusted input through an LLM into a dangerous sink. Used by
-docs/tutorial.md — DO NOT DEPLOY.
+docs/tutorial.md - DO NOT DEPLOY.
 """
 
 import subprocess
@@ -60,7 +60,7 @@ def report():
         ],
     )
     code = resp.choices[0].message.content
-    exec(code)  # noqa: S102 — the tutorial fixes this one step by step
+    exec(code)  # noqa: S102 - the tutorial fixes this one step by step
     return jsonify(status="done")
 
 

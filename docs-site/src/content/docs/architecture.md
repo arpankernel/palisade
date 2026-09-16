@@ -3,7 +3,7 @@ title: "Architecture"
 description: "Frontends → taint IR → engine → rules, and the precision & safety contracts."
 ---
 
-How Palisade turns source text into precise findings — and why it's shaped
+How Palisade turns source text into precise findings - and why it's shaped
 this way.
 
 ## The spine
@@ -13,7 +13,7 @@ this way.
   source ────▶  │  Python (stdlib ast)      JS/TS (tree-sitter, [js] extra)  │
                 └───────────────────────────┬─────────────────────────────────┘
                                             ▼
-                     Normalized Taint IR — language-neutral nodes:
+                     Normalized Taint IR - language-neutral nodes:
                      assignments, calls (dotted paths), string joins,
                      collections, branches, functions, classes
                                             ▼
@@ -59,21 +59,21 @@ src/palisade_sec/
 
 Frontends emit a deliberately small vocabulary (`ir/model.py`):
 
-- **Expressions** — `Const`, `VarRef` (dotted path, alias-resolved),
+- **Expressions** - `Const`, `VarRef` (dotted path, alias-resolved),
   `Member`, `Call` (dotted `func_path`, args/kwargs, receiver), `StrJoin`
   (f-strings, `%`, `.format`, `+`, `.join`, template literals),
   `Collection`, `Unknown` (taint = union of children).
-- **Statements** — `Assign` (targets incl. `self.x` and `+x` augment),
+- **Statements** - `Assign` (targets incl. `self.x` and `+x` augment),
   `Return` (with `raises` flag), `IfBranch` (with guard metadata:
   test names/calls, negation, literal-membership, terminates), loops,
   try/with blocks.
-- **Definitions** — `FuncDef` (params, decorators, membership-test flag),
+- **Definitions** - `FuncDef` (params, decorators, membership-test flag),
   `Module` (import aliases, class bases).
 
 Anything a frontend can't express folds into `Unknown`, which propagates
 taint conservatively. Import aliases are resolved at lowering time, so
 `import subprocess as sp; sp.run(...)` reaches the engine as
-`subprocess.run` — in both languages (`const {exec} = require("child_process")`
+`subprocess.run` - in both languages (`const {exec} = require("child_process")`
 becomes `child_process.exec`). In JS, `this` is spelled `self` so class-field
 tracking and hierarchy resolution are shared.
 
@@ -91,7 +91,7 @@ Walk the tutorial's `/report` route through the engine:
 3. **LLM boundary.** `client.chat.completions.create(...)` matches an
    `llm_signatures` pattern. Because a `SOURCE`-tainted value is among its
    arguments (even nested inside `messages=[{"content": spec}]`), the call's
-   result carries an `LLM` taint — provenance of both the source and the
+   result carries an `LLM` taint - provenance of both the source and the
    LLM call site travels with it.
 4. **Propagation.** Taint flows through assignments, string building,
    collections, comprehensions, `await`, returns, `self.x` fields,
@@ -102,8 +102,8 @@ Walk the tutorial's `/report` route through the engine:
 5. **Sanitizer resolution.** A call matching a sanitizer pattern is judged,
    not trusted:
    - `trusted: true` patterns (pydantic `model_validate`, marshmallow
-     `schema.load`, `shlex.quote`, …) — suppress on name match.
-   - Name-heuristic patterns (`validate…`, `sanitize…`, `…allowlist`) —
+     `schema.load`, `shlex.quote`, …) - suppress on name match.
+   - Name-heuristic patterns (`validate…`, `sanitize…`, `…allowlist`) -
      suppress **only if the resolved body shows a real validation shape**
      (a membership test, a guard branch that raises/returns, a raise
      anywhere, an `re.fullmatch`-style call, or one level of delegation to
@@ -113,19 +113,19 @@ Walk the tutorial's `/report` route through the engine:
      guards (`if verb in ("list", "status")`).
 6. **Partial defenses never suppress.** Denylists and confirmation gates
    (`is_blocked(...)`, `confirm(...)`) tag the taint and downgrade the
-   eventual finding to MED — because PAL's denylist and Open Interpreter's
+   eventual finding to MED - because PAL's denylist and Open Interpreter's
    gate were bypassed in the wild.
 7. **Sink.** `exec(code)` matches a sink pattern. Sink specs carry shape
-   guards: `taint_args: [0]` (only `exec`'s *code* argument is dangerous —
+   guards: `taint_args: [0]` (only `exec`'s *code* argument is dangerous -
    a tainted globals dict is not), `require_kwargs: {shell: true}`
    (`subprocess.run([...])` without it is safe), `safe_if_extra_args`
    (parameterized `execute(q, params)` is safe). A sink-named call that
-   resolves to a real project function is *followed* instead — the true
+   resolves to a real project function is *followed* instead - the true
    sink inside beats the name heuristic.
 8. **Emission & dedup.** The finding carries the full trace from the taint's
    own provenance. Duplicates collapse by fingerprint; **one vulnerability
    (same source → same sink) is one finding even when several rules match**
-   — the most specific rule wins.
+   - the most specific rule wins.
 
 Confidence maps from hop count (0–1 → HIGH, 2 → MEDIUM, ≥3 → LOW); severity
 comes from the rule, downgraded to MED when partial defenses or unverified
@@ -136,7 +136,7 @@ sanitizers are on the path.
 | Situation | Verdict | Why |
 |---|---|---|
 | Constant developer prompt → LLM → exec | silent | no untrusted source; taint requires one |
-| Untrusted input → sink with **no LLM** | silent | out of contract — that's Bandit's finding, not Palisade's |
+| Untrusted input → sink with **no LLM** | silent | out of contract - that's Bandit's finding, not Palisade's |
 | `subprocess.run([...])` arg list | silent | safe sink shape |
 | `cursor.execute(q, params)` / `pool.query(text, values)` | silent | parameterized |
 | LLM output only logged/printed/returned | silent | not a sink |
@@ -154,7 +154,7 @@ sanitizers are on the path.
 - **`scan` makes no network calls** and needs no API key, account, or
   telemetry. Nothing leaves your machine.
 - Writes are limited to `.palisade/` and explicitly requested output files.
-- A file that fails to parse is skipped with a warning — never a crash.
+- A file that fails to parse is skipped with a warning - never a crash.
   Invalid rules and configs are reported and skipped (pydantic-validated).
 
 ## Scale characteristics
@@ -170,11 +170,11 @@ in the scan notes.
 - Receiver-name LLM signatures (`chain.run`, `llm.predict`) match by
   variable naming convention; unusual names need a one-line custom rule.
 - Many-provider abstract dispatch (ten subclasses implementing
-  `submit_prompt`) stays unresolved by design — ambiguity is not resolved by
+  `submit_prompt`) stays unresolved by design - ambiguity is not resolved by
   guessing. The `PI-FRAMEWORK-EXEC` wrapper signatures cover the common
   cases.
 - Fully dynamic pipeline-object dataflow (PandasAI v2's step runner) is
   beyond bounded static taint; framework-specific rules are the pragmatic
   path.
-- Sanitizer body verification is a heuristic — it judges shape, not
+- Sanitizer body verification is a heuristic - it judges shape, not
   semantics. It errs toward flagging (downgrade, never silence).

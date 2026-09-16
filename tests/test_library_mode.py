@@ -1,6 +1,6 @@
 """Library mode (--assume-params-untrusted): parameters of public functions
 become untrusted sources. Off by default. Every must-flag case has a
-must-not-flag twin — precision rules."""
+must-not-flag twin - precision rules."""
 
 import textwrap
 
@@ -51,7 +51,7 @@ def test_private_function_params_not_tainted(tmp_path):
 
 
 def test_unused_param_constant_prompt_silent(tmp_path):
-    """A public function with a param is not enough — the param must actually
+    """A public function with a param is not enough - the param must actually
     reach the LLM."""
     proj = _project(
         tmp_path,

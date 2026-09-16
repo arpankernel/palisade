@@ -5,7 +5,7 @@ an abstract provider LLM method and a cosmetic "sanitizer" into exec.
 Kept structurally faithful on the four points that matter:
 - untrusted input is a public-method PARAMETER (library entry),
 - the LLM call is `self.submit_prompt(...)`, abstract in the base class,
-- `_sanitize_plotly_code` only strips fig.show() — a sanitizer in name only,
+- `_sanitize_plotly_code` only strips fig.show() - a sanitizer in name only,
 - the sink is `exec(plotly_code, globals(), ldict)`.
 """
 
@@ -38,12 +38,12 @@ class FakeVannaBase:
         return markdown_string
 
     def _sanitize_plotly_code(self, raw_plotly_code: str) -> str:
-        # Cosmetic only — exactly the defense CVE-2024-5565 walked through.
+        # Cosmetic only - exactly the defense CVE-2024-5565 walked through.
         plotly_code = raw_plotly_code.replace("fig.show()", "")
         return plotly_code
 
     def get_plotly_figure(self, plotly_code: str):
         ldict = {}
-        exec(plotly_code, globals(), ldict)  # noqa: S102 — the CVE sink shape
+        exec(plotly_code, globals(), ldict)  # noqa: S102 - the CVE sink shape
         fig = ldict.get("fig", None)
         return fig

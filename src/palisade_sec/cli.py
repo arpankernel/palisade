@@ -1,9 +1,9 @@
 """Palisade CLI: `palisade-sec scan` and `palisade-sec baseline`.
 
 Exit codes:
-  0 — success (no findings; or nothing new vs. baseline; or non-CI mode)
-  1 — --ci and at least one NEW HIGH finding
-  2 — usage / target errors
+  0 - success (no findings; or nothing new vs. baseline; or non-CI mode)
+  1 - --ci and at least one NEW HIGH finding
+  2 - usage / target errors
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from palisade_sec.scanner import run_scan
 app = typer.Typer(
     name="palisade-sec",
     help=(
-        "Palisade — a linter for LLM security. Statically detects prompt-injection "
+        "Palisade - a linter for LLM security. Statically detects prompt-injection "
         "paths (untrusted input -> LLM -> dangerous sink) in Python code. "
         "Pure static analysis: no code execution, no network, no API key."
     ),
@@ -163,7 +163,7 @@ def fix(
 ) -> None:
     """Generate a remediation plan: a guardrail + regression test per finding.
 
-    Deterministic and offline — templates tailored per rule, no LLM calls,
+    Deterministic and offline - templates tailored per rule, no LLM calls,
     and the scanned project is never modified.
     """
     from palisade_sec.fix import build_fix_plan
@@ -191,7 +191,7 @@ def fix(
     out = Path(output)
     out.write_text(build_fix_plan(findings, result.files_scanned, str(target)), encoding="utf-8")
     console.print(
-        f"remediation plan for {len(findings)} finding(s) written to {out} — "
+        f"remediation plan for {len(findings)} finding(s) written to {out} - "
         "each guardrail ships with a regression test; adapt the allowlists, "
         "then add the tests to your suite."
     )

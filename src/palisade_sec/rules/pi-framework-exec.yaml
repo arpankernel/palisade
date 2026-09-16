@@ -3,7 +3,7 @@ title: Prompt injection via a framework LLM wrapper reaching code execution
 severity: high
 description: >
   Agent/pipeline frameworks (PandasAI-style code pipelines, Vanna-style
-  provider bases) rarely call the LLM SDK directly at the vulnerable site —
+  provider bases) rarely call the LLM SDK directly at the vulnerable site -
   they route through a project wrapper method (call_llm, generate_code,
   submit_prompt, ...). This rule recognizes those wrapper signatures so the
   source -> LLM -> exec chain is visible even when the SDK call lives
@@ -99,8 +99,8 @@ partial_defenses:
       - "auto_run"
       - "human_review"
 references:
-  - "CVE-2024-5565 (Vanna.ai — submit_prompt wrapper)"
-  - "CVE-2024-12366 (PandasAI — code-generation pipeline)"
+  - "CVE-2024-5565 (Vanna.ai - submit_prompt wrapper)"
+  - "CVE-2024-12366 (PandasAI - code-generation pipeline)"
 attack: >
   Crafted input steers the framework's LLM wrapper into emitting Python that
   the framework's own execution step runs.

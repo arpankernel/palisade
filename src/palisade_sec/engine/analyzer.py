@@ -11,7 +11,7 @@ Precision-over-recall decisions live here:
   job); LLM output from a constant developer prompt is not a finding.
 - Sanitizers (allowlist, pydantic/marshmallow validation, int/enum casts,
   literal-membership guards) suppress taint entirely.
-- Partial defenses (denylists, confirmation gates) do NOT suppress — the
+- Partial defenses (denylists, confirmation gates) do NOT suppress - the
   taint keeps flowing, flagged, and the finding is downgraded to MED "risky".
 """
 
@@ -153,7 +153,7 @@ class Engine:
         """Resolve self.<method> through the class hierarchy.
 
         Order: the class itself, then ancestors (template methods defined in
-        a base), then descendants — but only when exactly ONE descendant
+        a base), then descendants - but only when exactly ONE descendant
         class implements the method (an abstract hook with a single provider
         is unambiguous; Vanna-style many-provider dispatch stays unresolved
         and is handled by stub propagation + custom wrapper rules).
@@ -205,13 +205,13 @@ class Engine:
     def sanitizer_verified(self, path: str, module: ir.Module, class_name: str | None) -> bool:
         """Is a name-matched sanitizer believable?
 
-        - Unresolvable (external library): True — we can't inspect it, and
+        - Unresolvable (external library): True - we can't inspect it, and
           flagging every third-party sanitizer would violate precision.
           Known frameworks should use `trusted: true` in the rule instead.
         - Resolved project-local function: True only if its body shows a real
           allowlist/validation shape (a membership test, or a guard branch
-          that raises/returns). Vanna's `_sanitize_plotly_code` — a cosmetic
-          .replace() — fails this and gets downgraded, not suppressed.
+          that raises/returns). Vanna's `_sanitize_plotly_code` - a cosmetic
+          .replace() - fails this and gets downgraded, not suppressed.
         """
         target = self.resolve(path, module, class_name)
         if target is None:
@@ -268,9 +268,9 @@ class _RuleRun:
         """Parameter taints for an entry-point analysis.
 
         Params are untrusted sources when (a) library mode
-        (--assume-params-untrusted) and the function is public — libraries
+        (--assume-params-untrusted) and the function is public - libraries
         have no visible caller, so the caller IS the untrusted world
-        (Vanna's `ask(question)`, CVE-2024-5565) — or (b) the function is a
+        (Vanna's `ask(question)`, CVE-2024-5565) - or (b) the function is a
         web-framework entry point per the rule's decorator-kind sources
         (FastAPI `@app.post` handlers receive the request as parameters)."""
         env: dict[str, TaintSet] = {p: EMPTY for p in fn.params}
@@ -483,11 +483,11 @@ class _Exec:
 
         if san_hit:
             if s.negated:
-                # `if x not in ALLOWED: <reject>` — the else/fall-through is safe
+                # `if x not in ALLOWED: <reject>` - the else/fall-through is safe
                 for v in guarded:
                     env_else[v] = EMPTY
             else:
-                # `if x in ALLOWED: <use>` — the body is safe
+                # `if x in ALLOWED: <use>` - the body is safe
                 for v in guarded:
                     env_body[v] = EMPTY
 
@@ -568,7 +568,7 @@ class _Exec:
     def source_taint_prefixed(self, path: str, loc: ir.Loc) -> TaintSet:
         """Source match on the path or any dotted prefix: `req.body.q` is a
         source because `req.body` is (deep attribute reads of a source are
-        still the source — Python hits this via subscripts, JS via chains)."""
+        still the source - Python hits this via subscripts, JS via chains)."""
         parts = path.split(".")
         for i in range(len(parts), 0, -1):
             ts = self.source_taint(".".join(parts[:i]), loc)
@@ -614,7 +614,7 @@ class _Exec:
 
         # 3) sanitizers (FP-1): trusted frameworks and body-verified project
         #    functions suppress; a sanitizer in name only (resolved body with
-        #    no validation shape) downgrades to MED "unverified sanitizer" —
+        #    no validation shape) downgrades to MED "unverified sanitizer" -
         #    Vanna's cosmetic _sanitize_plotly_code shipped CVE-2024-5565.
         san = match_lenient_spec(path, self.rule.sanitizers)
         if san is not None:
@@ -660,7 +660,7 @@ class _Exec:
         # 6) sinks. taint_args restricts which positional args are dangerous
         #    (exec's code argument, not its globals/locals dicts); star-args
         #    stay included since their position is unknown. A sink-named call
-        #    that resolves to a real project function is followed instead —
+        #    that resolves to a real project function is followed instead -
         #    the true sink (or its absence) inside beats the name heuristic.
         sink_spec = match_any_strict(path, self.rule.sinks)
         if sink_spec is not None and _sink_armed(c, sink_spec):
@@ -687,7 +687,7 @@ class _Exec:
         # 8) project-local functions: follow in, bounded (FN-1, FN-8).
         #    A stub body (abstract method: pass / ... / docstring /
         #    raise NotImplementedError) is a placeholder, not evidence the
-        #    value is clean — propagate like an unknown call. Vanna's
+        #    value is clean - propagate like an unknown call. Vanna's
         #    abstract system_message/user_message are the canonical case.
         callee = self.engine_resolve(path)
         if callee is not None:

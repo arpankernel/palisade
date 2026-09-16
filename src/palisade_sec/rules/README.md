@@ -2,7 +2,7 @@
 
 Rules are YAML data validated by a pydantic schema
 ([`schema.py`](schema.py)). The engine is generic: **a new rule needs zero
-engine changes** — you only describe what to match.
+engine changes** - you only describe what to match.
 
 ## Add a rule in 5 minutes
 
@@ -45,7 +45,7 @@ fix: The specific change a developer should make.
 3. Test it: `palisade-sec scan your/fixture --rules path/to/dir --all`.
 4. Open a PR with the rule **plus a fixture**: one file that must be flagged
    and one same-shaped file that must stay silent. The silent one matters
-   more — Palisade's contract is precision over recall.
+   more - Palisade's contract is precision over recall.
 
 ## Pattern semantics
 
@@ -76,19 +76,19 @@ Defense categories (`sanitizers`, `partial_defenses`) match as
 
 Sanitizer specs come in two tiers (since v0.2):
 
-- `trusted: true` — known validation frameworks (pydantic `model_validate`,
+- `trusted: true` - known validation frameworks (pydantic `model_validate`,
   marshmallow `schema.load`, `shlex.quote`, ...). A name match fully
   suppresses the finding.
-- default (untrusted) — name heuristics like `validate`/`sanitize`/`allow`.
+- default (untrusted) - name heuristics like `validate`/`sanitize`/`allow`.
   A match suppresses only when the call resolves to a project-local function
   whose body shows a real allowlist/validation shape (a membership test, or
-  a guard branch that raises/returns). A sanitizer in name only — e.g. a
+  a guard branch that raises/returns). A sanitizer in name only - e.g. a
   cosmetic `.replace()` like Vanna's `_sanitize_plotly_code`
-  (CVE-2024-5565) — downgrades the finding to MED "unverified sanitizer"
+  (CVE-2024-5565) - downgrades the finding to MED "unverified sanitizer"
   instead of silencing it. Unresolvable third-party calls keep the benefit
   of the doubt; promote the ones you rely on to a `trusted` spec.
 
-A rule id that already exists overrides the builtin — that's how you tune a
+A rule id that already exists overrides the builtin - that's how you tune a
 builtin rule for your codebase without forking.
 
 ## v1 limitations worth knowing
@@ -103,5 +103,5 @@ builtin rule for your codebase without forking.
   `self.submit_prompt`, implemented per provider in subclasses) is invisible
   to same-class resolution. Recipe: add the wrapper to `llm_signatures` in a
   custom rule (`"*.submit_prompt"`) and scan with
-  `--assume-params-untrusted` for library code — this combination catches
+  `--assume-params-untrusted` for library code - this combination catches
   the CVE-2024-5565 shape (see tests/test_vanna_regression.py).

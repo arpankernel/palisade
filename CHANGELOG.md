@@ -1,42 +1,53 @@
 # Changelog
 
-## 0.3.2 — 2026-09-16
+## 0.3.3 - 2026-09-16
+
+- Removed every em dash from the README, docs, website, rule text and code
+  comments in favour of plain hyphens, for a cleaner reading tone. This
+  release exists so the PyPI project description picks the change up, since
+  descriptions are immutable per release.
+- Softened the website palette from a vivid crimson (#A31621) to a calmer
+  maroon (#6E1F2A). The large fills (page frame, terminal panels, final CTA)
+  were harsh to read against the cream canvas.
+
+
+## 0.3.2 - 2026-09-16
 
 - PyPI listing health: absolute URLs for the README demo image and the
   rules-guide link (relative paths render broken on the PyPI project
   page); package summary now says Python **and JavaScript/TypeScript**.
 
-## 0.3.1 — 2026-09-16
+## 0.3.1 - 2026-09-16
 
 - Terminal output: escape rich markup in notes/warnings/skips so literal
   brackets render verbatim (the `pip install 'palisade-sec[js]'` hint was
   losing its `[js]`). Found by the full-stack verification pass.
 
-## 0.3.0 — 2026-09-16
+## 0.3.0 - 2026-09-16
 
 The "everything deferred" release: multi-language, framework-aware, and
 able to propose fixes.
 
 - **JavaScript/TypeScript frontend** (tree-sitter, optional `[js]` extra):
   `.js`/`.mjs`/`.cjs`/`.jsx`/`.ts`/`.tsx` lower into the same taint IR with
-  **zero engine changes** — the multi-language architecture, proven. Express
+  **zero engine changes** - the multi-language architecture, proven. Express
   sources (`req.body`, `req.query`), `eval`/`new Function`/`vm.runIn*`,
   `child_process.exec[Sync]`, `pool.query` sinks; `.includes()` enum guards;
   `this` maps to `self` so class-field tracking works. 1,576 mixed
   Python+TS files (Langflow) scan in ~36s with zero crashes and zero FPs.
 - **FastAPI / decorator sources**: rules can declare `kind: decorator`
-  sources (`*.post`, `*.route`, ...) — route-handler parameters (including
+  sources (`*.post`, `*.route`, ...) - route-handler parameters (including
   pydantic bodies) become untrusted automatically.
 - **Class-hierarchy method resolution**: `self.m()` resolves through base
   classes and, when exactly one concrete implementation exists, through
   subclasses (abstract-hook/single-provider pattern). Ambiguous
-  many-provider dispatch stays unresolved — precision first.
-- **New seeded rules**: `PI-HTTP` (LLM-chosen URL fetched — SSRF/exfil,
+  many-provider dispatch stays unresolved - precision first.
+- **New seeded rules**: `PI-HTTP` (LLM-chosen URL fetched - SSRF/exfil,
   advisory MED) and `PI-FRAMEWORK-EXEC` (framework LLM wrappers:
   `submit_prompt`, `call_llm`, `generate_code`, ... → execution step).
   With library mode, builtin rules now flag the real Vanna CVE-2024-5565
   with no custom rule at all.
-- **`palisade-sec fix`**: deterministic, offline remediation plans — a
+- **`palisade-sec fix`**: deterministic, offline remediation plans - a
   rule-tailored guardrail plus a regression pytest per finding, written to
   `palisade-fixes.md`. Never modifies scanned code, never calls an LLM.
 - **Sanitizer verification refinements**: raises anywhere in the body
@@ -48,7 +59,7 @@ able to propose fixes.
   sources match on dotted prefixes (`req.body.q`).
 - Demo: `docs/demo.svg` regenerable via `scripts/make_demo.py`.
 
-## 0.2.0 — 2026-09-16
+## 0.2.0 - 2026-09-16
 
 Driven by the proof scans against real CVE repos (docs/proof-scans.md).
 
@@ -59,7 +70,7 @@ Driven by the proof scans against real CVE repos (docs/proof-scans.md).
   trusted (known frameworks, `trusted: true` in rules) or when the resolved
   project-local function body shows a real allowlist/validation shape.
   A sanitizer in name only downgrades the finding to MED
-  **"unverified sanitizer"** instead of silencing it — Vanna's cosmetic
+  **"unverified sanitizer"** instead of silencing it - Vanna's cosmetic
   `_sanitize_plotly_code` (CVE-2024-5565) is the canonical case.
 - JSON schema: `partial_defenses[].kind` added
   (`partial_defense` | `unverified_sanitizer`).
@@ -67,13 +78,13 @@ Driven by the proof scans against real CVE repos (docs/proof-scans.md).
   raise) propagate taint like unknown calls instead of dropping it; mutating
   collection methods (`x.append(tainted)`) taint the collection; sink specs
   can declare which positional arguments are dangerous (`taint_args: [0]`
-  for exec/eval — a tainted environment dict is not code execution).
+  for exec/eval - a tainted environment dict is not code execution).
 - Rescanning the real vanna v0.5.5 with library mode + a one-line
   `*.submit_prompt` wrapper rule now flags exactly the CVE-2024-5565 sink
   (base.py:1998) and nothing else; an offline fixture pins this
   (tests/test_vanna_regression.py).
 
-## 0.1.0 — 2026-09-16
+## 0.1.0 - 2026-09-16
 
 Initial release: Python frontend (stdlib ast) → language-agnostic taint IR →
 engine; PI-EXEC / PI-SHELL / PI-SQL rules; sanitizer resolution and
