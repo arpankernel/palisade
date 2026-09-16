@@ -1,0 +1,144 @@
+name: Release
+
+# Publishes to PyPI via Trusted Publishing (OIDC). There is no API token
+# anywhere: GitHub mints a short-lived identity token for this exact
+# workflow, in this exact repo, in this exact environment, and PyPI accepts
+# it because that combination is registered as a trusted publisher.
+#
+# To cut a release:
+#     git tag v0.4.0 && git push --tags
+#
+# The tag is the trigger and the source of truth for the version.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: uv sync --dev
+
+      # Never publish something that does not pass its own gates.
+      - name: Gates
+        run: |
+          uv run ruff check .
+          uv run ruff format --check src tests scripts corpus
+          uv run mypy src/palisade_sec
+          uv run pytest -q
+          uv run python scripts/precision.py corpus/manifest.yaml
+
+      - name: Tag must match the packaged version
+        id: version
+        run: |
+          PKG=$(uv run python -c "import tomllib,pathlib; \
+            print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            if [ "$TAG" != "$PKG" ]; then
+              echo "::error::tag v$TAG does not match pyproject version $PKG"
+              exit 1
+            fi
+            echo "tag v$TAG matches packaged version $PKG"
+          fi
+
+      - name: Build
+        run: uv build
+
+      # v0.3.3 shipped an 85 MB sdist because hatchling does not honour
+      # nested .gitignore files and swept in docs-site/node_modules. Make
+      # that specific mistake impossible to repeat silently.
+      - name: Sdist must contain only source
+        run: |
+          SDIST=$(ls dist/*.tar.gz)
+          SIZE=$(stat -c%s "$SDIST")
+          echo "sdist: $SDIST ($((SIZE / 1024)) KB)"
+          if [ "$SIZE" -gt 5000000 ]; then
+            echo "::error::sdist is $((SIZE / 1048576)) MB - something unintended is bundled"
+            exit 1
+          fi
+          if tar -tzf "$SDIST" | grep -qE "node_modules/|docs-site/|/dist/"; then
+            echo "::error::sdist contains build or site artefacts:"
+            tar -tzf "$SDIST" | grep -E "node_modules/|docs-site/|/dist/" | head
+            exit 1
+          fi
+          echo "sdist is clean: $(tar -tzf "$SDIST" | wc -l) files"
+
+      - name: Wheel must be installable and runnable
+        run: |
+          uv venv --seed /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet dist/*.whl
+          /tmp/smoke/bin/palisade-sec --version
+          /tmp/smoke/bin/palisade-sec scan examples/vulnerable-app --json > /tmp/out.json
+          /tmp/smoke/bin/python -c "import json; d=json.load(open('/tmp/out.json')); \
+            assert d['summary']['high'] == 4, d['summary']; print('smoke scan OK')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' && !inputs.dry_run
+    environment:
+      name: pypi
+      url: https://pypi.org/p/palisade-sec
+    permissions:
+      id-token: write # the OIDC token; this is what replaces the API token
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Phase 4 hardening will pin this to a commit SHA; release/v1 is the
+      # form PyPI's own docs recommend today.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Published to PyPI: https://pypi.org/project/palisade-sec/${{ needs.build.outputs.version }}/
+
+          See [CHANGELOG.md](https://github.com/arpankernel/palisade/blob/main/CHANGELOG.md) for what changed."
