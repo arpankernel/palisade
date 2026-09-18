@@ -31,9 +31,16 @@ def _hook(event: str, args: tuple) -> None:
         # Only code objects originating from the scanned target are a
         # violation - the scanner importing its own modules also fires
         # 'exec' events for module code objects.
+        #
+        # `<string>` is NOT a reliable signal of target execution: the stdlib
+        # builds classes that way (collections.namedtuple, reached here via
+        # tomllib during config loading) and fires hundreds of such events.
+        # Matching on it made this test pass or fail purely on whether an
+        # earlier test had already imported tomllib. Target execution is
+        # caught by co_filename below and, definitively, by the marker files.
         code = args[0] if args else None
         fname = getattr(code, "co_filename", "")
-        if "fixtures/hostile" in fname.replace(os.sep, "/") or fname == "<string>":
+        if "fixtures/hostile" in fname.replace(os.sep, "/"):
             _VIOLATIONS.append(f"exec of target code: {fname}")
     elif event in ("system", "os.system", "subprocess.Popen", "os.exec", "socket.connect"):
         _VIOLATIONS.append(f"{event}: {args!r:.120}")
@@ -79,6 +86,23 @@ def test_hostile_corpus_never_executes_and_never_crashes(tripwire):
         assert name in skipped, f"{name} should be skipped with a warning: {res.skipped}"
     # and the genuinely vulnerable file in the corpus is still analyzed
     assert any(f.rule_id == "PI-SHELL" for f in res.findings)
+
+
+def test_tripwire_actually_detects_execution(tripwire):
+    """Positive control: the SF-1 assertions above must not pass vacuously.
+
+    Executing the hostile fixture for real has to trip BOTH detectors - the
+    audit hook (via co_filename) and the marker file. Without this, a hook
+    that silently stopped matching would look exactly like a clean scan.
+    """
+    evil = HOSTILE / "evil_sideeffect.py"
+    with pytest.raises(SystemExit):
+        exec(compile(evil.read_text(), str(evil), "exec"), {"__name__": "__hostile__"})
+
+    assert any("exec of target code" in v for v in tripwire), (
+        "audit hook failed to flag a real exec of target code"
+    )
+    assert os.path.exists(MARKERS[0]), "marker detector failed to observe real execution"
 
 
 def test_scan_makes_no_network_calls(tripwire):

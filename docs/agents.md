@@ -44,8 +44,10 @@ one JSON document to stdout (warnings inside the document, not on stderr).
    wrapped, and not a stable interface. Check `schema_version == 1`; on any
    other value, stop and report incompatibility instead of guessing.
 2. **Exit codes:** `0` success (findings may still exist - read the JSON),
-   `1` only with `--ci` and a new HIGH, `2` usage error (bad path). Do not
-   infer findings from exit codes except under `--ci`.
+   `1` only with `--ci` and a new HIGH, `2` usage error (bad path), `3`
+   internal error - the scan did **not** complete. Do not infer findings
+   from exit codes except under `--ci`. On `3`, report that the scan failed;
+   never treat it as "no findings" and never treat it as a HIGH finding.
 3. **Choose the mode by target shape:** app/service → plain scan; library or
    SDK (entry points are public functions) → add
    `--assume-params-untrusted`; JS/TS present → use the `[js]` extra

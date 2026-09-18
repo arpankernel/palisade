@@ -93,7 +93,8 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
    fixture is incomplete.
 6. **Stable interfaces:** the `--json` schema (`schema_version: 1` - bump it
    for breaking changes and document in `docs/cli-reference.md`), exit codes
-   (0/1/2), and baseline fingerprint semantics (line-shift resilient).
+   (0/1/2/3 - 3 means the scan did not complete; never reuse it for a
+   finding verdict), and baseline fingerprint semantics (line-shift resilient).
    Terminal output is NOT an interface; anything printed through rich must
    escape dynamic text (`rich.markup.escape`).
 7. **Determinism.** Findings, JSON, and baseline files are sorted; no

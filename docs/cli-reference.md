@@ -13,7 +13,8 @@ network, no API key, no telemetry.
 |---|---|
 | `0` | Success. Includes "findings exist but `--ci` not set" and "all findings baselined under `--ci`". |
 | `1` | `--ci` was set and at least one **new HIGH** finding exists. |
-| `2` | Usage error (e.g. target path does not exist). |
+| `2` | Usage error (e.g. target path does not exist, or a report path that cannot be written). |
+| `3` | Internal error: the scan did not complete, so its verdict is unknown. Treat as a failed gate, not as "no findings". |
 
 ## `palisade-sec scan [PATH]`
 
@@ -24,6 +25,7 @@ Scan a file or directory (default `.`) for source → LLM → sink paths.
 | `--all` | Show MED/LOW findings too. Default view: HIGH + "risky" downgraded findings. |
 | `--json` | Emit the stable JSON document (below) to stdout instead of terminal output. |
 | `--report` | Also write `palisade-report.md` - a shareable mini threat model grouped by severity. |
+| `--report-output FILE` | Write the `--report` markdown to FILE instead of `palisade-report.md`. Parent directories are created. |
 | `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists. |
 | `--baseline FILE` | Diff against a baseline; only new findings are reported/counted. Stale entries are noted. |
 | `--rules DIR` | Load additional/overriding YAML rules from a directory (same `id` overrides a builtin). |

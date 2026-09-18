@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+Reliability of the gate itself. A CI security gate has one job beyond finding
+bugs: never lie about whether it ran. Four defects broke that contract.
+
+### Added
+
+- **Exit code `3` - internal error.** An unexpected exception during a scan
+  previously escaped as a traceback and exit `1`, which is indistinguishable
+  from "a HIGH finding exists". A gate that crashes now says so distinctly,
+  and `KeyboardInterrupt` reports it too instead of claiming success.
+- **`scan --report-output PATH`.** `--report` was hardcoded to
+  `palisade-report.md` in the working directory, unlike `fix` and `baseline`
+  which both take `--output`. An unwritable path is a clean usage error
+  rather than a traceback. `--report` keeps its previous default.
+- **Positive control for the SF-1 tripwire** - a test that executes the
+  hostile fixture for real and asserts both detectors fire, so the
+  never-executes guarantee cannot pass vacuously.
+
+### Fixed
+
+- **One malformed file no longer aborts the whole scan.** An unexpected
+  error while lowering a single file discarded every other file's findings.
+  Such a file is now reported in `skipped` and the scan continues (RB-3).
+- **Clean scans no longer crash on legacy consoles.** On a cp1252 console
+  (Windows default) rich raised `UnicodeEncodeError` printing the "no
+  findings" tick, turning a *passing* scan into exit `1`. The few non-ASCII
+  glyphs degrade to ASCII when the console cannot encode them; UTF-8 output
+  is unchanged. `palisade-sec scan src --ci` now exits 0 there, as AGENTS.md
+  has always required.
+- **`test_self_security.py` is no longer order-dependent.** Its audit hook
+  treated `<string>` code objects as target execution, but the stdlib
+  generates hundreds of those (`collections.namedtuple` via `tomllib`), so
+  the test passed or failed purely on whether an earlier test had imported
+  `tomllib`. Run on its own - as AGENTS.md instructs - it failed. Target
+  execution is still caught by `co_filename` and the marker files.
+
 ## 0.4.0 - 2026-09-16
 
 Phase 0 of the roadmap is complete: quality is now measured against a pinned
