@@ -17,6 +17,36 @@ _SEV_STYLE = {"high": "bold red", "med": "bold yellow", "low": "bold cyan"}
 _SEV_LABEL = {"high": "HIGH", "med": "MED", "low": "LOW"}
 
 
+# The only non-ASCII characters we print, with ASCII stand-ins.
+_TICK = "✓"
+_ARROW = "↳"
+
+
+def make_console() -> Console:
+    """The single Console constructor for the CLI (UX-3 lives here)."""
+    return Console(highlight=False, safe_box=True)
+
+
+def _ascii_only(console: Console) -> bool:
+    """True when the console's encoding cannot represent our glyphs.
+
+    Windows' legacy cp1252 console is the common case: rich raised
+    UnicodeEncodeError on the "no findings" tick, which turned a CLEAN scan
+    into a traceback and exit 1 - a passing security gate reported as failing.
+    """
+    encoding = getattr(console.file, "encoding", None) or "utf-8"
+    try:
+        (_TICK + _ARROW).encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        return True
+    return False
+
+
+def _glyphs(console: Console) -> tuple[str, str]:
+    """(tick, arrow) - real glyphs, or ASCII stand-ins on a legacy console."""
+    return ("OK", "->") if _ascii_only(console) else (_TICK, _ARROW)
+
+
 def print_findings(
     console: Console,
     findings: list[Finding],
@@ -29,6 +59,7 @@ def print_findings(
     baseline_known: int = 0,
     suppressed: int = 0,
 ) -> None:
+    tick, arrow_glyph = _glyphs(console)
     for w in warnings:
         console.print(f"[yellow]warning:[/yellow] {escape(w)}")
     for s in skipped:
@@ -46,7 +77,7 @@ def print_findings(
         console.print(header)
 
         def arrow(label: str, tp) -> None:
-            line = Text("  ↳ ")
+            line = Text(f"  {arrow_glyph} ")
             line.append(f"{label}:".ljust(8), style="dim")
             line.append(tp.snippet or tp.detail, style="white")
             line.append(f"  ({tp.file}:{tp.line})", style="dim")
@@ -96,13 +127,14 @@ def print_findings(
     if not findings:
         if baseline_known:
             console.print(
-                f"[green]✓ No new findings.[/green] "
+                f"[green]{tick} No new findings.[/green] "
                 f"({baseline_known} known finding(s) suppressed by baseline; "
                 f"{files_scanned} file(s) scanned)"
             )
         else:
             console.print(
-                f"[green]✓ No LLM injection paths found.[/green] ({files_scanned} file(s) scanned)"
+                f"[green]{tick} No LLM injection paths found.[/green] "
+                f"({files_scanned} file(s) scanned)"
             )
     else:
         high = sum(1 for f in findings if f.severity == "high")

@@ -4,6 +4,12 @@ Exit codes:
   0 - success (no findings; or nothing new vs. baseline; or non-CI mode)
   1 - --ci and at least one NEW HIGH finding
   2 - usage / target errors
+  3 - internal error: the scan did not complete, so its verdict is unknown
+
+Code 3 exists so a CI gate can tell "Palisade ran and found a HIGH" (1) from
+"Palisade crashed and proved nothing" (previously also 1, via an uncaught
+traceback). A security gate that fails open on its own bugs is worse than one
+that fails loudly.
 """
 
 from __future__ import annotations
@@ -11,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
-from rich.console import Console
 
 from palisade_sec import __version__
 from palisade_sec.baseline import (
@@ -19,8 +24,8 @@ from palisade_sec.baseline import (
     diff_against_baseline,
     write_baseline,
 )
-from palisade_sec.report import print_findings, to_json, to_markdown
-from palisade_sec.scanner import run_scan
+from palisade_sec.report import make_console, print_findings, to_json, to_markdown
+from palisade_sec.scanner import ScanResult, run_scan
 
 app = typer.Typer(
     name="palisade-sec",
@@ -34,10 +39,53 @@ app = typer.Typer(
 )
 
 
+EXIT_OK = 0
+EXIT_FINDINGS = 1
+EXIT_USAGE = 2
+EXIT_INTERNAL = 3
+
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"palisade-sec {__version__}")
         raise typer.Exit()
+
+
+def _scan_or_exit(
+    target: Path,
+    *,
+    config_file: str | None = None,
+    rules_dir: str | None = None,
+    assume_params_untrusted: bool | None = None,
+) -> ScanResult:
+    """Run a scan behind a crash boundary.
+
+    An unexpected exception here means the scan produced no trustworthy
+    verdict. Report that distinctly (exit 3) instead of letting the traceback
+    surface as exit 1, which a CI gate cannot tell from a real HIGH finding.
+    """
+    try:
+        return run_scan(
+            target,
+            config_file=config_file,
+            rules_dir=rules_dir,
+            assume_params_untrusted=assume_params_untrusted,
+        )
+    except KeyboardInterrupt:
+        typer.echo("error: interrupted; scan incomplete", err=True)
+        raise typer.Exit(EXIT_INTERNAL) from None
+    except Exception as exc:  # noqa: BLE001 - top-level boundary
+        typer.echo(
+            f"error: internal error during scan, results are incomplete: "
+            f"{type(exc).__name__}: {exc}",
+            err=True,
+        )
+        typer.echo(
+            "this is a bug in palisade-sec - please report it at "
+            "https://github.com/arpankernel/palisade/issues",
+            err=True,
+        )
+        raise typer.Exit(EXIT_INTERNAL) from exc
 
 
 @app.callback()
@@ -56,6 +104,11 @@ def scan(
     json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
     report: bool = typer.Option(
         False, "--report", help="Write a markdown report to palisade-report.md."
+    ),
+    report_output: str | None = typer.Option(
+        None,
+        "--report-output",
+        help="Path for the --report markdown file (default: palisade-report.md).",
     ),
     ci: bool = typer.Option(
         False, "--ci", help="CI mode: exit non-zero if any (new) HIGH finding."
@@ -80,9 +133,9 @@ def scan(
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(EXIT_USAGE)
 
-    result = run_scan(
+    result = _scan_or_exit(
         target,
         config_file=config,
         rules_dir=rules,
@@ -122,7 +175,7 @@ def scan(
             nl=False,
         )
     else:
-        console = Console(highlight=False)
+        console = make_console()
         print_findings(
             console,
             visible,
@@ -136,14 +189,21 @@ def scan(
             suppressed=len(result.suppressed),
         )
 
-    if report:
-        out = Path("palisade-report.md")
-        out.write_text(to_markdown(findings, result.files_scanned, str(target)), encoding="utf-8")
+    if report or report_output:
+        out = Path(report_output) if report_output else Path("palisade-report.md")
+        try:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(
+                to_markdown(findings, result.files_scanned, str(target)), encoding="utf-8"
+            )
+        except OSError as exc:
+            typer.echo(f"error: could not write report to {out}: {exc}", err=True)
+            raise typer.Exit(EXIT_USAGE) from exc
         if not json_out:
             typer.echo(f"report written to {out}")
 
     if ci and any(f.severity == "high" for f in findings):
-        raise typer.Exit(1)
+        raise typer.Exit(EXIT_FINDINGS)
 
 
 @app.command()
@@ -173,16 +233,16 @@ def fix(
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(EXIT_USAGE)
 
-    result = run_scan(
+    result = _scan_or_exit(
         target,
         config_file=config,
         rules_dir=rules,
         assume_params_untrusted=assume_params_untrusted or None,
     )
     findings = [f for f in result.findings if show_all or f.severity == "high" or f.risky]
-    console = Console(highlight=False)
+    console = make_console()
     for w in result.warnings:
         console.print(f"[yellow]warning:[/yellow] {w}")
     if not findings:
@@ -214,13 +274,13 @@ def baseline(
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(EXIT_USAGE)
 
-    result = run_scan(target, config_file=config, rules_dir=rules)
+    result = _scan_or_exit(target, config_file=config, rules_dir=rules)
     root = target if target.is_dir() else target.parent
     out = Path(output) if output else root / DEFAULT_BASELINE
     write_baseline(result.findings, out)
-    console = Console(highlight=False)
+    console = make_console()
     for w in result.warnings:
         console.print(f"[yellow]warning:[/yellow] {w}")
     console.print(

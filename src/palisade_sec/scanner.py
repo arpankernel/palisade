@@ -263,7 +263,15 @@ def run_scan(
             result.skipped.append(f"{rel}: unreadable ({exc})")
             continue
         source = raw.decode("utf-8", errors="replace")
-        lowered = frontend.lower_file(str(path), rel, source)
+        # RB-3: one pathological file must never take the scan down. Frontends
+        # return ParseFailure for the failures they anticipate; an unexpected
+        # exception inside lowering is still a bug, but losing every OTHER
+        # file's findings to it is worse than reporting the file as skipped.
+        try:
+            lowered = frontend.lower_file(str(path), rel, source)
+        except Exception as exc:  # noqa: BLE001 - deliberate per-file boundary
+            result.skipped.append(f"{rel}: internal error, file skipped ({type(exc).__name__})")
+            continue
         if isinstance(lowered, ParseFailure):
             result.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
             continue
