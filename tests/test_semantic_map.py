@@ -7,7 +7,7 @@ from __future__ import annotations
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.semantic.inventory import build_map
 
-SRC = '''
+SRC = """
 from openai import OpenAI
 from langchain.agents import initialize_agent
 from langchain.tools import tool
@@ -39,7 +39,7 @@ def search(store, q):
 def wipe(path):
     "Delete a directory."
     shutil.rmtree(path)
-'''
+"""
 
 
 def _lower(src: str):

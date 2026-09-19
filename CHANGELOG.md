@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+Work toward the pre-production AI safety engineer. The deterministic core
+(`scan`, `map`, `baseline`, `fix`) stays offline and keyless. A new judgment
+layer is bring-your-own-endpoint: it reads an endpoint and key from `.env` and
+is used only by `audit` (and, later, `review`).
+
+### Added
+
+- **Judgment backends (`palisade_sec.judge`).** One `JudgeBackend` interface
+  with two adapters, selected in `.env`: **TypeSafe** (default, calibrated
+  typed answers, `verified=True`) and a **generic OpenAI-compatible** endpoint
+  (strict-JSON prompt validated against a schema, labelled best-effort and
+  `verified=False`). Batched: one call per artifact. Keys are read from the
+  environment only and never logged. See `.env.example`.
+- **`[judge]` extra** (`httpx`, `python-dotenv`); `[semantic]` kept as an alias.
+
+### Changed
+
+- `audit` now reads its backend from `.env` (`PALISADE_JUDGE_BACKEND`,
+  `PALISADE_JUDGE_ENDPOINT`, `PALISADE_JUDGE_MODEL`, key vars) instead of the
+  TypeSafe SDK, so any OpenAI-compatible endpoint works. An unverified backend
+  can never emit a BLOCK on judgment alone; such a decision downgrades to
+  REVIEW. The judgment layer is uncalibrated until scored on the corpus.
+
 ## 0.4.0 - 2026-09-16
 
 Phase 0 of the roadmap is complete: quality is now measured against a pinned

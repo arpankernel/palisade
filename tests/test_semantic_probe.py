@@ -7,7 +7,7 @@ from __future__ import annotations
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.semantic.probe import harvest_tools
 
-SOURCE = '''
+SOURCE = """
 import os
 import subprocess
 import stripe
@@ -37,7 +37,7 @@ def format_name(first: str, last: str) -> str:
 def internal_helper(cmd: str):
     # Not a tool (no decorator) - must NOT be harvested even though it is dangerous.
     os.system(cmd)
-'''
+"""
 
 
 def _lower(src: str):

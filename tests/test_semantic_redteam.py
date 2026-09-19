@@ -20,7 +20,7 @@ from palisade_sec.semantic.redteam import (
     synthesize,
 )
 
-SRC = '''
+SRC = """
 import os, subprocess
 from openai import OpenAI
 from langchain.agents import initialize_agent
@@ -45,7 +45,7 @@ def run_cmd(cmd):
 @tool
 def read_env(key):
     return os.getenv(key)
-'''
+"""
 
 
 def _map(src: str):

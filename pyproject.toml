@@ -39,10 +39,17 @@ js = [
     "tree-sitter-javascript>=0.23",
     "tree-sitter-typescript>=0.23",
 ]
-# Opt-in semantic tier (`palisade-sec audit`). Needs a TYPESAFE_API_KEY and
-# makes network calls. `scan` never depends on this and stays offline/keyless.
+# Judgment tier (`palisade-sec audit`/`review`). Bring-your-own-endpoint:
+# needs an endpoint + key in .env and makes network calls. The offline core
+# (scan/map/baseline/fix) never depends on this and stays offline/keyless.
+judge = [
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+]
+# Alias kept so `palisade-sec[semantic]` from earlier docs still resolves.
 semantic = [
-    "typesafe-sdk>=0.1",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
 ]
 
 [build-system]
@@ -65,8 +72,10 @@ exclude = [
 
 [dependency-groups]
 dev = [
+    "httpx>=0.27",
     "mypy>=2.3.1",
     "pytest>=8.0",
+    "python-dotenv>=1.0",
     "ruff>=0.6",
     "tree-sitter>=0.23",
     "tree-sitter-javascript>=0.23",

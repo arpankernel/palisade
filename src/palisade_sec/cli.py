@@ -277,34 +277,36 @@ def audit(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
 ) -> None:
-    """AI-safety audit (semantic tier) - excessive-agency check via TypeSafe.
+    """AI-safety audit (judgment tier) - the excessive-agency check.
 
-    UNLIKE `scan`, this tier is NOT offline: it needs the `palisade-sec[semantic]`
-    extra and a TYPESAFE_API_KEY, and it sends small, IR-verified code snippets
-    (tool names and their dangerous call sites) to TypeSafe for judgment.
-    `scan` remains fully offline and keyless.
+    UNLIKE `scan`, this is bring-your-own-endpoint: it reads the judgment backend
+    from `.env` (see .env.example) and sends small, IR-verified snippets (tool
+    names and their dangerous call sites) to that endpoint. `scan`, `map`, and
+    `baseline` stay fully offline and keyless.
     """
+    from palisade_sec.judge.base import JudgeError
+    from palisade_sec.judge.config import describe, get_backend
     from palisade_sec.semantic.audit import print_findings, run_audit, to_json
-    from palisade_sec.semantic.judge import get_judge
 
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
         raise typer.Exit(2)
 
-    console = Console(highlight=False, stderr=True)
-    if not json_out:
-        console.print(
-            "[yellow]note:[/yellow] `audit` sends tool names and their dangerous "
-            "call-site snippets to TypeSafe (opt-in tier). `scan` stays offline."
-        )
     try:
-        judge = get_judge()
-    except RuntimeError as exc:
+        backend = get_backend()
+    except JudgeError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
 
-    findings, tools_seen, files_scanned = run_audit(target, judge, config_file=config)
+    if not json_out:
+        console = Console(highlight=False, stderr=True)
+        console.print(
+            f"[yellow]note:[/yellow] `audit` sends IR-verified snippets to your "
+            f"configured backend: {describe(backend)}. `scan` stays offline."
+        )
+
+    findings, tools_seen, files_scanned = run_audit(target, backend, config_file=config)
 
     if json_out:
         typer.echo(to_json(findings, tools_seen, files_scanned), nl=False)

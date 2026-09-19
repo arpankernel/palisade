@@ -339,11 +339,16 @@ class RedTeamReport:
             "results": [
                 {
                     "attack": r.attack.to_dict(),
-                    "response": {"output": r.response.output_text[:500],
-                                 "tool_calls": r.response.tool_calls,
-                                 "error": r.response.error},
-                    "verdict": {"landed": r.verdict.landed, "prob": round(r.verdict.prob, 3),
-                                "rationale": r.verdict.rationale},
+                    "response": {
+                        "output": r.response.output_text[:500],
+                        "tool_calls": r.response.tool_calls,
+                        "error": r.response.error,
+                    },
+                    "verdict": {
+                        "landed": r.verdict.landed,
+                        "prob": round(r.verdict.prob, 3),
+                        "rationale": r.verdict.rationale,
+                    },
                 }
                 for r in self.results
             ],

@@ -211,9 +211,7 @@ def build_map(modules: list[ir.Module]) -> AISystemMap:
                 _collect_prompts(m, call)
 
             if _match(fp, AGENT_CONSTRUCTORS):
-                m.agents.append(
-                    Artifact(KIND_AGENT, fp, loc.file, loc.line, loc.snippet, {})
-                )
+                m.agents.append(Artifact(KIND_AGENT, fp, loc.file, loc.line, loc.snippet, {}))
 
             if _match(fp, RETRIEVAL_CALLS):
                 m.retrieval.append(
