@@ -10,7 +10,9 @@ input flowing through an LLM into a dangerous sink - in CI, before they ship.
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
 ```
 
-No API key. No signup. No network calls. Pure static analysis.
+The core is offline: no API key, no signup, no network calls, pure static
+analysis. An optional judgment layer (`audit`, `review`) adds AI-safety analysis
+over an endpoint you configure. Everything is MIT and free to run.
 
 ```bash
 uvx palisade-sec scan .
@@ -98,6 +100,33 @@ Palisade runs **taint analysis, not grep**: it only reports a *complete*
   CVE-2024-5565 straight through such a function.
 - Several rules matching one `source → sink` path? **One finding** - the
   most specific rule wins; no duplicate noise.
+
+## Two layers: offline core, optional judgment
+
+Palisade is one open-source tool with two layers. The distinction is not
+free-versus-paid (it is all MIT and free); it is **keyless-and-offline** versus
+**bring-your-own-endpoint**.
+
+| Layer | Commands | Network | Key |
+|---|---|---|---|
+| **Offline core** | `scan`, `map`, `baseline`, `fix` | none | none |
+| **Judgment layer** | `audit`, `review` | your endpoint | your key (`.env`) |
+
+- `map` inventories the AI surface of a codebase (LLM calls, prompts, tools,
+  agents, retrieval, dangerous flags). Offline and keyless.
+- `audit` judges grounded findings: whether an agent tool has excessive agency,
+  and whether a `source → LLM → sink` path is realistically exploitable. Every
+  question is anchored to a fact the static analyzer verified.
+- `review` composes scan + map + the semantic checks into one prioritized report
+  with a **posture score** (a number and a band over *detected* findings, not a
+  safety score).
+
+The judgment layer speaks any OpenAI-compatible endpoint, configured in `.env`
+(see [`.env.example`](.env.example)); **[TypeSafe](https://typesafe.ai)** is the
+default and returns calibrated answers. A generic endpoint is supported as
+best-effort and never blocks CI on judgment alone. The exploitability and posture
+signals are **uncalibrated until scored on the corpus**; the deterministic
+scanner's precision (below) is unaffected by the judgment layer.
 
 ## Install & run
 

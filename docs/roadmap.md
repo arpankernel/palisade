@@ -4,6 +4,39 @@ How Palisade goes from a working v0.3.x to a tool a security team puts in
 front of every PR. This sequences the work and argues **why this order** -
 then reports current status honestly against it.
 
+## v1: the pre-production AI safety engineer
+
+Alongside the phase progression below, Palisade is growing from a taint linter
+into a tool that does more of a safety engineer's pre-production job: see the AI
+surface, judge what the scanner finds, and report one prioritized posture. This
+is layered on the deterministic core, never replacing it. It is all MIT and free;
+the split is keyless-and-offline versus bring-your-own-endpoint.
+
+**Shipped:**
+
+- `map` - offline inventory of the AI surface (LLM calls, prompts, tools, agents,
+  retrieval, dangerous flags).
+- Judgment layer over any OpenAI-compatible endpoint (TypeSafe by default),
+  configured in `.env`, behind one `JudgeBackend` interface. An unverified
+  backend is best-effort and can never BLOCK or raise a Critical posture on
+  judgment alone.
+- `audit` - excessive-agency and taint-path exploitability checks, each grounded
+  in a verified static fact.
+- `review` + **posture score** - one composed, risk-ranked report (a number and
+  a band over detected findings).
+- Red-team **synthesis** - a Map-driven adversarial attack suite (advisory,
+  offline).
+
+**Upcoming (no dates; sequenced after the checks are calibrated on the corpus):**
+
+- Guardrail generation - installable guardrail middleware plus a regression test
+  per confirmed finding.
+- Red-team **execution** - firing the synthesized suite at a user-provided target
+  under an explicit approval gate, then scoring what landed.
+- Calibration of the judgment signals on the benchmark corpus; until then, the
+  exploitability and posture signals are labelled uncalibrated, and the
+  deterministic scanner's precision stands on its own.
+
 ## The ordering thesis
 
 One rule drives the sequence: **at each stage, relieve the single binding

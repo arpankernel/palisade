@@ -7,8 +7,12 @@ description: "Every command, flag, exit code, config key, and the stable JSON sc
 palisade-sec [--version] <command> [args]
 ```
 
-Commands: `scan` · `baseline` · `fix`. All are pure local operations - no
-network, no API key, no telemetry.
+Commands split into two layers. The **offline core** - `scan` · `map` ·
+`baseline` · `fix` - makes no network calls, needs no API key, and sends no
+telemetry. The **judgment layer** - `audit` · `review` - calls an
+OpenAI-compatible endpoint you configure in `.env` (see
+[Judgment configuration](#judgment-configuration)). Everything is MIT and free
+to run; the split is keyless-and-offline versus bring-your-own-endpoint.
 
 ## Exit codes (the contract)
 
@@ -70,6 +74,76 @@ is **never modified**.
 Guardrail families: AST allowlist (exec/eval), argv + executable allowlist
 (shell), single-SELECT parser check (SQL), host allowlist + private-IP block
 (HTTP/SSRF).
+
+## `palisade-sec map [PATH]`
+
+Inventory the codebase's AI surface: LLM call sites (with provider and model),
+prompts (static vs dynamic), agent tools (with the capabilities their bodies
+exercise), agents/chains, retrieval sites, and dangerous config flags
+(`allow_dangerous_code=True`, ...). Deterministic and **offline** - no network,
+no key. It is the foundation the judgment checks build on.
+
+| Flag | Effect |
+|---|---|
+| `--json` | Emit the inventory as JSON (summary + artifacts). |
+| `--config FILE` | As in `scan`. |
+
+## `palisade-sec audit [PATH]` (judgment layer)
+
+Run the semantic checks over grounded artifacts and route each to
+pass / review / block:
+
+- **excessive agency** - over agent tools the map found: can the tool take an
+  irreversible action, is it gated, how much harm if a manipulated model calls it.
+- **taint exploitability** - over each verified `source → LLM → sink` finding:
+  how realistically exploitable is that specific path, and how severe.
+
+Every question is anchored to a fact the static analyzer verified. Reads the
+backend from `.env`; if no key is set it stops with a clear message. An
+unverified (generic) backend never emits BLOCK on judgment alone - such a
+decision downgrades to REVIEW.
+
+| Flag | Effect |
+|---|---|
+| `--json` | Emit findings as JSON (`schema_version: 1`). |
+| `--ci` | Exit `1` if any finding is a BLOCK decision. |
+| `--config FILE` | As in `scan`. |
+
+## `palisade-sec review [PATH]` (judgment layer)
+
+Compose scan + map + the semantic checks + red-team synthesis into one
+prioritized report with a **posture score**: a number `0..100` and a named band
+(Critical / High / Moderate / Low), derived from the tier counts and printed
+with the breakdown beside it. It is a posture over *detected* findings
+(`likelihood × impact`), not a safety score. If no judgment backend is
+configured, `review` runs taint-only and says so.
+
+| Flag | Effect |
+|---|---|
+| `--json` | Emit the report as JSON (`schema_version: 1`), including the posture block. |
+| `--report` | Also write `palisade-review.md`. |
+| `--ci` | Exit `1` on a **new HIGH taint** finding (baseline-diffed). Judged signals never gate CI - they are uncalibrated until scored on the corpus. |
+| `--baseline FILE` | Baseline to diff `--ci` against. |
+| `--config FILE` | As in `scan`. |
+
+## Judgment configuration
+
+`audit` and `review` read their backend from environment variables, loaded from
+a local `.env` (see [`.env.example`](../.env.example)). Keys are read from the
+environment only and are never logged.
+
+| Variable | Meaning |
+|---|---|
+| `PALISADE_JUDGE_BACKEND` | `typesafe` (default) or `openai_compatible`. |
+| `PALISADE_JUDGE_ENDPOINT` | Base URL. Defaults to the TypeSafe API for `typesafe`; required for `openai_compatible`. |
+| `PALISADE_JUDGE_MODEL` | Model id. Defaults to `jev-latest` for `typesafe`; required for `openai_compatible`. |
+| `TYPESAFE_API_KEY` | Key for the `typesafe` backend. |
+| `PALISADE_JUDGE_API_KEY` | Key for the `openai_compatible` backend. |
+
+Install the extra with `pip install 'palisade-sec[judge]'`. **TypeSafe** returns
+calibrated answers; a generic OpenAI-compatible endpoint is validated against a
+strict schema and treated as best-effort/unverified, so it can never BLOCK or
+raise a Critical posture on judgment alone.
 
 ## Inline suppressions
 

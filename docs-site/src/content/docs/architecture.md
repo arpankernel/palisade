@@ -146,6 +146,44 @@ sanitizers are on the path.
 | Sanitizer in name only (cosmetic transform) | **MED unverified sanitizer** | Vanna CVE-2024-5565 shipped through one |
 | `tests/**`, `conftest.py`, `.venv`, `.gitignore`d | skipped | configurable (`include_tests`) |
 
+## The judgment layer (optional, bring-your-own endpoint)
+
+The taint engine is deterministic. On top of it sits an optional judgment layer
+that answers questions the engine cannot decide by dataflow alone. It is reached
+only by `map`, `audit`, and `review`, never by `scan`, and only `audit`/`review`
+call out.
+
+```
+  IR ──▶ PROBE (map): inventory the AI surface (offline, deterministic)
+  taint findings ─┐
+  agent tools ────┼─▶ CHECKS build grounded questions from verified facts
+                  │       excessive_agency (tools) · taint_exploitability (paths)
+                  ▼
+             JudgeBackend.ask(state, questions)   # one batched call per artifact
+              ├─ TypeSafe: calibrated typed answers (verified)
+              └─ OpenAI-compatible: strict-JSON validated against a schema
+                                     (best-effort, unverified)
+                  ▼
+             decision (pass/review/block) ──▶ review composes a posture
+```
+
+Three properties keep it honest:
+
+1. **Grounded.** A check only ever asks about an artifact the IR verified exists
+   (a real tool, a real `source → LLM → sink` path). The state sent to the
+   endpoint is that verified fact, not raw files.
+2. **Two adapters, one interface.** `judge/` defines a `JudgeBackend` with
+   backend-neutral `Question`/`Answer` types. TypeSafe returns calibrated answers
+   (`verified=True`); a generic OpenAI-compatible endpoint is validated against a
+   pydantic schema and labelled best-effort (`verified=False`).
+3. **The unverified ceiling.** An unverified backend can never emit a BLOCK on
+   judgment alone (it downgrades to REVIEW), never move a deterministic finding's
+   risk, and never manufacture a Critical posture. The same rule is enforced at
+   the finding level and again at the aggregate.
+
+The exploitability and posture signals are **uncalibrated until scored on the
+corpus**; the deterministic scanner's published precision is independent of them.
+
 ## Safety contract (non-negotiable)
 
 - **The scanner never executes, imports, or evals scanned code.** Parsing
@@ -159,7 +197,7 @@ sanitizers are on the path.
 
 ## Scale characteristics
 
-Measured on real repos (see [proof-scans.md](../proof-scans/)): 1,576 mixed
+Measured on real repos (see [proof-scans.md](proof-scans.md)): 1,576 mixed
 Python+TypeScript files (Langflow 1.2.0, backend + frontend) in ~36 s, zero
 crashes, zero skipped files, zero false positives. Inter-procedural depth is
 bounded (default 3 hops, configurable) and truncation is reported honestly

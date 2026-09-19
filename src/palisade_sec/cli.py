@@ -25,9 +25,11 @@ from palisade_sec.scanner import run_scan
 app = typer.Typer(
     name="palisade-sec",
     help=(
-        "Palisade - a linter for LLM security. Statically detects prompt-injection "
-        "paths (untrusted input -> LLM -> dangerous sink) in Python code. "
-        "Pure static analysis: no code execution, no network, no API key."
+        "Palisade - security tooling for LLM apps. Statically detects prompt-injection "
+        "paths (untrusted input -> LLM -> dangerous sink) in Python and "
+        "JavaScript/TypeScript. The core (scan, map, baseline, fix) is offline and "
+        "keyless; audit and review add a judgment layer over an endpoint you configure "
+        "in .env. Everything is MIT and free to run."
     ),
     add_completion=False,
     no_args_is_help=True,
@@ -76,7 +78,7 @@ def scan(
         ),
     ),
 ) -> None:
-    """Scan a Python project for prompt-injection-to-sink paths."""
+    """Scan a project (Python, JavaScript/TypeScript) for prompt-injection-to-sink paths."""
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
@@ -277,7 +279,7 @@ def audit(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
 ) -> None:
-    """AI-safety audit (judgment tier) - the excessive-agency check.
+    """AI-safety audit (judgment tier): excessive-agency and taint-path exploitability.
 
     UNLIKE `scan`, this is bring-your-own-endpoint: it reads the judgment backend
     from `.env` (see .env.example) and sends small, IR-verified snippets (tool
