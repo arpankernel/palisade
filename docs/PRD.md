@@ -49,8 +49,9 @@ is treated as the product spec.
 | **Eng leadership / buyer** | Evidence a system is safe to deploy; a posture they can track | posture report, safety case, CI gate |
 | **AI platform team** | Guardrails + monitoring as reusable infra | guardrail SDK, runtime monitoring |
 
-Primary wedge user: the developer (free OSS). Primary buyer: security/eng
-leadership (the paid "engineer" tier).
+Primary wedge user: the developer (offline core). The team that activates the
+judgment layer (an endpoint in `.env`): security/eng leadership. All of it is
+free and MIT; activation means bringing an endpoint, not buying a tier.
 
 ## 4. Product principles (non-negotiable)
 
@@ -109,19 +110,25 @@ The static core is deterministic and needs no model. The **judgment** layer uses
 calibrated typed answers (Noul = P(true), Score = severity, Choice = category)
 instead of parseable prose. It scores "is this sanitizer real?", "did this attack
 land?", "is this output harmful?" — and, at runtime, can serve as the live I/O
-filter. TypeSafe usage is confined to the paid tier (needs `TYPESAFE_API_KEY`);
-the free tier never calls it.
+filter. The judgment layer needs an endpoint + key (`TYPESAFE_API_KEY` or a
+generic `PALISADE_JUDGE_API_KEY`); the offline core never calls it.
 
-## 7. Packaging & business model
+## 7. Packaging
 
-| Tier | Surface | Price | Network |
+Everything is MIT and free to run. There is no paid tier. The only distinction
+is **keyless-and-offline** versus **bring-your-own-endpoint** — the user decides
+whether to plug in a judgment endpoint (their key, their choice of provider).
+
+| Layer | Surface | Network | Key |
 | --- | --- | --- | --- |
-| **OSS core (wedge)** | `scan`, `map`, `baseline`, `fix` (deterministic), advisory `redteam` synthesis | Free, MIT | Offline |
-| **AI Safety Engineer (paid)** | `audit` (semantic checks), red-team **execution** + evals, guardrail + safety-case generation, posture, PR agent | Subscription | TypeSafe; user-provided targets |
-| **Runtime (paid, opt-in)** | Self-hosted monitoring/guardrail SDK, incident loop | Subscription / usage | User's infra |
+| **Offline core** | `scan`, `map`, `baseline`, `fix` (deterministic), advisory `redteam` synthesis | none | none |
+| **Judgment layer** | `audit`, `review`, and (upcoming) red-team execution + guardrail/safety-case generation | your endpoint | your key (`.env`) |
+| **Runtime (upcoming)** | Self-hosted monitoring / guardrail SDK, incident loop | user's infra | user's config |
 
-Adoption path: developer installs the free linter → team turns on the paid
-engineer for judgment + red-team → platform team adopts runtime.
+Adoption path: developer installs the free linter → team configures an endpoint
+in `.env` to turn on judgment + review → platform team self-hosts runtime. No
+step is gated behind a purchase; the gate is only "do you want to bring an
+endpoint."
 
 ## 8. Scope & roadmap
 
@@ -186,8 +193,9 @@ verification before a BLOCK.
 
 ## 10. Non-functional requirements
 
-- **Trust/privacy:** free tier offline; paid tier sends only IR-verified snippets;
-  runtime self-hosted; API keys env-only, never logged.
+- **Trust/privacy:** the offline core sends nothing off-machine; the judgment
+  layer sends only IR-verified snippets; runtime self-hosted; API keys env-only,
+  never logged.
 - **Safety of the tool itself:** never executes/imports scanned code (live test);
   approval gates on all mutating/prod actions.
 - **Performance:** static scan of ~1,500 mixed files in ~40s; red-team synthesis
@@ -205,19 +213,20 @@ Tied to the JD's "what success looks like":
 - **Evidence:** every deploy decision backed by a Map + red-team run + safety case.
 - **Precision:** published per-check precision ≥ target on the corpus; core stays
   1.000.
-- **Adoption:** OSS installs → paid conversions; findings fixed vs. suppressed.
+- **Adoption:** installs → teams that activate a judgment endpoint; findings
+  fixed vs. suppressed.
 - **MTTR (v3):** time from a runtime incident to a shipped regression test.
 
 ## 12. Risks & mitigations
 
 | Risk | Mitigation |
 | --- | --- |
-| Going dynamic erodes the "offline/no-key" trust | Free static core untouched; paid/runtime clearly separate + self-hostable |
+| Going dynamic erodes the "offline/no-key" trust | Offline core untouched; judgment/runtime clearly separate + self-hostable |
 | Executing customer agents is dangerous | Never execute their code; user provides the target + keys; gated by approval |
 | Semantic tier hallucinates / loses precision | Grounding in verified IR facts; per-check calibration + CI gate; adversarial verify before BLOCK |
 | The safety agent itself acts unsafely | Advisory + approval gates enforced in code; no auto-prod changes |
 | Scope creep into alignment research | Stay "infrastructure that operationalizes safety," per the JD |
-| TypeSafe dependency / cost | Free tier never calls it; batched calls; deterministic scoring where possible |
+| TypeSafe dependency / cost | The offline core never calls it; batched calls; deterministic scoring where possible |
 
 ## 13. Open decisions
 
