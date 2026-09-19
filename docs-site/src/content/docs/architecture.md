@@ -184,6 +184,13 @@ Three properties keep it honest:
 The exploitability and posture signals are **uncalibrated until scored on the
 corpus**; the deterministic scanner's published precision is independent of them.
 
+Judged output is **deterministic within a single run and non-deterministic
+across runs**. `review` performs one judgment pass and exposes both the audit
+view (`audit_findings`) and the composed posture from it, so within a run they
+never disagree. Because the model is probabilistic, two separate invocations can
+score the same finding differently; the posture score is not stable run-to-run,
+and nothing here claims it is.
+
 ## Safety contract (non-negotiable)
 
 - **The scanner never executes, imports, or evals scanned code.** Parsing
@@ -216,3 +223,6 @@ in the scan notes.
   path.
 - Sanitizer body verification is a heuristic - it judges shape, not
   semantics. It errs toward flagging (downgrade, never silence).
+- The `map` command resolves a literal `model=` argument only; a model id held
+  in a variable or module constant is reported as `?`. Offline-map only; it does
+  not affect taint findings or the judgment layer.

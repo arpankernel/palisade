@@ -32,6 +32,12 @@ is used only by `audit` (and, later, `review`).
   judged signals never gate.
 - **`audit` now runs both checks** (excessive agency over tools, exploitability
   over taint paths), so it produces findings on apps that expose no agent tools.
+- **`review` judges once per run.** It performs a single judgment pass and emits
+  both the composed posture and the audit view (`audit_findings` in `--json`)
+  from it, so `audit` and `review` never disagree within a run and a run makes
+  half the endpoint calls. Judged output is deterministic within a run but not
+  across runs, because the model is probabilistic; the posture score is not
+  claimed to be stable run-to-run.
 
 ### Changed
 

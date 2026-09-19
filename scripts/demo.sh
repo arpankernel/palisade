@@ -58,13 +58,28 @@ echo "== map (offline, no key) =="
 "$PALISADE" map "$TARGET"
 "$PALISADE" map "$TARGET" --json >"$OUT/map.json"
 
-echo "== audit (endpoint: $BACKEND) =="
-"$PALISADE" audit "$TARGET" --json >"$OUT/audit.json"
-
-echo "== review (endpoint: $BACKEND) =="
-"$PALISADE" review "$TARGET" --json >"$OUT/review.json"
-"$PALISADE" review "$TARGET" --report
+echo "== judgment layer (single pass over the $BACKEND endpoint) =="
+# One judged pass produces the review report, its markdown, and the audit view.
+# Running audit and review as separate passes would judge each finding twice and
+# could disagree, because the model is probabilistic; composing from one pass
+# keeps them consistent and halves the endpoint calls.
+"$PALISADE" review "$TARGET" --json --report >"$OUT/review.json"
 mv -f palisade-review.md "$OUT/review.md" 2>/dev/null || true
+
+python3 - "$OUT/review.json" "$OUT/audit.json" <<'PY'
+import json, sys
+r = json.load(open(sys.argv[1]))
+# The audit findings came from the same judged pass; write them as an artifact.
+json.dump(
+    {"tool": "palisade-sec audit (from the review pass)",
+     "checks_run": r.get("checks_run", []),
+     "findings": r.get("audit_findings", [])},
+    open(sys.argv[2], "w"), indent=2,
+)
+p = r["posture"]
+print(f"posture {p['score']}/100 ({p['band']})  judged={p['judged']}  backend={p['backend']}")
+print("breakdown:", r["breakdown"])
+PY
 
 echo
 echo "artifacts written to $OUT: scan.json map.json audit.json review.json review.md"

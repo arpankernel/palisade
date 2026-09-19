@@ -1,6 +1,6 @@
 # Roadmap: production progression, Phases 0–6
 
-How Palisade goes from a working v0.3.x to a tool a security team puts in
+How Palisade goes from a working v0.4.x to a tool a security team puts in
 front of every PR. This sequences the work and argues **why this order** -
 then reports current status honestly against it.
 
@@ -55,11 +55,11 @@ open-source *security* tool, three facts fix the order:
 Through-line: **Measure → Distribute → Cover → Scale → Certify → Expand →
 Remediate.** Trust before reach before depth.
 
-## Where we are (v0.3.4)
+## Where we are (v0.4.0-dev)
 
 **Phase 0 is complete.** The engine, five rules, both frontends, library
 mode, the baseline/CI flow and a template-based `fix` are shipped and
-published, pinned by 134 tests. Quality is now measured rather than
+published, pinned by 185 tests. Quality is now measured rather than
 asserted, against a pinned benchmark corpus of 26 third-party repos
 (17,343 files Palisade actually scans):
 

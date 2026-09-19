@@ -89,8 +89,8 @@ def test_review_taint_only_labels_and_scores():
     assert d["posture"]["judged"] is False
 
 
-def test_review_judged_with_fake_backend():
-    backend = FakeBackend(
+def _judging_backend() -> FakeBackend:
+    return FakeBackend(
         answers={
             "exploitable": NoulAns(0.9),
             "severity": ScoreAns(3.0),
@@ -99,10 +99,33 @@ def test_review_judged_with_fake_backend():
             "harm": ScoreAns(3.0),
         }
     )
-    report = run_review(SUPPORT_BOT, backend=backend)
+
+
+def test_review_judged_with_fake_backend():
+    report = run_review(SUPPORT_BOT, backend=_judging_backend())
     assert report.judged is True
     assert report.backend_verified is True
     assert any(i.judged for i in report.items)  # exploitability refined the taint items
+
+
+def test_review_makes_one_judged_pass_and_audit_view_matches():
+    backend = _judging_backend()
+    report = run_review(SUPPORT_BOT, backend=backend)
+    n_taint = len(report.taint_findings)
+    # support-bot has no tools, so exactly one call per taint finding - not two.
+    assert len(backend.calls) == n_taint
+    assert len(report.semantic_findings) == n_taint
+    assert {f.check for f in report.semantic_findings} == {"taint_exploitability"}
+
+    # The audit view and the risk items come from the SAME pass: for each judged
+    # taint item, an audit finding shares its likelihood and impact.
+    audit = report.to_dict()["audit_findings"]
+    by_line = {(f["file"], f["line"]): f for f in audit}
+    for item in report.items:
+        if item.judged and item.kind == "taint":
+            af = by_line[(item.file, item.line)]
+            assert af["likelihood"] == round(item.likelihood, 3)
+            assert af["impact"] == round(item.impact, 3)
 
 
 if __name__ == "__main__":

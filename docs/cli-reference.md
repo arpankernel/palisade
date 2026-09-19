@@ -115,6 +115,12 @@ with the breakdown beside it. It is a posture over *detected* findings
 (`likelihood × impact`), not a safety score. If no judgment backend is
 configured, `review` runs taint-only and says so.
 
+`review` judges each finding once per run and emits both the composed posture
+and the audit view (`audit_findings` in `--json`) from that single pass, so a
+run needs only one judgment pass and `audit`/`review` never disagree within it.
+The model is probabilistic, so judged numbers and the posture score vary across
+separate runs; the score is deterministic within a run, not across runs.
+
 | Flag | Effect |
 |---|---|
 | `--json` | Emit the report as JSON (`schema_version: 1`), including the posture block. |

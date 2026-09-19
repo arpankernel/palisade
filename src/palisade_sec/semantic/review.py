@@ -23,6 +23,7 @@ from rich.markup import escape
 from palisade_sec.engine import Finding
 from palisade_sec.judge.base import JudgeBackend
 from palisade_sec.semantic.audit import (
+    SemanticFinding,
     audit_excessive_agency,
     audit_taint_exploitability,
 )
@@ -89,6 +90,9 @@ class ReviewReport:
     judged: bool
     backend_name: str | None
     backend_verified: bool
+    # The audit findings from the SAME single judgment pass that produced the
+    # risk items, so audit and review never disagree within one run.
+    semantic_findings: list[SemanticFinding] = field(default_factory=list)
 
     def breakdown(self) -> dict[str, int]:
         counts = Counter(i.tier for i in self.items)
@@ -127,6 +131,11 @@ class ReviewReport:
             "ai_surface": self.ai_surface,
             "attacks_synthesized": self.attacks_synthesized,
             "items": [i.to_dict() for i in sorted(self.items, key=lambda x: -x.risk)],
+            # The audit view from the same judged pass (so a demo/consumer needs
+            # only one judgment pass, and audit and review cannot disagree).
+            "checks_run": sorted({f.check for f in self.semantic_findings}),
+            "unverified_backend": any(not f.verified for f in self.semantic_findings),
+            "audit_findings": [f.to_dict() for f in self.semantic_findings],
         }
 
 
@@ -160,6 +169,7 @@ def run_review(
         judged=backend is not None,
         backend_name=backend.name if backend is not None else None,
         backend_verified=backend.verified if backend is not None else True,
+        semantic_findings=agency + exploitability,
     )
 
 
@@ -232,7 +242,9 @@ def _backend_label(report: ReviewReport) -> str:
         return "taint-only: no judgment backend configured; exploitability not assessed"
     base = (
         f"judgment layer used ({report.backend_name}); the exploitability signal "
-        "is uncalibrated until scored on the corpus"
+        "is uncalibrated until scored on the corpus. Judged output is consistent "
+        "within this run (audit and review share one judgment pass) but varies "
+        "across separate runs, because the model is probabilistic"
     )
     if not report.backend_verified:
         base += "; best-effort/unverified backend, so blocks and Critical posture are capped"
