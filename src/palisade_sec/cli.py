@@ -306,15 +306,77 @@ def audit(
             f"configured backend: {describe(backend)}. `scan` stays offline."
         )
 
-    findings, tools_seen, files_scanned = run_audit(target, backend, config_file=config)
+    report = run_audit(target, backend, config_file=config)
 
     if json_out:
-        typer.echo(to_json(findings, tools_seen, files_scanned), nl=False)
+        typer.echo(to_json(report), nl=False)
     else:
-        print_findings(Console(highlight=False), findings, tools_seen, files_scanned)
+        print_findings(Console(highlight=False), report)
 
-    if ci and any(f.decision == "block" for f in findings):
+    if ci and any(f.decision == "block" for f in report.findings):
         raise typer.Exit(1)
+
+
+@app.command()
+def review(
+    path: str = typer.Argument(".", help="File or directory to review."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    report_out: bool = typer.Option(
+        False, "--report", help="Write a markdown report to palisade-review.md."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="CI mode: exit non-zero on a new HIGH taint finding (baseline-diffed)."
+    ),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help=f"Baseline file to diff --ci against (e.g. {DEFAULT_BASELINE})."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """One prioritized report with a posture score, composing scan + map + the
+    semantic checks + red-team synthesis.
+
+    If a judgment backend is configured in `.env`, findings are judged and the
+    posture reflects that (labelled, and capped for an unverified backend). If
+    not, the review runs taint-only and says so. `--ci` gates only on NEW HIGH
+    taint findings (deterministic); judged signals are advisory and never gate.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.judge.base import JudgeError
+    from palisade_sec.judge.config import get_backend
+    from palisade_sec.semantic.review import print_review, run_review, to_json, to_markdown
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    backend = None
+    try:
+        backend = get_backend()
+    except JudgeError:
+        backend = None  # taint-only review; labelled in the report
+
+    result = run_review(target, backend, config_file=config)
+
+    if json_out:
+        typer.echo(to_json(result), nl=False)
+    else:
+        print_review(Console(highlight=False), result)
+
+    if report_out:
+        out = Path("palisade-review.md")
+        out.write_text(to_markdown(result, str(target)), encoding="utf-8")
+        if not json_out:
+            typer.echo(f"report written to {out}")
+
+    if ci:
+        findings = result.taint_findings
+        if baseline:
+            findings = diff_against_baseline(findings, Path(baseline)).new
+        if any(f.severity == "high" for f in findings):
+            raise typer.Exit(1)
 
 
 @app.command()

@@ -16,6 +16,22 @@ is used only by `audit` (and, later, `review`).
   `verified=False`). Batched: one call per artifact. Keys are read from the
   environment only and never logged. See `.env.example`.
 - **`[judge]` extra** (`httpx`, `python-dotenv`); `[semantic]` kept as an alias.
+- **Taint-path exploitability check.** Grounded in a verified `source -> LLM ->
+  sink` dataflow, it asks the backend to judge exploitability and impact of that
+  specific path. Uncalibrated until scored on the corpus. A verified backend
+  refines a finding up or down; an unverified backend is advisory only and never
+  moves the deterministic risk.
+- **`palisade-sec review`.** One prioritized report composing scan + map + the
+  semantic checks + red-team synthesis, with a **posture score** (0-100 plus a
+  named band: Critical / High / Moderate / Low). The score is derived from the
+  tier counts and printed with the breakdown beside it; it is a posture over
+  *detected* findings (`likelihood x impact`), not a safety score. When the
+  judgment layer ran, the report says so and marks it uncalibrated; an unverified
+  backend cannot manufacture a Critical posture. Terminal, `--json`, `--report`
+  (markdown). `--ci` gates only on new HIGH taint findings (baseline-diffed);
+  judged signals never gate.
+- **`audit` now runs both checks** (excessive agency over tools, exploitability
+  over taint paths), so it produces findings on apps that expose no agent tools.
 
 ### Changed
 

@@ -51,5 +51,10 @@ def default_policy() -> SemanticPolicy:
                     ),
                 },
             ),
+            "taint_exploitability": CheckPolicy(
+                action_threshold=0.60,
+                review_threshold=0.30,
+                severity_block=2,
+            ),
         }
     )
