@@ -199,6 +199,122 @@ def fix(
     )
 
 
+@app.command(name="map")
+def map_cmd(
+    path: str = typer.Argument(".", help="File or directory to inventory."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """Inventory the codebase's AI surface: LLM calls, prompts, tools, agents,
+    retrieval, and dangerous config flags.
+
+    Deterministic and OFFLINE - like `scan`, it makes no network calls and needs
+    no API key. This is the foundation the semantic `audit` checks build on.
+    """
+    from palisade_sec.scanner import lower_project
+    from palisade_sec.semantic.inventory import build_map, print_map, to_json
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    low = lower_project(target, config)
+    ai_map = build_map(low.modules)
+    if json_out:
+        typer.echo(to_json(ai_map, low.files_scanned), nl=False)
+    else:
+        console = Console(highlight=False)
+        for w in low.warnings:
+            console.print(f"[yellow]warning:[/yellow] {w}")
+        print_map(console, ai_map, low.files_scanned)
+
+
+@app.command()
+def redteam(
+    path: str = typer.Argument(".", help="File or directory to target."),
+    json_out: bool = typer.Option(False, "--json", help="Emit the attack suite as JSON."),
+    variants: int = typer.Option(2, "--variants", help="Attack variants per target (1-5)."),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """Synthesize a targeted adversarial attack suite from the AI System Map.
+
+    ADVISORY and OFFLINE: it reads your code, finds the tools/prompts/agents, and
+    generates attacks aimed at them - but it does NOT run them. Executing the
+    suite against a live system is a gated library call (run(..., approved=True))
+    that drives a target you provide, in your environment, with your keys.
+    """
+    from palisade_sec.scanner import lower_project
+    from palisade_sec.semantic.inventory import build_map
+    from palisade_sec.semantic.redteam import plan, plan_to_json, print_plan
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    low = lower_project(target, config)
+    ai_map = build_map(low.modules)
+    cases = plan(ai_map, variants=max(1, min(5, variants)))
+    if json_out:
+        typer.echo(plan_to_json(cases, low.files_scanned), nl=False)
+    else:
+        print_plan(Console(highlight=False), cases, low.files_scanned)
+
+
+@app.command()
+def audit(
+    path: str = typer.Argument(".", help="File or directory to audit."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    ci: bool = typer.Option(
+        False, "--ci", help="CI mode: exit non-zero if any tool is a BLOCK decision."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """AI-safety audit (semantic tier) - excessive-agency check via TypeSafe.
+
+    UNLIKE `scan`, this tier is NOT offline: it needs the `palisade-sec[semantic]`
+    extra and a TYPESAFE_API_KEY, and it sends small, IR-verified code snippets
+    (tool names and their dangerous call sites) to TypeSafe for judgment.
+    `scan` remains fully offline and keyless.
+    """
+    from palisade_sec.semantic.audit import print_findings, run_audit, to_json
+    from palisade_sec.semantic.judge import get_judge
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    console = Console(highlight=False, stderr=True)
+    if not json_out:
+        console.print(
+            "[yellow]note:[/yellow] `audit` sends tool names and their dangerous "
+            "call-site snippets to TypeSafe (opt-in tier). `scan` stays offline."
+        )
+    try:
+        judge = get_judge()
+    except RuntimeError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+    findings, tools_seen, files_scanned = run_audit(target, judge, config_file=config)
+
+    if json_out:
+        typer.echo(to_json(findings, tools_seen, files_scanned), nl=False)
+    else:
+        print_findings(Console(highlight=False), findings, tools_seen, files_scanned)
+
+    if ci and any(f.decision == "block" for f in findings):
+        raise typer.Exit(1)
+
+
 @app.command()
 def baseline(
     path: str = typer.Argument(".", help="File or directory to scan."),

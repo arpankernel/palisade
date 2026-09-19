@@ -39,6 +39,11 @@ js = [
     "tree-sitter-javascript>=0.23",
     "tree-sitter-typescript>=0.23",
 ]
+# Opt-in semantic tier (`palisade-sec audit`). Needs a TYPESAFE_API_KEY and
+# makes network calls. `scan` never depends on this and stays offline/keyless.
+semantic = [
+    "typesafe-sdk>=0.1",
+]
 
 [build-system]
 requires = ["hatchling"]
