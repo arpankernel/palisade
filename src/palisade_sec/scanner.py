@@ -27,6 +27,7 @@ from palisade_sec import ir
 from palisade_sec.engine import Engine, Finding
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.rules import load_rules
+from palisade_sec.semantic.agents.findings import find_agent_handoff_findings
 from palisade_sec.suppress import (
     Suppression,
     apply_suppressions,
@@ -344,4 +345,12 @@ def run_scan(
         result.notes.append(
             "stale `palisade: ignore` comment(s) matching nothing: " + ", ".join(stale[:10])
         )
+
+    # Multi-agent handoff findings are deterministic and offline, so they belong
+    # in the core scan. Empty on non-agent code, so existing behavior is
+    # unchanged. Sorted with the rest for deterministic output/baseline.
+    agent_findings = find_agent_handoff_findings(low.modules)
+    if agent_findings:
+        result.findings = sorted(result.findings + agent_findings, key=lambda f: f.sort_key())
+
     return result

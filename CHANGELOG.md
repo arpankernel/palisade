@@ -14,8 +14,15 @@ is used only by `audit` (and, later, `review`).
   edges are handoffs (`handoffs=[...]`). It shows which entry agents can reach a
   dangerous capability across a handoff, and adds an `agent_graph` block to
   `--json`. Deterministic and offline; recognizes the explicit-kwarg
-  (OpenAI Agents SDK-style) shape in v1, with LangGraph / CrewAI adapters and the
-  cross-agent injection finding (`PI-AGENT-HANDOFF`) upcoming.
+  (OpenAI Agents SDK-style) shape in v1, with LangGraph / CrewAI adapters upcoming.
+- **`PI-AGENT-HANDOFF` finding (`scan`).** A multi-agent prompt-injection path:
+  untrusted input runs an agent that can hand off (>=1 hop) to an agent holding a
+  dangerous-capability tool. Deterministic, offline, and precision-first - it
+  fires only on a complete untrusted -> run -> handoff -> dangerous path, so a
+  constant input, a handoff to only-safe agents, or a standalone dangerous agent
+  stays silent. Flows through `--json`, `--ci`, and the baseline like any finding.
+  v1 tracks untrustedness intra-procedurally (source at the run site or a
+  variable assigned from one in the same function).
 - **Judgment backends (`palisade_sec.judge`).** One `JudgeBackend` interface
   with two adapters, selected in `.env`: **TypeSafe** (default, calibrated
   typed answers, `verified=True`) and a **generic OpenAI-compatible** endpoint
