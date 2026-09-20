@@ -74,6 +74,11 @@ class Engine:
         # function resolution indexes (shared across rules)
         self.registry: dict[str, tuple[ir.FuncDef, ir.Module]] = {}
         self.by_name: dict[tuple[str, str], list[tuple[ir.FuncDef, ir.Module]]] = {}
+        # qualname last segment -> (qualname, value): lets resolve()'s dotted
+        # suffix fallback scan only functions sharing the final name, instead of
+        # the whole registry. Without this the fallback is O(call_sites x
+        # total_functions) and large (esp. TS) repos scan quadratically.
+        self.by_last: dict[str, list[tuple[str, tuple[ir.FuncDef, ir.Module]]]] = {}
         self.methods: dict[tuple[str, str, str], tuple[ir.FuncDef, ir.Module]] = {}
         # class-hierarchy indexes: (stem, class) -> base names; name -> classes
         self.class_bases: dict[tuple[str, str], list[str]] = {}
@@ -82,6 +87,9 @@ class Engine:
             for fn in mod.functions:
                 self.registry[fn.qualname] = (fn, mod)
                 self.by_name.setdefault((mod.stem, fn.name), []).append((fn, mod))
+                self.by_last.setdefault(fn.qualname.rsplit(".", 1)[-1], []).append(
+                    (fn.qualname, (fn, mod))
+                )
                 if fn.class_name:
                     self.methods[(mod.stem, fn.class_name, fn.name)] = (fn, mod)
             for cls, bases in mod.class_bases.items():
@@ -181,8 +189,11 @@ class Engine:
         exact = self.registry.get(path)
         if exact:
             return exact
+        # Dotted-suffix fallback, scoped to functions whose last segment matches
+        # (O(1) bucket lookup + a tiny filter) instead of the whole registry.
         suffix = "." + path
-        cands2 = [v for q, v in self.registry.items() if q.endswith(suffix)]
+        bucket = self.by_last.get(path.rsplit(".", 1)[-1], [])
+        cands2 = [v for q, v in bucket if q.endswith(suffix)]
         return cands2[0] if len(cands2) == 1 else None
 
     def resolve_method(
