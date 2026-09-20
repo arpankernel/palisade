@@ -9,6 +9,13 @@ is used only by `audit` (and, later, `review`).
 
 ### Added
 
+- **Multi-agent graph (`map`).** `map` now extracts the agent topology: nodes are
+  agents (with the tools they hold and the capabilities those tools exercise),
+  edges are handoffs (`handoffs=[...]`). It shows which entry agents can reach a
+  dangerous capability across a handoff, and adds an `agent_graph` block to
+  `--json`. Deterministic and offline; recognizes the explicit-kwarg
+  (OpenAI Agents SDK-style) shape in v1, with LangGraph / CrewAI adapters and the
+  cross-agent injection finding (`PI-AGENT-HANDOFF`) upcoming.
 - **Judgment backends (`palisade_sec.judge`).** One `JudgeBackend` interface
   with two adapters, selected in `.env`: **TypeSafe** (default, calibrated
   typed answers, `verified=True`) and a **generic OpenAI-compatible** endpoint
