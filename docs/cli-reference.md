@@ -27,6 +27,7 @@ Scan a file or directory (default `.`) for source → LLM → sink paths.
 |---|---|
 | `--all` | Show MED/LOW findings too. Default view: HIGH + "risky" downgraded findings. |
 | `--json` | Emit the stable JSON document (below) to stdout instead of terminal output. |
+| `--sarif` | Emit SARIF 2.1.0 to stdout, for GitHub code scanning / any AppSec pipeline. |
 | `--report` | Also write `palisade-report.md` - a shareable mini threat model grouped by severity. |
 | `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists. |
 | `--baseline FILE` | Diff against a baseline; only new findings are reported/counted. Stale entries are noted. |
@@ -40,6 +41,23 @@ Always excluded: `.venv`, `venv`, `site-packages`, `.git`, `build`, `dist`,
 `node_modules`, caches, plus `.gitignore` patterns. `tests/**`, `test_*.py`,
 `*_test.py`, and `conftest.py` are skipped unless `include_tests = true`.
 Unparseable files are skipped with a warning, never a crash.
+
+### SARIF / GitHub code scanning
+
+`scan --sarif` emits SARIF 2.1.0 (severity high->error, med->warning, low->note;
+sink as the primary location, source and LLM boundary as related locations,
+line-shift-resilient `partialFingerprints`). A five-line workflow puts findings
+in the GitHub **Security** tab:
+
+```yaml
+permissions: { contents: read, security-events: write }
+steps:
+  - uses: actions/checkout@v4
+  - uses: astral-sh/setup-uv@v5
+  - run: uvx palisade-sec scan . --sarif > palisade.sarif
+  - uses: github/codeql-action/upload-sarif@v3
+    with: { sarif_file: palisade.sarif }
+```
 
 ## `palisade-sec baseline [PATH]`
 

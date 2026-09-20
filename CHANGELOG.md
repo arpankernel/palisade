@@ -9,6 +9,13 @@ is used only by `audit` (and, later, `review`).
 
 ### Added
 
+- **SARIF output + code-scanning Action.** `scan --sarif` emits SARIF 2.1.0
+  (severity high->error/med->warning/low->note; sink as the primary location,
+  source and LLM boundary as related locations; line-shift-resilient
+  fingerprints). A five-line GitHub Action (`.github/workflows/code-scanning.yml`,
+  which also dogfoods on Palisade's own `src`) puts findings in the Security tab.
+  This is the Phase-1 distribution wedge - findings where AppSec pipelines already
+  look, in a copy-paste workflow.
 - **Multi-agent graph (`map`).** `map` now extracts the agent topology: nodes are
   agents (with the tools they hold and the capabilities those tools exercise),
   edges are handoffs (`handoffs=[...]`). It shows which entry agents can reach a

@@ -102,7 +102,7 @@ and the gap stays visible. Full detail in [proof-scans.md](proof-scans.md).
 | Phase | Theme | Status |
 |---|---|---|
 | 0 | Measure | **Done.** P/R published and gated in CI; corpus pinned with recorded SHAs; FP regression harness live; inline suppressions shipped; self-security enforced over an adversarial corpus |
-| 1 | Distribute | **Next up** - SARIF, GitHub Action, pre-commit; the public-launch gate lives here |
+| 1 | Distribute | **In progress** - SARIF output + a code-scanning GitHub Action shipped (dogfooded on our own src); pre-commit, a Marketplace action, and the PyPI release of the new tier remain. The public-launch gate lives here |
 | 2 | Cover | Partial - notebooks, framework breadth, rule-test framework for community PRs |
 | 3 | Scale | Open - incremental scanning, caching, perf gates |
 | 4 | Certify | Started - SECURITY.md and release discipline shipped; signing, SBOM, provenance remain |

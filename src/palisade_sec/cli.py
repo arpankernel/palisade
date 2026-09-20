@@ -56,6 +56,9 @@ def scan(
         False, "--all", help="Also show MED/LOW findings (default: HIGH + risky)."
     ),
     json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    sarif: bool = typer.Option(
+        False, "--sarif", help="Emit SARIF 2.1.0 to stdout (for GitHub code scanning)."
+    ),
     report: bool = typer.Option(
         False, "--report", help="Write a markdown report to palisade-report.md."
     ),
@@ -110,7 +113,11 @@ def scan(
     visible = [f for f in findings if show_all or f.severity == "high" or f.risky]
     hidden = len(findings) - len(visible)
 
-    if json_out:
+    if sarif:
+        from palisade_sec.report import to_sarif
+
+        typer.echo(to_sarif(findings), nl=False)
+    elif json_out:
         typer.echo(
             to_json(
                 findings,
@@ -141,7 +148,7 @@ def scan(
     if report:
         out = Path("palisade-report.md")
         out.write_text(to_markdown(findings, result.files_scanned, str(target)), encoding="utf-8")
-        if not json_out:
+        if not json_out and not sarif:
             typer.echo(f"report written to {out}")
 
     if ci and any(f.severity == "high" for f in findings):
