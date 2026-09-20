@@ -164,3 +164,66 @@ def test_run_scan_safe_twin_is_clean(tmp_path):
         "    return Runner.run(triage, request.json['q'])\n",
     )
     assert not any(f.rule_id == "PI-AGENT-HANDOFF" for f in run_scan(d).findings)
+
+
+# -- audit: taint precision (cast / sanitizer / flow-sensitivity) ------------
+
+_GRAPH = (
+    "ops = Agent(name='ops', tools=[delete_files])\n"
+    "triage = Agent(name='triage', tools=[], handoffs=[ops])\n"
+)
+
+
+def test_cast_input_is_silent():
+    """`Runner.run(triage, int(x))` - a cast constrains the value; not a path."""
+    src = (
+        TOOLS + _GRAPH + ("def handle():\n    return Runner.run(triage, int(request.json['q']))\n")
+    )
+    assert _findings(src) == []
+
+
+def test_sanitized_input_is_silent():
+    """A name-matched sanitizer neutralizes the run input (precision-first: this
+    rule gates CI, so it trusts the sanitizer rather than risk a false break)."""
+    src = (
+        TOOLS
+        + _GRAPH
+        + (
+            "def sanitize(x):\n    return x.strip()\n"
+            "def handle():\n    return Runner.run(triage, sanitize(request.json['q']))\n"
+        )
+    )
+    assert _findings(src) == []
+
+
+def test_unconditional_clean_reassignment_kills_taint():
+    """`q = request.json[...]; q = 'const'; run(triage, q)` - q is clean at the
+    run site. The old flow-insensitive pass never cleared it (false positive)."""
+    src = (
+        TOOLS
+        + _GRAPH
+        + (
+            "def handle():\n"
+            "    q = request.json['q']\n"
+            "    q = 'fixed task'\n"
+            "    return Runner.run(triage, q)\n"
+        )
+    )
+    assert _findings(src) == []
+
+
+def test_conditional_clean_reassignment_does_not_kill_taint():
+    """A clean reassignment on ONE branch does not prove the value is clean on
+    the path reaching the run site - must still flag (recall preserved)."""
+    src = (
+        TOOLS
+        + _GRAPH
+        + (
+            "def handle(cond):\n"
+            "    q = request.json['q']\n"
+            "    if cond:\n"
+            "        q = 'safe'\n"
+            "    return Runner.run(triage, q)\n"
+        )
+    )
+    assert len(_findings(src)) == 1
