@@ -191,6 +191,19 @@ never disagree. Because the model is probabilistic, two separate invocations can
 score the same finding differently; the posture score is not stable run-to-run,
 and nothing here claims it is.
 
+## Multi-agent analysis (deterministic, offline)
+
+On top of the IR, `map` builds an **agent graph**: nodes are agents (the tools
+they hold and the dangerous capabilities those tools exercise), edges are
+handoffs. Framework adapters read the topology from the OpenAI Agents SDK
+(`Agent(tools=, handoffs=)`), LangGraph (`add_node`/`add_edge`, a node's
+capabilities taken from its function body), and CrewAI (`Crew(agents=,
+process=)`). From that graph, `scan` emits the deterministic `PI-AGENT-HANDOFF`
+finding when untrusted input runs an agent that can hand off to a
+dangerous-capability agent - no model, no network, and only on a complete
+untrusted path (the same contract as the taint rules). Agents are scoped per
+module, so same-named agents in different files are not merged.
+
 ## Safety contract (non-negotiable)
 
 - **The scanner never executes, imports, or evals scanned code.** Parsing
@@ -226,3 +239,9 @@ in the scan notes.
 - The `map` command resolves a literal `model=` argument only; a model id held
   in a variable or module constant is reported as `?`. Offline-map only; it does
   not affect taint findings or the judgment layer.
+- `PI-AGENT-HANDOFF` run-site detection covers agent-variable invocation
+  (`Runner.run(agent, x)`, `agent.run(x)`); `crew.kickoff` and compiled-LangGraph
+  `.invoke` entry mapping, LangGraph conditional edges, and cross-module agent
+  wiring are recall follow-ups, not precision gaps.
+- `map`'s whole-project agent graph can merge same-named agents across files for
+  display; the `PI-AGENT-HANDOFF` finding is scoped per module and unaffected.

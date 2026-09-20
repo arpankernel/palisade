@@ -9,6 +9,37 @@ is used only by `audit` (and, later, `review`).
 
 ### Added
 
+- **Multi-agent graph (`map`).** `map` now extracts the agent topology: nodes are
+  agents (with the tools they hold and the capabilities those tools exercise),
+  edges are handoffs (`handoffs=[...]`). It shows which entry agents can reach a
+  dangerous capability across a handoff, and adds an `agent_graph` block to
+  `--json`. Deterministic and offline. Framework adapters: the explicit-kwarg
+  (OpenAI Agents SDK-style `Agent(tools=, handoffs=)`), **LangGraph**
+  (`add_node`/`add_edge`, a node's capabilities read from its function body), and
+  **CrewAI** (`Crew(agents=, process=)` - sequential chains the agents,
+  hierarchical connects the first to the rest).
+- **Multi-agent calibration.** Labeled fixtures under `corpus/fixtures/agents/`
+  (must-flag handoff paths + must-stay-silent safe wirings) join the precision
+  corpus, so `PI-AGENT-HANDOFF` is measured (precision/recall) and gated in CI -
+  and now in the test suite too (`test_precision_gate.py`). Fixed a real bug the
+  fixtures caught: the analysis merged same-named agents across files; it now
+  scopes agents per module so findings are attributed to the right file.
+- **Red-team execution (`redteam --execute`).** The advisory synthesis can now
+  be fired at a live target you own, gated by `--approve` plus a `--target` URL
+  (or `PALISADE_REDTEAM_TARGET`). `HttpTarget` POSTs each attack and reads the
+  output/tool-calls across common response shapes; a judge-backed scorer decides
+  whether each attack landed (deterministic tool-invocation checks plus a
+  JudgeBackend for behavioral judgment). `--execute --ci` exits non-zero if any
+  attack lands. Palisade never executes your code; it drives the endpoint you
+  provide, in your environment. Synthesis stays offline and dependency-free.
+- **`PI-AGENT-HANDOFF` finding (`scan`).** A multi-agent prompt-injection path:
+  untrusted input runs an agent that can hand off (>=1 hop) to an agent holding a
+  dangerous-capability tool. Deterministic, offline, and precision-first - it
+  fires only on a complete untrusted -> run -> handoff -> dangerous path, so a
+  constant input, a handoff to only-safe agents, or a standalone dangerous agent
+  stays silent. Flows through `--json`, `--ci`, and the baseline like any finding.
+  v1 tracks untrustedness intra-procedurally (source at the run site or a
+  variable assigned from one in the same function).
 - **Judgment backends (`palisade_sec.judge`).** One `JudgeBackend` interface
   with two adapters, selected in `.env`: **TypeSafe** (default, calibrated
   typed answers, `verified=True`) and a **generic OpenAI-compatible** endpoint

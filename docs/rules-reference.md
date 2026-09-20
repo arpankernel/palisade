@@ -29,6 +29,24 @@ actually use.
 intentional in some codebases. It appears with `--all`, never gates `--ci`,
 and is the model for future advisory rules (PII egress, agent loops).
 
+## Multi-agent detection: `PI-AGENT-HANDOFF`
+
+Beyond the five taint rules, `scan` emits one **graph-based** finding for
+multi-agent systems. It is not a YAML rule; it is computed deterministically
+from the agent graph (see [architecture](architecture.md)).
+
+| Finding | Severity | Path |
+|---|---|---|
+| `PI-AGENT-HANDOFF` | high | untrusted input -> an agent is run with it -> one or more **handoffs** -> an agent holding a **dangerous-capability** tool (shell / code-exec / file-write / db-write / payments / email / cloud / secrets) |
+
+It honors the same contract as the taint rules: **no untrusted source means no
+finding.** A constant run input, a handoff to only-safe agents, or a standalone
+dangerous agent (no handoff) stays silent. Confidence scales with handoff depth
+(1 hop HIGH, 2 MEDIUM, 3+ LOW). Frameworks recognized today: OpenAI Agents SDK
+(`Agent(tools=, handoffs=)`), LangGraph (`add_node`/`add_edge`), and CrewAI
+(`Crew(agents=, process=)`). Untrustedness is tracked intra-procedurally in v1;
+agents are scoped per module.
+
 ## Rule schema
 
 ```yaml

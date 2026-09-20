@@ -237,18 +237,32 @@ def map_cmd(
 @app.command()
 def redteam(
     path: str = typer.Argument(".", help="File or directory to target."),
-    json_out: bool = typer.Option(False, "--json", help="Emit the attack suite as JSON."),
+    json_out: bool = typer.Option(False, "--json", help="Emit as JSON."),
     variants: int = typer.Option(2, "--variants", help="Attack variants per target (1-5)."),
+    execute: bool = typer.Option(
+        False, "--execute", help="Fire the suite at a live target (needs --approve)."
+    ),
+    approve: bool = typer.Option(
+        False, "--approve", help="Required with --execute: you authorize firing at the target."
+    ),
+    target_url: str | None = typer.Option(
+        None, "--target", help="Target endpoint URL (or set PALISADE_REDTEAM_TARGET)."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="With --execute: exit non-zero if any attack lands."
+    ),
     config: str | None = typer.Option(
         None, "--config", help="Config file (.palisade.toml format)."
     ),
 ) -> None:
-    """Synthesize a targeted adversarial attack suite from the AI System Map.
+    """Synthesize a targeted adversarial attack suite from the AI System Map, and
+    optionally execute it against a live target you own.
 
-    ADVISORY and OFFLINE: it reads your code, finds the tools/prompts/agents, and
-    generates attacks aimed at them - but it does NOT run them. Executing the
-    suite against a live system is a gated library call (run(..., approved=True))
-    that drives a target you provide, in your environment, with your keys.
+    Default is ADVISORY and OFFLINE: it generates attacks aimed at your
+    tools/prompts/agents but does NOT run them. `--execute` (which requires
+    `--approve`) fires the suite at the endpoint you provide (`--target` or
+    PALISADE_REDTEAM_TARGET), in your environment, and scores what landed using
+    the judgment backend from `.env`. Never run it against systems you do not own.
     """
     from palisade_sec.scanner import lower_project
     from palisade_sec.semantic.inventory import build_map
@@ -262,10 +276,59 @@ def redteam(
     low = lower_project(target, config)
     ai_map = build_map(low.modules)
     cases = plan(ai_map, variants=max(1, min(5, variants)))
+
+    if not execute:
+        if json_out:
+            typer.echo(plan_to_json(cases, low.files_scanned), nl=False)
+        else:
+            print_plan(Console(highlight=False), cases, low.files_scanned)
+        return
+
+    _redteam_execute(cases, approve=approve, target_url=target_url, json_out=json_out, ci=ci)
+
+
+def _redteam_execute(cases, *, approve: bool, target_url: str | None, json_out: bool, ci: bool):
+    import os
+
+    from palisade_sec.judge.base import JudgeError
+    from palisade_sec.judge.config import get_backend
+    from palisade_sec.semantic.redteam import (
+        BackendScorer,
+        CompositeScorer,
+        DeterministicScorer,
+        HttpTarget,
+        print_report,
+        report_to_json,
+        run,
+    )
+
+    if not approve:
+        typer.echo(
+            "error: --execute requires --approve. It fires adversarial inputs at a "
+            "live target; run it only against systems you own and authorize.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    url = target_url or os.environ.get("PALISADE_REDTEAM_TARGET")
+    if not url:
+        typer.echo("error: no target. Pass --target URL or set PALISADE_REDTEAM_TARGET.", err=True)
+        raise typer.Exit(2)
+    try:
+        backend = get_backend()
+    except JudgeError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+    target = HttpTarget(endpoint=url, api_key=os.environ.get("PALISADE_REDTEAM_KEY"))
+    scorer = CompositeScorer(DeterministicScorer(), BackendScorer(backend))
+    report = run(cases, target, scorer, approved=True)
+
     if json_out:
-        typer.echo(plan_to_json(cases, low.files_scanned), nl=False)
+        typer.echo(report_to_json(report), nl=False)
     else:
-        print_plan(Console(highlight=False), cases, low.files_scanned)
+        print_report(Console(highlight=False), report)
+    if ci and report.landed:
+        raise typer.Exit(1)
 
 
 @app.command()
