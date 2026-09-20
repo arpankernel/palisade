@@ -18,6 +18,12 @@ is used only by `audit` (and, later, `review`).
   (`add_node`/`add_edge`, a node's capabilities read from its function body), and
   **CrewAI** (`Crew(agents=, process=)` - sequential chains the agents,
   hierarchical connects the first to the rest).
+- **Multi-agent calibration.** Labeled fixtures under `corpus/fixtures/agents/`
+  (must-flag handoff paths + must-stay-silent safe wirings) join the precision
+  corpus, so `PI-AGENT-HANDOFF` is measured (precision/recall) and gated in CI -
+  and now in the test suite too (`test_precision_gate.py`). Fixed a real bug the
+  fixtures caught: the analysis merged same-named agents across files; it now
+  scopes agents per module so findings are attributed to the right file.
 - **Red-team execution (`redteam --execute`).** The advisory synthesis can now
   be fired at a live target you own, gated by `--approve` plus a `--target` URL
   (or `PALISADE_REDTEAM_TARGET`). `HttpTarget` POSTs each attack and reads the

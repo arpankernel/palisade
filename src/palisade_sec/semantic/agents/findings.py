@@ -178,14 +178,17 @@ def _confidence(depth: int) -> str:
 def find_agent_handoff_findings(modules: list[ir.Module]) -> list[Finding]:
     """Deterministic, offline. Emit a PI-AGENT-HANDOFF finding for each
     untrusted-input -> entry agent -> handoff -> dangerous agent path."""
-    graph = build_agent_graph(modules)
-    if not graph.edges:
-        return []
     specs = _source_specs()
     findings: list[Finding] = []
     seen: set[tuple[str, int, str]] = set()
 
+    # Analyze one module at a time: agent variables are module-local, so a
+    # cross-module graph would merge distinct agents that happen to share a name
+    # (e.g. `triage` in two files) and misattribute findings.
     for mod in modules:
+        graph = build_agent_graph([mod])
+        if not graph.edges:
+            continue
         bodies = [fn.body for fn in mod.functions]
         if mod.toplevel is not None:
             bodies.append(mod.toplevel.body)

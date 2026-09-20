@@ -135,6 +135,24 @@ def test_run_scan_surfaces_agent_handoff(tmp_path):
     assert any(f.rule_id == "PI-AGENT-HANDOFF" for f in findings)
 
 
+def test_cross_file_agents_are_not_merged():
+    # Two files each define `ops`/`triage`; agents are module-local, so only the
+    # file with an untrusted run must flag, attributed to that file (regression:
+    # a cross-module graph used to merge same-named agents and misattribute).
+    common = (
+        "ops = Agent(name='ops', tools=[delete_files])\n"
+        "triage = Agent(name='triage', tools=[], handoffs=[ops])\n"
+    )
+    vuln = TOOLS + common + "def handle():\n    return Runner.run(triage, request.json['q'])\n"
+    safe = TOOLS + common + "def handle():\n    return Runner.run(triage, 'constant task')\n"
+    m1 = PythonFrontend().lower_file("vuln.py", "vuln.py", vuln)
+    m2 = PythonFrontend().lower_file("safe.py", "safe.py", safe)
+    assert not isinstance(m1, ParseFailure) and not isinstance(m2, ParseFailure)
+    fs = find_agent_handoff_findings([m1, m2])
+    assert len(fs) == 1
+    assert fs[0].sink.file == "vuln.py"
+
+
 def test_run_scan_safe_twin_is_clean(tmp_path):
     from palisade_sec.scanner import run_scan
 
