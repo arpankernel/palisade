@@ -21,5 +21,5 @@ targets:
   # (safe handoff target, constant input) must stay silent.
   - path: fixtures/agents
     expect:
-      - {file: vuln_runner.py,   line: 13, rule: PI-AGENT-HANDOFF, verdict: flag}
-      - {file: vuln_receiver.py, line: 13, rule: PI-AGENT-HANDOFF, verdict: flag}
+      - {file: vuln_runner.py,   line: 14, rule: PI-AGENT-HANDOFF, verdict: flag}
+      - {file: vuln_receiver.py, line: 14, rule: PI-AGENT-HANDOFF, verdict: flag}

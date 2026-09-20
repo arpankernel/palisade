@@ -12,7 +12,7 @@ Two distinct audiences; make sure you're the right one:
 ```bash
 uv sync                                   # deps (dev group includes tree-sitter)
 uv run pytest -q                          # full suite - must stay green
-uv run ruff check . && uv run ruff format --check src tests scripts
+uv run ruff check . && uv run ruff format --check src tests scripts corpus
 uv run mypy src/palisade_sec              # must stay clean
 uv run pytest tests/test_self_security.py # SF-1/2/3 tripwire over hostile corpus
 uv run python scripts/precision.py corpus/manifest.yaml   # fast fixture precision gate
