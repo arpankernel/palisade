@@ -116,6 +116,18 @@ def _match_category(func_path: str) -> str | None:
     return None
 
 
+def capabilities_in(stmts: list[ir.Stmt]) -> list[str]:
+    """The dangerous capability categories a statement body exercises. Used for
+    agent nodes that are plain functions (e.g. LangGraph nodes), not @tool
+    functions."""
+    cats: set[str] = set()
+    for call in iter_calls(stmts):
+        cat = _match_category(call.func_path)
+        if cat is not None:
+            cats.add(cat)
+    return sorted(cats)
+
+
 def _docstring(fn: ir.FuncDef) -> str:
     """First bare string expression in the body, if the frontend kept it."""
     for st in fn.body:

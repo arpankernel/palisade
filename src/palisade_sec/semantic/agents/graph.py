@@ -19,7 +19,8 @@ from dataclasses import dataclass, field
 
 from palisade_sec import ir
 from palisade_sec.rules.schema import match_strict
-from palisade_sec.semantic.probe import harvest_tools
+from palisade_sec.semantic.probe import capabilities_in, harvest_tools
+from palisade_sec.semantic.walk import module_calls
 
 # Agent constructors that carry tools=/handoffs= kwargs. Kept tight for v1.
 AGENT_CTORS: tuple[str, ...] = (
@@ -166,11 +167,41 @@ def _const_str(expr: ir.Expr | None) -> str | None:
 
 
 def build_agent_graph(modules: list[ir.Module]) -> AgentGraph:
-    """Extract the multi-agent topology. Pure, offline, deterministic."""
+    """Extract the multi-agent topology. Pure, offline, deterministic.
+
+    Runs a set of framework adapters, each contributing nodes and/or edges:
+    the generic kwarg shape (OpenAI Agents SDK-style `Agent(tools=, handoffs=)`),
+    LangGraph (`add_node`/`add_edge`), and CrewAI (`Crew(agents=, process=)`).
+    """
     caps_by_tool = {t.name: t.capabilities for t in harvest_tools(modules)}
+    funcs_by_name = {fn.name: fn for mod in modules for fn in mod.functions}
     graph = AgentGraph()
     pending_edges: list[AgentEdge] = []
 
+    for extract in (_extract_kwarg_agents, _extract_langgraph, _extract_crewai):
+        nodes, edges = extract(modules, caps_by_tool, funcs_by_name)
+        for node in nodes:
+            graph.nodes.setdefault(node.name, node)
+        pending_edges.extend(edges)
+
+    # Keep edges whose endpoints are both known agents (precision-first).
+    graph.edges = [e for e in pending_edges if e.src in graph.nodes and e.dst in graph.nodes]
+    return graph
+
+
+def _all_calls(modules: list[ir.Module]):
+    for mod in modules:
+        yield from module_calls(mod)
+
+
+def _extract_kwarg_agents(
+    modules: list[ir.Module], caps_by_tool: dict, funcs_by_name: dict
+) -> tuple[list[AgentNode], list[AgentEdge]]:
+    """Generic + OpenAI Agents SDK: `x = Agent(name=, tools=[...], handoffs=[...])`.
+    Also covers CrewAI agents (`Agent(role=, tools=[...])`), which get their
+    edges from the CrewAI adapter."""
+    nodes: list[AgentNode] = []
+    edges: list[AgentEdge] = []
     for mod in modules:
         bodies = [fn.body for fn in mod.functions]
         if mod.toplevel is not None:
@@ -182,17 +213,101 @@ def build_agent_graph(modules: list[ir.Module]) -> AgentGraph:
                 node_id = targets[0]
                 tools = _names_in_collection(call.kwargs.get("tools"))
                 caps = sorted({c for t in tools for c in caps_by_tool.get(t, [])})
-                graph.nodes[node_id] = AgentNode(
-                    name=node_id,
-                    display=_const_str(call.kwargs.get("name")) or node_id,
-                    file=loc.file,
-                    line=loc.line,
-                    tools=tools,
-                    capabilities=caps,
+                nodes.append(
+                    AgentNode(
+                        name=node_id,
+                        display=_const_str(call.kwargs.get("name")) or node_id,
+                        file=loc.file,
+                        line=loc.line,
+                        tools=tools,
+                        capabilities=caps,
+                    )
                 )
                 for dst in _names_in_collection(call.kwargs.get("handoffs")):
-                    pending_edges.append(AgentEdge(src=node_id, dst=dst))
+                    edges.append(AgentEdge(src=node_id, dst=dst))
+    return nodes, edges
 
-    # Keep edges whose endpoints are both known agents (precision-first).
-    graph.edges = [e for e in pending_edges if e.src in graph.nodes and e.dst in graph.nodes]
-    return graph
+
+# LangGraph reserved pseudo-nodes that are not agents.
+_LG_SPECIAL = {"__start__", "__end__", "START", "END", "start", "end"}
+
+
+def _extract_langgraph(
+    modules: list[ir.Module], caps_by_tool: dict, funcs_by_name: dict
+) -> tuple[list[AgentNode], list[AgentEdge]]:
+    """LangGraph: `g.add_node("name", fn)` + `g.add_edge("a", "b")`. A node's
+    capabilities come from its bound function's body (or a ToolNode's tools).
+    Conditional edges are recall, deferred; add_edge is precise."""
+    nodes: list[AgentNode] = []
+    edges: list[AgentEdge] = []
+    for call in _all_calls(modules):
+        tail = call.func_path.rsplit(".", 1)[-1]
+        if tail == "add_node":
+            name = _const_str(call.args[0]) if call.args else _const_str(call.kwargs.get("node"))
+            if not name:
+                continue
+            target = call.args[1] if len(call.args) > 1 else None
+            caps = _target_capabilities(target, funcs_by_name, caps_by_tool)
+            nodes.append(
+                AgentNode(
+                    name=name,
+                    display=name,
+                    file=call.loc.file,
+                    line=call.loc.line,
+                    tools=[],
+                    capabilities=caps,
+                )
+            )
+        elif tail == "add_edge":
+            src = _const_str(call.args[0]) if call.args else None
+            dst = _const_str(call.args[1]) if len(call.args) > 1 else None
+            if src and dst and src not in _LG_SPECIAL and dst not in _LG_SPECIAL:
+                edges.append(AgentEdge(src, dst))
+    return nodes, edges
+
+
+def _target_capabilities(target: ir.Expr | None, funcs_by_name: dict, caps_by_tool: dict) -> list:
+    """Capabilities of a LangGraph node target: a function (walk its body) or a
+    ToolNode wrapping tools."""
+    if target is None:
+        return []
+    if isinstance(target, ir.VarRef):
+        fn = funcs_by_name.get(target.base_var or target.path)
+        if fn is not None:
+            return capabilities_in(fn.body)
+        return list(caps_by_tool.get(target.base_var or target.path, []))
+    if isinstance(target, ir.Call):
+        # ToolNode(tools=[...]) / ToolNode([...])
+        tool_names = _names_in_collection(target.kwargs.get("tools"))
+        if not tool_names and target.args:
+            tool_names = _names_in_collection(target.args[0])
+        return sorted({c for t in tool_names for c in caps_by_tool.get(t, [])})
+    return []
+
+
+def _extract_crewai(
+    modules: list[ir.Module], caps_by_tool: dict, funcs_by_name: dict
+) -> tuple[list[AgentNode], list[AgentEdge]]:
+    """CrewAI: `Crew(agents=[a, b, c], process=...)`. The agents are already
+    nodes (from the generic Agent adapter); this adds the flow edges. Sequential
+    (default) chains a->b->c; hierarchical connects the first agent to the rest.
+    A heuristic over the declared wiring, kept conservative."""
+    edges: list[AgentEdge] = []
+    for call in _all_calls(modules):
+        if call.func_path.rsplit(".", 1)[-1] != "Crew":
+            continue
+        agents = _names_in_collection(call.kwargs.get("agents"))
+        if len(agents) < 2:
+            continue
+        proc = _const_str(call.kwargs.get("process")) or _proc_name(call.kwargs.get("process"))
+        if proc and "hierarchical" in proc:
+            edges.extend(AgentEdge(agents[0], a) for a in agents[1:])
+        else:
+            edges.extend(AgentEdge(a, b) for a, b in zip(agents, agents[1:], strict=False))
+    return [], edges
+
+
+def _proc_name(expr: ir.Expr | None) -> str | None:
+    if isinstance(expr, ir.VarRef):
+        return expr.path or expr.base_var or None
+    return None

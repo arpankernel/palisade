@@ -131,6 +131,7 @@ class AISystemMap:
             "tools": len(self.tools),
             "tools_with_capabilities": sum(1 for t in self.tools if t.detail.get("capabilities")),
             "agents": len(self.agents),
+            "agent_graph_nodes": len(self.agent_graph.nodes),
             "agent_handoffs": len(self.agent_graph.edges),
             "retrieval": len(self.retrieval),
             "config_flags": len(self.config_flags),
@@ -286,10 +287,10 @@ def print_map(console, m: AISystemMap, files_scanned: int) -> None:
 
     s = m.summary()
     total = len(m.all())
-    if total == 0:
+    if total == 0 and not m.agent_graph.nodes:
         console.print(
             f"[dim]No AI surface found in {files_scanned} file(s).[/dim] "
-            "(no LLM calls, tools, agents, or retrieval)"
+            "(no LLM calls, tools, agents, retrieval, or agent graph)"
         )
         return
 
@@ -298,18 +299,20 @@ def print_map(console, m: AISystemMap, files_scanned: int) -> None:
         f"  LLM calls: {s['llm_calls']}   prompts: {s['prompts']} "
         f"({s['prompts_dynamic']} dynamic)   tools: {s['tools']} "
         f"({s['tools_with_capabilities']} with capabilities)\n"
-        f"  agents/chains: {s['agents']}   retrieval: {s['retrieval']}   "
+        f"  agents/chains: {s['agents']}   agent-graph nodes: {s['agent_graph_nodes']} "
+        f"({s['agent_handoffs']} handoff(s))   retrieval: {s['retrieval']}   "
         f"[{'red' if s['config_flags'] else 'green'}]dangerous flags: "
         f"{s['config_flags']}[/]\n"
     )
 
-    table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
-    table.add_column("kind", no_wrap=True)
-    table.add_column("what", overflow="fold")
-    table.add_column("where", no_wrap=True)
-    for a in m.all():
-        table.add_row(a.kind, _describe(a), f"{a.file}:{a.line}")
-    console.print(table)
+    if total:
+        table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
+        table.add_column("kind", no_wrap=True)
+        table.add_column("what", overflow="fold")
+        table.add_column("where", no_wrap=True)
+        for a in m.all():
+            table.add_row(a.kind, _describe(a), f"{a.file}:{a.line}")
+        console.print(table)
 
     _print_agent_graph(console, m.agent_graph)
 

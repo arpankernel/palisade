@@ -13,8 +13,11 @@ is used only by `audit` (and, later, `review`).
   agents (with the tools they hold and the capabilities those tools exercise),
   edges are handoffs (`handoffs=[...]`). It shows which entry agents can reach a
   dangerous capability across a handoff, and adds an `agent_graph` block to
-  `--json`. Deterministic and offline; recognizes the explicit-kwarg
-  (OpenAI Agents SDK-style) shape in v1, with LangGraph / CrewAI adapters upcoming.
+  `--json`. Deterministic and offline. Framework adapters: the explicit-kwarg
+  (OpenAI Agents SDK-style `Agent(tools=, handoffs=)`), **LangGraph**
+  (`add_node`/`add_edge`, a node's capabilities read from its function body), and
+  **CrewAI** (`Crew(agents=, process=)` - sequential chains the agents,
+  hierarchical connects the first to the rest).
 - **`PI-AGENT-HANDOFF` finding (`scan`).** A multi-agent prompt-injection path:
   untrusted input runs an agent that can hand off (>=1 hop) to an agent holding a
   dangerous-capability tool. Deterministic, offline, and precision-first - it
