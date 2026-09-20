@@ -132,6 +132,30 @@ separate runs; the score is deterministic within a run, not across runs.
 | `--baseline FILE` | Baseline to diff `--ci` against. |
 | `--config FILE` | As in `scan`. |
 
+## `palisade-sec redteam [PATH]`
+
+Synthesize a targeted adversarial attack suite from the AI System Map, and
+optionally execute it against a live target you own.
+
+**Default is advisory and OFFLINE**: it generates attacks aimed at the
+discovered tools, prompts, and agents (tool coercion, instruction override,
+data exfiltration, jailbreak, system-prompt leak) but does NOT run them.
+
+| Flag | Effect |
+|---|---|
+| `--json` | Emit the suite (or, with `--execute`, the run report) as JSON. |
+| `--variants N` | Attack variants per target (1-5). |
+| `--execute` | Fire the suite at a live target. Requires `--approve`. |
+| `--approve` | Required with `--execute`: you authorize firing adversarial inputs. |
+| `--target URL` | Target endpoint (or set `PALISADE_REDTEAM_TARGET`; key via `PALISADE_REDTEAM_KEY`). |
+| `--ci` | With `--execute`: exit `1` if any attack lands. |
+| `--config FILE` | As in `scan`. |
+
+Execution drives the endpoint **you** provide, in your environment - Palisade
+never executes your code. It scores landed attacks with the judgment backend
+from `.env` (deterministic tool-invocation checks plus a model for behavioral
+judgment). Run it only against systems you own and are authorized to test.
+
 ## Judgment configuration
 
 `audit` and `review` read their backend from environment variables, loaded from

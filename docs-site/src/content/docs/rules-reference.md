@@ -4,9 +4,9 @@ description: "The five builtin rules, pattern semantics, sanitizer tiers, and cu
 ---
 
 Rules are YAML data validated by a pydantic schema
-([`schema.py`](https://github.com/arpankernel/palisade/blob/main/src/palisade_sec/rules/schema.py)). The engine is generic:
+([`schema.py`](../src/palisade_sec/rules/schema.py)). The engine is generic:
 **a new rule needs zero engine changes.** For the 5-minute "write a rule"
-guide, see [`rules/README.md`](https://github.com/arpankernel/palisade/blob/main/src/palisade_sec/rules/README.md); this
+guide, see [`rules/README.md`](../src/palisade_sec/rules/README.md); this
 page is the reference.
 
 ## The five builtin rules
@@ -31,6 +31,24 @@ actually use.
 `PI-HTTP` is deliberately MED: browsing agents make LLM-chosen URLs
 intentional in some codebases. It appears with `--all`, never gates `--ci`,
 and is the model for future advisory rules (PII egress, agent loops).
+
+## Multi-agent detection: `PI-AGENT-HANDOFF`
+
+Beyond the five taint rules, `scan` emits one **graph-based** finding for
+multi-agent systems. It is not a YAML rule; it is computed deterministically
+from the agent graph (see [architecture](architecture.md)).
+
+| Finding | Severity | Path |
+|---|---|---|
+| `PI-AGENT-HANDOFF` | high | untrusted input -> an agent is run with it -> one or more **handoffs** -> an agent holding a **dangerous-capability** tool (shell / code-exec / file-write / db-write / payments / email / cloud / secrets) |
+
+It honors the same contract as the taint rules: **no untrusted source means no
+finding.** A constant run input, a handoff to only-safe agents, or a standalone
+dangerous agent (no handoff) stays silent. Confidence scales with handoff depth
+(1 hop HIGH, 2 MEDIUM, 3+ LOW). Frameworks recognized today: OpenAI Agents SDK
+(`Agent(tools=, handoffs=)`), LangGraph (`add_node`/`add_edge`), and CrewAI
+(`Crew(agents=, process=)`). Untrustedness is tracked intra-procedurally in v1;
+agents are scoped per module.
 
 ## Rule schema
 
@@ -138,6 +156,6 @@ palisade-sec scan . --rules ./security/rules
 - The classic custom rule: your codebase routes LLM calls through
   `self.inference(...)` - add `"*.inference"` to `llm_signatures` in a copy
   of `PI-FRAMEWORK-EXEC`.
-- Contribution bar (see [CONTRIBUTING.md](https://github.com/arpankernel/palisade/blob/main/CONTRIBUTING.md)): every rule
+- Contribution bar (see [CONTRIBUTING.md](../CONTRIBUTING.md)): every rule
   PR ships a must-flag fixture **and** a same-shaped must-stay-silent
   fixture. The silent one matters more.

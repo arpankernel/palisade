@@ -14,7 +14,7 @@ runs on. Each existing capability maps onto a pillar of that agenda:
 | Palisade capability | Agenda pillar it instantiates |
 |---|---|
 | `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
-| `redteam` synthesis (gated execution + scoring upcoming), on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
+| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
 | `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
 | advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
 | SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |
@@ -38,18 +38,25 @@ keyless-and-offline versus bring-your-own-endpoint.
   in a verified static fact.
 - `review` + **posture score** - one composed, risk-ranked report (a number and
   a band over detected findings).
-- Red-team **synthesis** - a Map-driven adversarial attack suite (advisory,
-  offline).
+- **Multi-agent detection** - the agent graph in `map` (agents, tools,
+  capabilities, handoffs) across OpenAI Agents SDK, LangGraph, and CrewAI, plus
+  the deterministic `PI-AGENT-HANDOFF` finding in `scan` (untrusted input -> agent
+  run -> handoff -> a dangerous-capability agent). Calibrated on labelled fixtures
+  and gated in CI.
+- Red-team **synthesis and gated execution** - a Map-driven adversarial attack
+  suite (advisory, offline) that can be fired at a user-provided target with
+  `--approve`, scored by the judgment backend.
 
 **Upcoming (no dates; sequenced after the checks are calibrated on the corpus):**
 
 - Guardrail generation - installable guardrail middleware plus a regression test
   per confirmed finding.
-- Red-team **execution** - firing the synthesized suite at a user-provided target
-  under an explicit approval gate, then scoring what landed.
-- Calibration of the judgment signals on the benchmark corpus; until then, the
-  exploitability and posture signals are labelled uncalibrated, and the
-  deterministic scanner's precision stands on its own.
+- Calibration of the **judgment** signals (exploitability, agency, posture) on a
+  real labelled corpus; until then those signals are labelled uncalibrated, while
+  the deterministic detections (taint rules and `PI-AGENT-HANDOFF`) carry a
+  measured, CI-gated precision.
+- Multi-agent recall: `crew.kickoff` / compiled-LangGraph `.invoke` entry
+  mapping, conditional edges, and cross-module agent wiring.
 
 ## The ordering thesis
 
