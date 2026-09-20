@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Palisade - applied agentic-safety infrastructure</title>
-<meta name="description" content="Palisade instruments the boundary where AI systems take real-world actions - detecting, evaluating, and gating untrusted-input → model → dangerous-capability paths in Python and JavaScript/TypeScript, in CI, before they ship. The applied arm of reducing catastrophic risk from autonomous AI. Free, open source, no API key.">
-<meta property="og:title" content="Palisade - applied agentic-safety infrastructure">
-<meta property="og:description" content="Catches untrusted input → LLM → exec/shell/SQL paths in CI. Precision 1.000 across a pinned 26-repo benchmark corpus. Finds the exact CVE-2024-5565 line. MIT and free; the offline core needs no key.">
+<title>Palisade - find prompt injection before it ships</title>
+<meta name="description" content="Palisade is an open-source CLI that finds prompt-injection dataflow paths - untrusted input → LLM → exec, shell, SQL, or HTTP - in your Python and JavaScript, in CI, before they ship. Runs locally, no API key, your code never leaves your machine. Precision 1.000, zero false positives across 17,343 files of real code. MIT.">
+<meta property="og:title" content="Palisade - find prompt injection before it ships">
+<meta property="og:description" content="One command finds the untrusted-input → LLM → exec/shell/SQL/HTTP paths OWASP ranks the #1 LLM risk, before they merge. Python & JS, in CI. Runs locally, no API key. Precision 1.000, zero false positives across 17,343 files. MIT and free.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -332,10 +332,10 @@
       PALISADE
     </a>
     <div class="nav-links">
-      <a href="#rules">Rules</a>
+      <a href="#why">Why</a>
       <a href="#how">How it works</a>
       <a href="#proof">Proof</a>
-      <a href="./docs/">Docs</a>
+      <a href="#vision">Vision</a>
     </div>
     <div class="nav-cta">
       <a class="gh" href="https://github.com/arpankernel/palisade">GitHub</a>
@@ -349,9 +349,9 @@
   <header class="hero">
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
-      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · Offline core, no key · v0.4.0</span>
-      <h1 class="hero-anim">Applied <span class="accent">agentic-safety infrastructure.</span></h1>
-      <p class="hero-anim sub">Palisade instruments the boundary where AI systems take real-world actions - statically catching untrusted input flowing through a model into <em>exec</em>, a shell, raw SQL, or an outbound fetch - in CI, before they ship. Python and JavaScript/TypeScript. The applied, tractable end of reducing catastrophic risk from autonomous AI.</p>
+      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · runs locally, no API key</span>
+      <h1 class="hero-anim">Find prompt injection <span class="accent">before it ships.</span></h1>
+      <p class="hero-anim sub">Palisade traces untrusted input → LLM → <em>exec</em>, a shell, raw SQL, or an outbound call across your Python and JavaScript, and gates it in CI. Runs locally, no API key, your code never leaves your machine.</p>
       <div class="hero-anim flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
       <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
@@ -360,7 +360,7 @@
         </button>
         <a class="btn btn-secondary" href="https://github.com/arpankernel/palisade">Star on GitHub ↗</a>
       </div>
-      <div class="hero-anim meta-note">pure static analysis - never executes your code · no network calls · no telemetry</div>
+      <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 17,343 files of real code · never executes your code</div>
 
       <!-- TERMINAL -->
       <div class="terminal-frame reveal">
@@ -395,10 +395,42 @@
 
   <div class="wrap"><div class="section-line"></div></div>
 
+  <!-- PROBLEM / STAKES -->
+  <section id="why">
+    <div class="wrap">
+      <span class="kicker">Why it matters</span>
+      <h2>In an agent, an injection is an action.</h2>
+      <p class="section-sub">Prompt injection is OWASP's #1 LLM risk. In an autonomous agent a successful one isn't a bad answer - it's your shell, your database, or an outbound request running with your privileges. Guardrails are probabilistic and get bypassed. The dataflow path is the part you can actually find.</p>
+      <div class="rules reveal stagger">
+
+        <div class="rule-card">
+          <span class="sev high">LLM01</span><div class="rid">THE #1 RISK</div>
+          <h3>Ranked first, still unsolved</h3>
+          <p>OWASP puts prompt injection at the top of the LLM Top-10, two editions running. The model vendors agree it can't be fully prevented at the model layer.</p>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev high">IN THE WILD</span><div class="rid">NOT THEORETICAL</div>
+          <h3>Real CVEs, this exact shape</h3>
+          <p>Langflow's injection → exec path (CVE-2025-3248) is on the CISA KEV list, exploited in the wild. PandasAI (CVE-2024-12366, CVSS 9.8) and Vanna (CVE-2024-5565) shipped the same pattern.</p>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev">THE FIX</span><div class="rid">FIND THE PATH</div>
+          <h3>Catch it in code, before merge</h3>
+          <p>You can't patch the model, but you can find every place untrusted input reaches a dangerous sink through an LLM - and fail CI on it before it ships.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="section-line"></div></div>
+
   <!-- HOW IT WORKS -->
   <section id="how">
     <div class="wrap">
-      <span class="kicker">How it works</span>
+      <span class="kicker">The ground-truth core</span>
       <h2>Taint analysis, not grep.</h2>
       <p class="section-sub">A finding requires the <b>complete</b> source → LLM → sink data-flow path with no real sanitizer in between. Calling an LLM is never a finding. That single rule is why the noise floor is zero.</p>
       <div class="pipe reveal stagger">
@@ -575,15 +607,85 @@
 
   <div class="wrap"><div class="section-line"></div></div>
 
+  <!-- VISION / WHERE THIS IS GOING -->
+  <section id="vision">
+    <div class="wrap">
+      <span class="kicker">Where this is going</span>
+      <h2>From a linter to your AI system's safety engineer.</h2>
+      <p class="section-sub">The scanner is the proven floor. On top of it, Palisade is growing into more of an AI safety engineer's job for teams shipping agents to production - evals, safety cases, oversight, governance. Each capability is marked for what it does today versus what is still being built. No blur; the frontier is the point.</p>
+      <div class="rules reveal stagger">
+
+        <div class="rule-card">
+          <span class="sev high">CORE SHIPPED</span><div class="rid">01 · AGENTIC & MULTI-AGENT SAFETY</div>
+          <h3>The action boundary</h3>
+          <p>Where a model reaches a real capability - exec, a shell, SQL, an outbound call. This is the loss-of-control surface as autonomy grows.</p>
+          <div class="sinks">today · scan input→model→sink<br>today · map tools + capabilities<br>today · audit excessive agency</div>
+          <div class="cve">next — agent→agent handoffs · cross-agent taint · langgraph / crewai / autogen graphs</div>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev">PARTIAL</span><div class="rid">02 · EVALS & RED-TEAMING</div>
+          <h3>Exercise it adversarially</h3>
+          <p>Attack the system with inputs built from its own map, and measure what lands - on a pinned, reproducible harness rather than a vibe.</p>
+          <div class="sinks">today · red-team synthesis from the live map<br>today · pinned 26-repo precision gate in CI</div>
+          <div class="cve">next — red-team execution (HttpTarget + live scorer) · calibrated per-check P/R</div>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev">PARTIAL</span><div class="rid">03 · SAFETY CASES & ASSURANCE</div>
+          <h3>Argue the residual risk</h3>
+          <p>A structured, evidence-backed argument a decision-maker can accept - not a bare score. Every claim traces to a fact the engine can prove.</p>
+          <div class="sinks">today · review + posture over verified facts<br>today · measured-not-asserted discipline</div>
+          <div class="cve">next — claims → evidence → residual-risk export for auditors</div>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev">BUILDING</span><div class="rid">04 · TECHNICAL AI GOVERNANCE</div>
+          <h3>Make it enforceable</h3>
+          <p>Turn safety practice into an organizational requirement a pipeline enforces, with an audit trail teams and regulators can read.</p>
+          <div class="sinks">today · CI gates · exit-code contract<br>today · stable JSON schema · disclosure policy</div>
+          <div class="cve">next — SARIF · CWE / OWASP-LLM tags · signing / SBOM / provenance</div>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev high">ENFORCED</span><div class="rid">05 · CHECKABLE OVERSIGHT</div>
+          <h3>Keep a human in control</h3>
+          <p>Keep AI-assisted work verifiable as models begin to exceed human review. Advisory by default; a person holds the gate on anything that acts.</p>
+          <div class="sinks">today · grounded to ground truth<br>today · approval gates · unverified-can't-act<br>today · never executes your code</div>
+          <div class="cve">next — gate AI-authored diffs · re-verifiable evidence output</div>
+        </div>
+
+        <div class="rule-card">
+          <span class="sev high">SHIPPED</span><div class="rid">06 · MEASURED GROUND TRUTH</div>
+          <h3>Why the ambition stays honest</h3>
+          <p>Every judgment is anchored to a deterministic finding the engine can prove. The floor under the whole roadmap is a real, measured detector.</p>
+          <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 17,343 files<br>today · zero false positives</div>
+          <div class="cve">honest — the judged layer is uncalibrated until scored on the corpus; the core's precision stands alone</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="section-line"></div></div>
+
   <!-- FAQ -->
   <section id="faq">
     <div class="wrap">
       <span class="kicker">FAQ</span>
-      <h2>The questions security teams ask first.</h2>
+      <h2>The questions people ask first.</h2>
       <div class="faq reveal">
         <div class="faq-item">
+          <button class="faq-q" type="button">Is this real AI safety, or just a linter?<span class="ic">+</span></button>
+          <div class="faq-a"><div><p>A linter is the foundation, and that is deliberate: every safety claim is anchored to a deterministic finding Palisade can prove. On that ground truth it does more of an AI safety engineer's job - mapping the action surface, red-teaming it, arguing residual risk, and gating AI-assisted changes. It works the applied, verifiable end of the problem: safety for agentic systems at the deployment layer. It is not frontier alignment research, and it does not claim to be.</p></div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" type="button">Which parts are shipped, and is the judgment layer calibrated?<span class="ic">+</span></button>
+          <div class="faq-a"><div><p>The single-agent action boundary and the taint core are shipped and gated in CI at precision 1.000. The judged layer (<code>audit</code>, <code>review</code>, posture) runs today but is <b>uncalibrated</b> - it has no published precision/recall yet, so it is advisory and can never gate CI or raise a critical posture on its own. Multi-agent modeling, red-team execution, SARIF and governance surfaces, and the oversight-of-AI-code mode are on the public roadmap, marked <b>building</b>. We would rather show the frontier than blur it.</p></div></div>
+        </div>
+        <div class="faq-item">
           <button class="faq-q" type="button">Does my code ever leave my machine?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, and the core never calls out.</p></div></div>
+          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, it is currently uncalibrated and advisory, and the core never calls out.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">How is this different from Semgrep or Bandit?<span class="ic">+</span></button>
@@ -615,8 +717,8 @@
   <div class="dg" aria-hidden="true"></div>
   <div class="wrap">
     <span class="kicker" style="color:var(--cream-bright)">Free forever · MIT</span>
-    <h2>Ship the guardrail,<br>not the incident.</h2>
-    <p>One command. No key, no signup, no code leaving your machine. Findings in under 30 seconds.</p>
+    <h2>Scan your repo<br>in 30 seconds.</h2>
+    <p>One command. No key, no signup, no code leaving your machine. Find every untrusted-input → LLM → sink path before it merges.</p>
     <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
       <span class="prompt">$</span> uvx palisade-sec scan .
       <span class="copy">copy</span>

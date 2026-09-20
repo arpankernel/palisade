@@ -1,11 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-09-21
 
-Work toward the pre-production AI safety engineer. The deterministic core
-(`scan`, `map`, `baseline`, `fix`) stays offline and keyless. A new judgment
-layer is bring-your-own-endpoint: it reads an endpoint and key from `.env` and
-is used only by `audit` (and, later, `review`).
+The applied agentic-safety layer. The deterministic core (`scan`, `map`,
+`baseline`, `fix`) stays offline and keyless. A new judgment layer is
+bring-your-own-endpoint: it reads an endpoint and key from `.env` and is used
+only by `audit` and `review`. Before release, an adversarial self-audit hardened
+the engine: it found and fixed a critical sanitizer-silencing bug, two taint
+false negatives, false-positive vectors in the multi-agent analysis, a vacuous
+calibration metric, and a SARIF path bug - each with a permanent regression test.
+Re-validated on the pinned 26-repo benchmark: precision **1.000**, 0 false
+positives, the Vanna CVE still caught.
 
 ### Added
 
@@ -92,6 +97,45 @@ is used only by `audit` (and, later, `review`).
   TypeSafe SDK, so any OpenAI-compatible endpoint works. An unverified backend
   can never emit a BLOCK on judgment alone; such a decision downgrades to
   REVIEW. The judgment layer is uncalibrated until scored on the corpus.
+
+### Fixed
+
+- **Sanitizer silencing bypass (critical).** A sanitizer body that only
+  transformed its input and returned it (`code = code.replace(...); return
+  code` - the Vanna CVE-2024-5565 shape) was treated as verified and fully
+  suppressed the finding, because any `raise`, terminating guard, or `re.match`
+  counted as validation. A transform-and-return body is now cosmetic unless it
+  carries a strong signal (a membership test or `re.fullmatch` family call);
+  `re.match` was dropped from the validator set. This restores the documented
+  "downgrade, never silence" contract.
+- **Empty SQL parameters no longer disarm the sink.** `cursor.execute(sql, ())`
+  (or `[]`, `{}`, `params={}`) binds nothing, so the tainted SQL string is what
+  executes; it is no longer treated as parameterized. A real, non-empty binding
+  still suppresses.
+- **`try`/`except` no longer erases taint.** `try: code = <llm output> except:
+  code = "safe"` followed by `exec(code)` dropped the finding, because handler
+  state overwrote the try-body state. The two branches are now joined.
+- **`PI-AGENT-HANDOFF` taint is cast/sanitizer aware and flow-sensitive.** The
+  multi-agent finding (which gates `scan --ci`) no longer treats `run(agent,
+  int(x))` or `run(agent, sanitize(x))` as untrusted, and an unconditional clean
+  reassignment now clears taint - closing false-positive vectors that could break
+  a user's build.
+- **Calibration no longer reports a vacuous precision.** A signal with no
+  positive predictions (or no positive labels) reported precision `1.000` and
+  cleared the gate. Precision and recall are now undefined (null) when their
+  denominator is zero; the gate requires a signal to be exercised, and an
+  unexercised signal is reported rather than silently passing.
+- **SARIF URIs are relative to the repository root.** Finding paths are relative
+  to the scan target, so a subdirectory scan (`scan src`) mislocated every GitHub
+  code-scanning alert. `to_sarif` now takes a base and the CLI prepends the scan
+  base relative to the working directory.
+
+### Performance
+
+- **`resolve()` is no longer O(n^2) on large TypeScript repos.** The dotted-suffix
+  fallback scanned the whole function registry per call site; it now consults a
+  last-segment index. gemini-cli `packages/core/src` (465 files) went from not
+  finishing in 90s to 13.9s, with byte-identical findings.
 
 ## 0.4.0 - 2026-09-16
 

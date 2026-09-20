@@ -52,18 +52,31 @@ class NoulMetric:
     n: int = 0
 
     @property
+    def has_positive_labels(self) -> bool:
+        """Does the corpus contain any positive case for this signal? Without
+        one, precision and recall are meaningless - the signal is unexercised."""
+        return (self.tp + self.fn) > 0
+
+    @property
+    def precision_defined(self) -> bool:
+        """Precision needs at least one positive PREDICTION (tp + fp > 0).
+        Undefined precision must not read as a passing 1.0 - a signal that
+        predicts negative on every positive (recall 0) would clear the gate."""
+        return (self.tp + self.fp) > 0
+
+    @property
     def precision(self) -> float:
         d = self.tp + self.fp
-        return self.tp / d if d else 1.0
+        return self.tp / d if d else float("nan")
 
     @property
     def recall(self) -> float:
         d = self.tp + self.fn
-        return self.tp / d if d else 1.0
+        return self.tp / d if d else float("nan")
 
     @property
     def accuracy(self) -> float:
-        return (self.tp + self.tn) / self.n if self.n else 1.0
+        return (self.tp + self.tn) / self.n if self.n else float("nan")
 
     @property
     def brier(self) -> float:
@@ -73,10 +86,13 @@ class NoulMetric:
         return {
             "kind": "noul",
             "n": self.n,
-            "precision": round(self.precision, 3),
-            "recall": round(self.recall, 3),
-            "accuracy": round(self.accuracy, 3),
+            # None (not 1.0) when undefined, so a report never shows a vacuous
+            # perfect score for an unexercised signal.
+            "precision": round(self.precision, 3) if self.precision_defined else None,
+            "recall": round(self.recall, 3) if self.has_positive_labels else None,
+            "accuracy": round(self.accuracy, 3) if self.n else None,
             "brier": round(self.brier, 3),
+            "exercised": self.has_positive_labels,
         }
 
 
@@ -132,19 +148,39 @@ class CalibrationReport:
         a lowered bar."""
         if self.errors:
             return False
-        ok = all(
-            m.precision >= noul_precision_min for q, m in self.noul.items() if q not in known_weak
-        )
-        ok = ok and all(
-            m.within1_accuracy >= score_within1_min
-            for q, m in self.score.items()
-            if q not in known_weak
-        )
-        return ok
+        for q, m in self.noul.items():
+            if q in known_weak:
+                continue
+            # An unexercised signal (no positive labels) or one with undefined
+            # precision (predicted negative everywhere) cannot pass: there is no
+            # evidence it works. It must be fixed or explicitly marked known_weak.
+            if not m.has_positive_labels or not m.precision_defined:
+                return False
+            if m.precision < noul_precision_min:
+                return False
+        for q, sm in self.score.items():
+            if q in known_weak:
+                continue
+            if sm.n == 0 or sm.within1_accuracy < score_within1_min:
+                return False
+        return True
+
+    def unexercised_signals(self) -> list[str]:
+        """Signals the corpus never tests on a positive case - a coverage gap
+        that used to hide behind a vacuous precision of 1.0."""
+        return sorted(q for q, m in self.noul.items() if not m.has_positive_labels)
 
     def weak_signals(self, noul_precision_min: float, score_within1_min: float) -> list[str]:
-        weak = [q for q, m in self.noul.items() if m.precision < noul_precision_min]
-        weak += [q for q, m in self.score.items() if m.within1_accuracy < score_within1_min]
+        weak = [
+            q
+            for q, m in self.noul.items()
+            if not m.has_positive_labels
+            or not m.precision_defined
+            or m.precision < noul_precision_min
+        ]
+        weak += [
+            q for q, m in self.score.items() if m.n == 0 or m.within1_accuracy < score_within1_min
+        ]
         return sorted(weak)
 
     def to_dict(self) -> dict:

@@ -50,6 +50,14 @@ def main() -> int:
             "certify the signal, they profile this backend.",
             file=sys.stderr,
         )
+    unexercised = report.unexercised_signals()
+    if unexercised:
+        print(
+            f"\nwarning: no positive labels for: {', '.join(unexercised)} - "
+            "these signals are unexercised (precision/recall undefined), not "
+            "calibrated. Add positive cases to the corpus.",
+            file=sys.stderr,
+        )
     weak = report.weak_signals(noul_min, score_min)
     if weak:
         print(

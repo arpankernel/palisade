@@ -163,3 +163,113 @@ def test_trusted_framework_still_suppresses(tmp_path):
         """,
     )
     assert res.findings == []
+
+
+def _assert_unverified(res):
+    assert len(res.findings) == 1, [f.rule_id for f in res.findings]
+    f = res.findings[0]
+    assert f.severity == "med" and f.risky
+    assert [p.kind for p in f.partial_defenses] == ["unverified_sanitizer"]
+
+
+def test_transform_with_unrelated_raise_downgrades(tmp_path):
+    """Audit bypass: a cosmetic .replace() transform whose body also raises on
+    an *unrelated* condition (empty input) must not be treated as verified.
+    Transform-and-return is cosmetic regardless of the incidental raise."""
+    res = _scan(
+        tmp_path,
+        app=PREAMBLE
+        + """
+        from cleaners import sanitize
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            exec(sanitize(resp.choices[0].message.content))
+        """,
+        cleaners="""
+        def sanitize(code):
+            code = code.replace("__import__", "")
+            if not code:
+                raise ValueError("empty")
+            return code
+        """,
+    )
+    _assert_unverified(res)
+
+
+def test_transform_with_early_return_guard_downgrades(tmp_path):
+    """Audit bypass: a terminating early-return guard (`if x is None: return`)
+    on top of a cosmetic transform is not validation of the value."""
+    res = _scan(
+        tmp_path,
+        app=PREAMBLE
+        + """
+        from cleaners import sanitize
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            exec(sanitize(resp.choices[0].message.content))
+        """,
+        cleaners="""
+        def sanitize(code):
+            if code is None:
+                return ""
+            return code.replace("os", "")
+        """,
+    )
+    _assert_unverified(res)
+
+
+def test_re_match_on_constant_does_not_verify(tmp_path):
+    """Audit bypass: `re.match` on an unrelated constant used to mark a cosmetic
+    sanitizer verified. re.match is no longer a validator signal."""
+    res = _scan(
+        tmp_path,
+        app=PREAMBLE
+        + """
+        from cleaners import sanitize
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            exec(sanitize(resp.choices[0].message.content))
+        """,
+        cleaners="""
+        import re
+
+        def sanitize(code):
+            re.match(r"^v\\d+$", "v1")
+            return code.replace("import", "")
+        """,
+    )
+    _assert_unverified(res)
+
+
+def test_transform_plus_allowlist_stays_verified(tmp_path):
+    """A transform that ALSO carries a real allowlist membership test keeps the
+    benefit of the doubt - the strong signal wins over transform-and-return."""
+    res = _scan(
+        tmp_path,
+        app=PREAMBLE
+        + """
+        import os
+        from checks import validate_command
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            os.system(validate_command(resp.choices[0].message.content))
+        """,
+        checks="""
+        SAFE = ("uptime", "date", "whoami")
+
+        def validate_command(cmd):
+            cmd = cmd.strip().lower()
+            if cmd not in SAFE:
+                raise ValueError(cmd)
+            return cmd
+        """,
+    )
+    assert res.findings == []

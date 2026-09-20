@@ -21,11 +21,13 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from functools import lru_cache
 
 from palisade_sec import ir
 from palisade_sec.engine import Finding, TracePoint
+from palisade_sec.engine.analyzer import _CAST_SANITIZERS
 from palisade_sec.rules import load_rules
-from palisade_sec.rules.schema import PatternSpec, match_strict
+from palisade_sec.rules.schema import PatternSpec, match_lenient, match_strict
 from palisade_sec.semantic.agents.graph import AgentGraph, _ref_name, build_agent_graph
 
 RULE_ID = "PI-AGENT-HANDOFF"
@@ -74,6 +76,30 @@ def _matches_source(path: str, specs: list[PatternSpec]) -> bool:
     return bool(path) and any(match_strict(path, p) for s in specs for p in s.patterns)
 
 
+@lru_cache(maxsize=1)
+def _sanitizer_specs() -> tuple[PatternSpec, ...]:
+    """Sanitizer name patterns from the rules. A call through one of these
+    neutralizes taint for this rule. This is deliberately precision-first: it
+    trusts a name-matched sanitizer (rather than downgrading it as the taint
+    engine does), because PI-AGENT-HANDOFF gates CI and a false positive there
+    breaks a user's build. Recall through a cosmetic sanitizer is the accepted
+    cost; the deterministic taint rules still cover the sink itself."""
+    specs: list[PatternSpec] = []
+    for rule in load_rules(None).rules:
+        specs.extend(rule.sanitizers)
+    return tuple(specs)
+
+
+def _neutralizes(path: str) -> bool:
+    """A cast (int/len/bool/...) or a name-matched sanitizer constrains the
+    value enough that its result is no longer untrusted."""
+    if not path:
+        return False
+    if path.rsplit(".", 1)[-1] in _CAST_SANITIZERS:
+        return True
+    return match_lenient(path, list(_sanitizer_specs())) is not None
+
+
 def _expr_untrusted(expr: ir.Expr | None, specs: list[PatternSpec], tainted: set[str]) -> bool:
     if expr is None:
         return False
@@ -86,6 +112,9 @@ def _expr_untrusted(expr: ir.Expr | None, specs: list[PatternSpec], tainted: set
     if isinstance(expr, ir.Call):
         if _matches_source(expr.func_path, specs):
             return True
+        # A cast or sanitizer on the way in stops the propagation.
+        if _neutralizes(expr.func_path):
+            return False
         if _expr_untrusted(expr.receiver, specs, tainted):
             return True
         return any(_expr_untrusted(a, specs, tainted) for a in expr.args)
@@ -97,32 +126,43 @@ def _expr_untrusted(expr: ir.Expr | None, specs: list[PatternSpec], tainted: set
     return False
 
 
-def _walk_assigns(stmts: list[ir.Stmt]):
+def _apply_seq(
+    stmts: list[ir.Stmt], specs: list[PatternSpec], tainted: set[str], *, top: bool
+) -> None:
+    """Forward pass over a statement sequence, mutating `tainted`.
+
+    Flow-sensitive on the unconditional (top-level) path: reassigning a variable
+    to a clean value KILLS its taint (`x = untrusted(); x = "safe"` leaves x
+    clean). Inside conditional/loop bodies we only GEN taint, never kill it - a
+    clean assignment on one branch does not prove the variable is clean on the
+    path that reaches the run site, so killing there would drop real findings.
+    """
     for st in stmts:
         if isinstance(st, ir.Assign):
-            yield st
-        if isinstance(st, ir.IfBranch):
-            yield from _walk_assigns(st.body)
-            yield from _walk_assigns(st.orelse)
+            if _expr_untrusted(st.value, specs, tainted):
+                tainted.update(st.targets)
+            elif top:
+                tainted.difference_update(st.targets)
+        elif isinstance(st, ir.IfBranch):
+            _apply_seq(st.body, specs, tainted, top=False)
+            _apply_seq(st.orelse, specs, tainted, top=False)
         elif isinstance(st, ir.ForLoop):
-            yield from _walk_assigns(st.body)
+            _apply_seq(st.body, specs, tainted, top=False)
         elif isinstance(st, ir.WhileLoop):
-            yield from _walk_assigns(st.body)
+            _apply_seq(st.body, specs, tainted, top=False)
         elif isinstance(st, ir.TryBlock):
-            yield from _walk_assigns(st.body)
+            _apply_seq(st.body, specs, tainted, top=False)
             for h in st.handlers:
-                yield from _walk_assigns(h)
-            yield from _walk_assigns(st.finalbody)
+                _apply_seq(h, specs, tainted, top=False)
+            _apply_seq(st.finalbody, specs, tainted, top=False)
         elif isinstance(st, ir.WithBlock):
-            yield from _walk_assigns(st.body)
+            _apply_seq(st.body, specs, tainted, top=top)
 
 
 def _tainted_vars(stmts: list[ir.Stmt], specs: list[PatternSpec]) -> set[str]:
     """Forward pass: variables that hold untrusted data in this function."""
     tainted: set[str] = set()
-    for a in _walk_assigns(stmts):
-        if _expr_untrusted(a.value, specs, tainted):
-            tainted.update(a.targets)
+    _apply_seq(stmts, specs, tainted, top=True)
     return tainted
 
 

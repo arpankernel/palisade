@@ -71,8 +71,26 @@ def test_perfect_backend_scores_perfectly():
 def test_false_negative_lowers_recall_not_precision():
     cases = [_expl("miss", 0.2, 3, True, 3), _expl("tn", 0.1, 0, False, 0)]
     r = evaluate(cases, ScriptedBackend())
-    assert r.noul["exploitable"].recall == 0.0  # the one positive was missed
-    assert r.noul["exploitable"].precision == 1.0  # no false positives
+    m = r.noul["exploitable"]
+    assert m.recall == 0.0  # the one positive was missed
+    # No positive prediction was made, so precision is UNDEFINED - not a vacuous
+    # 1.0. A signal that misses every positive must not clear the gate.
+    assert not m.precision_defined
+    assert not r.passed(0.8, 0.6)
+
+
+def test_unexercised_signal_does_not_pass_the_gate():
+    """A signal with no positive labels used to read precision 1.0 and clear the
+    gate. It is now reported as unexercised and fails unless marked known_weak."""
+    cases = [_expl("neg1", 0.05, 0, False, 0), _expl("neg2", 0.1, 0, False, 0)]
+    r = evaluate(cases, ScriptedBackend())
+    m = r.noul["exploitable"]
+    assert not m.has_positive_labels
+    assert m.to_dict()["precision"] is None  # not a vacuous 1.0
+    assert "exploitable" in r.unexercised_signals()
+    assert "exploitable" in r.weak_signals(0.8, 0.6)
+    assert not r.passed(0.8, 0.6)
+    assert r.passed(0.8, 0.6, known_weak=("exploitable",))
 
 
 def test_false_positive_fails_the_gate():
