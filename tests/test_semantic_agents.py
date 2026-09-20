@@ -91,3 +91,77 @@ def test_empty_project_has_empty_graph():
     assert g.nodes == {}
     assert g.edges == []
     assert g.dangerous_reach() == []
+
+
+# -- total check: edge cases -------------------------------------------------
+
+
+def test_agents_defined_inside_a_function():
+    src = (
+        "import shutil\n"
+        "from agents import Agent, function_tool\n"
+        "@function_tool\n"
+        "def wipe(p):\n    shutil.rmtree(p)\n"
+        "def build():\n"
+        "    w = Agent(name='w', tools=[wipe])\n"
+        "    t = Agent(name='t', tools=[], handoffs=[w])\n"
+        "    return t\n"
+    )
+    g = _graph(src)
+    assert set(g.nodes) == {"w", "t"}
+    assert {(e.src, e.dst) for e in g.edges} == {("t", "w")}
+    assert g.nodes["w"].capabilities == ["file_write"]
+
+
+def test_multi_hop_reachability():
+    src = (
+        "import shutil\n"
+        "from agents import Agent, function_tool\n"
+        "@function_tool\n"
+        "def wipe(p):\n    shutil.rmtree(p)\n"
+        "c = Agent(name='c', tools=[wipe])\n"
+        "b = Agent(name='b', tools=[], handoffs=[c])\n"
+        "a = Agent(name='a', tools=[], handoffs=[b])\n"
+    )
+    g = _graph(src)
+    assert g.entry_nodes() == ["a"]
+    assert g.reachable_from("a") == {"b", "c"}
+    reach = {(r["from"], r["to"]) for r in g.dangerous_reach()}
+    assert reach == {("a", "c")}  # a reaches the dangerous agent two hops away
+
+
+def test_wrapper_handoff_form():
+    # handoffs=[handoff(writer)] should still yield the edge.
+    src = (
+        "import shutil\n"
+        "from agents import Agent, handoff, function_tool\n"
+        "@function_tool\n"
+        "def wipe(p):\n    shutil.rmtree(p)\n"
+        "writer = Agent(name='writer', tools=[wipe])\n"
+        "triage = Agent(name='triage', tools=[], handoffs=[handoff(writer)])\n"
+    )
+    g = _graph(src)
+    assert {(e.src, e.dst) for e in g.edges} == {("triage", "writer")}
+
+
+def test_dangling_handoff_edge_is_dropped():
+    # A handoff to an agent we never saw constructed is not an edge (precision).
+    src = "from agents import Agent\ntriage = Agent(name='triage', tools=[], handoffs=[ghost])\n"
+    g = _graph(src)
+    assert g.edges == []
+
+
+def test_map_json_carries_agent_graph():
+    from palisade_sec.semantic.inventory import build_map
+
+    mod = PythonFrontend().lower_file("t.py", "t.py", SRC)
+    assert not isinstance(mod, ParseFailure)
+    d = build_map([mod]).to_dict(1)
+    assert "agent_graph" in d
+    assert d["summary"]["agent_handoffs"] == 2
+    ag = d["agent_graph"]
+    assert {n["name"] for n in ag["nodes"]} == {"writer", "researcher", "helper", "triage"}
+    assert {(e["src"], e["dst"]) for e in ag["edges"]} == {
+        ("triage", "writer"),
+        ("triage", "researcher"),
+    }
