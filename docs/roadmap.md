@@ -1,16 +1,30 @@
 # Roadmap: production progression, Phases 0–6
 
-How Palisade goes from a working v0.4.x to a tool a security team puts in
-front of every PR. This sequences the work and argues **why this order** -
-then reports current status honestly against it.
+How Palisade goes from a working v0.4.x to applied agentic-safety
+infrastructure a team puts in front of every PR. This sequences the work and
+argues **why this order** - then reports current status honestly against it.
 
-## v1: the pre-production AI safety engineer
+## v1: the agentic-safety layer
 
 Alongside the phase progression below, Palisade is growing from a taint linter
-into a tool that does more of a safety engineer's pre-production job: see the AI
-surface, judge what the scanner finds, and report one prioritized posture. This
-is layered on the deterministic core, never replacing it. It is all MIT and free;
-the split is keyless-and-offline versus bring-your-own-endpoint.
+into applied agentic-safety infrastructure: it exercises, in miniature and at
+the application layer, the disciplines the long-horizon catastrophic-risk agenda
+runs on. Each existing capability maps onto a pillar of that agenda:
+
+| Palisade capability | Agenda pillar it instantiates |
+|---|---|
+| `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
+| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
+| `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
+| advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
+| SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |
+
+The scope is deliberate and honest: this is engineering infrastructure at the
+deployment layer, **not frontier alignment research**. Its catastrophic-risk
+relevance is anticipatory - the failure it hardens today is the same shape that
+scales as agents gain capability and autonomy. It is layered on the
+deterministic core, never replacing it. It is all MIT and free; the split is
+keyless-and-offline versus bring-your-own-endpoint.
 
 **Shipped:**
 

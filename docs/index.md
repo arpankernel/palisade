@@ -2,9 +2,14 @@
 
 > Rendered and searchable at **https://arpankernel.github.io/palisade/docs/** - this directory is the source.
 
-**Palisade is a linter for LLM security**: it statically detects
-prompt-injection paths - untrusted input → LLM → dangerous sink - in Python
-and JavaScript/TypeScript, in CI, before they ship.
+**Palisade is applied agentic-safety infrastructure**: it instruments the
+boundary where AI systems take real-world actions, statically detecting the
+untrusted-input → LLM → dangerous-sink paths that are the near-term, tractable
+shape of loss-of-control risk - in Python and JavaScript/TypeScript, in CI,
+before they ship. It is the applied arm of a long-horizon program to reduce
+catastrophic risk from autonomous AI (agentic safety, evals, safety cases,
+oversight, governance - at the application layer), not frontier alignment
+research.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitizer)   ⇒  finding

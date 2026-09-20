@@ -2,17 +2,28 @@
 
 > **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
 
-**A linter for LLM security.** Palisade statically detects prompt-injection
-vulnerabilities in Python and JavaScript/TypeScript codebases - untrusted
-input flowing through an LLM into a dangerous sink - in CI, before they ship.
+**Applied agentic-safety infrastructure.** Palisade instruments the boundary
+where AI systems take real-world actions - detecting, evaluating, and gating
+the untrusted-input → model → dangerous-capability paths that are the near-term,
+tractable shape of loss-of-control risk. It runs on Python and
+JavaScript/TypeScript codebases, in CI, before they ship.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
 ```
 
-The core is offline: no API key, no signup, no network calls, pure static
-analysis. An optional judgment layer (`audit`, `review`) adds AI-safety analysis
-over an endpoint you configure. Everything is MIT and free to run.
+The offline static core detects these paths with no API key, no signup, and no
+network calls - measured precision 1.000 on a pinned benchmark corpus. An opt-in
+layer (`audit`, `review`) adds evals and a grounded safety-case posture over an
+endpoint you configure. Everything is MIT and free to run.
+
+This is the applied arm of a long-horizon program to reduce catastrophic risk
+from autonomous AI: the failure it hardens today - untrusted input driving a
+model into a high-impact action with no oversight - is the same shape that
+scales as agents gain capability and autonomy. Palisade works the tractable,
+verifiable end of that problem: agentic safety, evals, safety cases, oversight,
+and governance at the application layer. It is engineering infrastructure, not
+frontier alignment research.
 
 ```bash
 uvx palisade-sec scan .
@@ -60,6 +71,12 @@ at the code level: existing tools are runtime proxies (paid, in the traffic
 path) or guardrail libraries you have to know to wire in. Palisade is the
 missing piece - **free, static, LLM-dataflow-aware, and CI-native**, like
 ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
+
+These CVEs are the small, exploited-today version of a larger problem: as
+systems become more agentic, the input → model → high-impact-action path stops
+being a web-app bug and becomes the loss-of-control surface. Hardening it now -
+with measured tooling, evals, and a defensible safety posture - is the applied,
+tractable end of reducing catastrophic risk from autonomous AI.
 
 ## What it detects
 
