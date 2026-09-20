@@ -1,4 +1,5 @@
 """Untrusted input, but the only handoff target is a safe agent. MUST STAY SILENT."""
+
 from agents import Agent, Runner, function_tool
 from flask import request
 
