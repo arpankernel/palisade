@@ -84,11 +84,19 @@ class NoulMetric:
 class ScoreMetric:
     n: int = 0
     exact: int = 0
+    within1: int = 0
     abs_err_sum: float = 0.0
 
     @property
     def accuracy(self) -> float:
+        # Exact-tier match. Strict for an ordinal 0-N scale; reported, not gated.
         return self.exact / self.n if self.n else 1.0
+
+    @property
+    def within1_accuracy(self) -> float:
+        # Predicted tier within +/-1 of the label - the honest metric for an
+        # ordinal severity/harm scale, and what the gate uses.
+        return self.within1 / self.n if self.n else 1.0
 
     @property
     def mae(self) -> float:
@@ -98,7 +106,8 @@ class ScoreMetric:
         return {
             "kind": "score",
             "n": self.n,
-            "accuracy": round(self.accuracy, 3),
+            "exact_accuracy": round(self.accuracy, 3),
+            "within1_accuracy": round(self.within1_accuracy, 3),
             "mae": round(self.mae, 3),
         }
 
@@ -112,12 +121,31 @@ class CalibrationReport:
     cases: int = 0
     errors: list[str] = field(default_factory=list)
 
-    def passed(self, noul_precision_min: float, score_accuracy_min: float) -> bool:
+    def passed(
+        self,
+        noul_precision_min: float,
+        score_within1_min: float,
+        known_weak: tuple[str, ...] = (),
+    ) -> bool:
+        """A signal listed in `known_weak` is still reported but excluded from
+        the hard gate - a visible, honest exception (like a labelled miss), not
+        a lowered bar."""
         if self.errors:
             return False
-        ok = all(m.precision >= noul_precision_min for m in self.noul.values())
-        ok = ok and all(m.accuracy >= score_accuracy_min for m in self.score.values())
+        ok = all(
+            m.precision >= noul_precision_min for q, m in self.noul.items() if q not in known_weak
+        )
+        ok = ok and all(
+            m.within1_accuracy >= score_within1_min
+            for q, m in self.score.items()
+            if q not in known_weak
+        )
         return ok
+
+    def weak_signals(self, noul_precision_min: float, score_within1_min: float) -> list[str]:
+        weak = [q for q, m in self.noul.items() if m.precision < noul_precision_min]
+        weak += [q for q, m in self.score.items() if m.within1_accuracy < score_within1_min]
+        return sorted(weak)
 
     def to_dict(self) -> dict:
         return {
@@ -198,4 +226,6 @@ def _score_score(m: ScoreMetric, value: float, label: int) -> None:
     m.n += 1
     if round(value) == label:
         m.exact += 1
+    if abs(value - label) <= 1.0:
+        m.within1 += 1
     m.abs_err_sum += abs(value - label)

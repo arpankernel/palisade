@@ -82,6 +82,16 @@ def test_false_positive_fails_the_gate():
     assert not r.passed(0.8, 0.6)
 
 
+def test_known_weak_signal_is_excluded_from_gate_but_still_reported():
+    # `exploitable` is weak here, but marking it known-weak lets the gate pass
+    # while weak_signals still surfaces it.
+    cases = [_expl("fp", 0.9, 3, False, 3), _expl("tp", 0.9, 3, True, 3)]
+    r = evaluate(cases, ScriptedBackend())
+    assert "exploitable" in r.weak_signals(0.8, 0.8)
+    assert not r.passed(0.8, 0.8)  # weak by default
+    assert r.passed(0.8, 0.8, known_weak=("exploitable",))  # excluded, gate passes
+
+
 def test_backend_error_is_captured_and_fails_gate():
     r = evaluate([_expl("x", 0.9, 3, True, 3)], RaisingBackend())
     assert r.errors

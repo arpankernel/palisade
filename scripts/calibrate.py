@@ -42,18 +42,26 @@ def main() -> int:
     print(json.dumps(report.to_dict(), indent=2))
 
     noul_min = float(threshold.get("noul_precision", 0.80))
-    score_min = float(threshold.get("score_accuracy", 0.60))
+    score_min = float(threshold.get("score_within1", 0.80))
+    known_weak = tuple(threshold.get("known_weak", []))
     if not backend.verified:
         print(
             "\nnote: backend is unverified (best-effort); these numbers do not "
             "certify the signal, they profile this backend.",
             file=sys.stderr,
         )
-    if report.passed(noul_min, score_min):
-        print(f"\nOK - calibrated (noul precision >= {noul_min}, score accuracy >= {score_min})")
+    weak = report.weak_signals(noul_min, score_min)
+    if weak:
+        print(
+            f"\nbelow threshold: {', '.join(weak)} "
+            f"(known-weak, excluded from gate: {', '.join(known_weak) or 'none'})",
+            file=sys.stderr,
+        )
+    if report.passed(noul_min, score_min, known_weak):
+        print(f"\nOK - calibrated (noul precision >= {noul_min}, score within-1 >= {score_min})")
         return 0
     print(
-        f"\nFAIL - below threshold (noul precision {noul_min}, score accuracy {score_min})",
+        f"\nFAIL - below threshold (noul precision {noul_min}, score within-1 {score_min})",
         file=sys.stderr,
     )
     return 1

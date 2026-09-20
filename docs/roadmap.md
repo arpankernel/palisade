@@ -46,15 +46,19 @@ keyless-and-offline versus bring-your-own-endpoint.
 - Red-team **synthesis and gated execution** - a Map-driven adversarial attack
   suite (advisory, offline) that can be fired at a user-provided target with
   `--approve`, scored by the judgment backend.
+- **Judgment calibration harness** (`scripts/calibrate.py` + a labelled corpus).
+  Measured on the seed corpus (see `corpus/judgment/RESULTS.md`): `exploitable`
+  and `irreversible` at precision/recall 1.00, `severity`/`harm` within +/-1
+  tier. `gated` is measured but below bar (the model over-predicts gating) and is
+  marked known-weak - reported, not trusted to downgrade a finding.
 
-**Upcoming (no dates; sequenced after the checks are calibrated on the corpus):**
+**Upcoming (no dates):**
 
 - Guardrail generation - installable guardrail middleware plus a regression test
   per confirmed finding.
-- Calibration of the **judgment** signals (exploitability, agency, posture) on a
-  real labelled corpus; until then those signals are labelled uncalibrated, while
-  the deterministic detections (taint rules and `PI-AGENT-HANDOFF`) carry a
-  measured, CI-gated precision.
+- Grow the judgment corpus to real repos and calibrate `gated`; the seed gate is
+  fixture-scale. The deterministic detections (taint rules, `PI-AGENT-HANDOFF`)
+  already carry a measured, CI-gated precision.
 - Multi-agent recall: `crew.kickoff` / compiled-LangGraph `.invoke` entry
   mapping, conditional edges, and cross-module agent wiring.
 
