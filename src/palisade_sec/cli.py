@@ -114,9 +114,19 @@ def scan(
     hidden = len(findings) - len(visible)
 
     if sarif:
+        import os
+
         from palisade_sec.report import to_sarif
 
-        typer.echo(to_sarif(findings), nl=False)
+        # SARIF URIs must be relative to the repo root (cwd in CI), but finding
+        # paths are relative to the scan target. Prepend the scan base so a
+        # `scan src` places alerts at src/... not at the repo root.
+        root = target.resolve()
+        base = root if root.is_dir() else root.parent
+        base_uri = os.path.relpath(base, Path.cwd()).replace(os.sep, "/")
+        if base_uri.startswith(".."):  # scan target outside cwd: best effort
+            base_uri = ""
+        typer.echo(to_sarif(findings, base_uri=base_uri), nl=False)
     elif json_out:
         typer.echo(
             to_json(

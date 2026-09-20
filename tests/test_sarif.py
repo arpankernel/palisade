@@ -40,3 +40,25 @@ def test_sarif_empty_is_valid():
     assert doc["version"] == "2.1.0"
     assert doc["runs"][0]["results"] == []
     assert doc["runs"][0]["tool"]["driver"]["rules"] == []
+
+
+def _uris(doc):
+    return {
+        r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        for r in doc["runs"][0]["results"]
+    }
+
+
+def test_sarif_base_uri_makes_paths_repo_relative():
+    """Finding paths are relative to the scan target; GitHub resolves URIs from
+    the repo root. base_uri prepends the scan base so a subdir scan is located
+    correctly instead of at the repo root."""
+    findings = run_scan(ROOT / "examples" / "vulnerable-app").findings
+    assert findings
+    bare = _uris(json.loads(to_sarif(findings)))
+    prefixed = _uris(json.loads(to_sarif(findings, base_uri="examples/vulnerable-app")))
+    assert all("/" not in u for u in bare)  # scan-relative, no dir
+    assert prefixed == {f"examples/vulnerable-app/{u}" for u in bare}
+    # "." and "" are no-ops (no leading ./)
+    assert _uris(json.loads(to_sarif(findings, base_uri="."))) == bare
+    assert _uris(json.loads(to_sarif(findings, base_uri=""))) == bare

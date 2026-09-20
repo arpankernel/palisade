@@ -10,6 +10,7 @@ Fingerprints are line-shift resilient, so alerts don't churn on refactors.
 from __future__ import annotations
 
 import json
+import posixpath
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding, TracePoint
@@ -18,10 +19,22 @@ _LEVEL = {"high": "error", "med": "warning", "low": "note"}
 _INFO_URI = "https://github.com/arpankernel/palisade"
 
 
-def _location(tp: TracePoint, role: str | None = None) -> dict:
+def _uri(file: str, base_uri: str) -> str:
+    """Make the artifact URI relative to the repository root.
+
+    A finding's `file` is relative to the SCAN TARGET (scanning `src/` yields
+    `foo.py`, not `src/foo.py`). GitHub code scanning resolves URIs against the
+    repo root, so a subdirectory scan would place every alert at the wrong path.
+    Prepending the scan base (relative to the repo root / cwd) fixes that."""
+    if not base_uri or base_uri == ".":
+        return file
+    return posixpath.normpath(f"{base_uri}/{file}")
+
+
+def _location(tp: TracePoint, role: str | None = None, base_uri: str = "") -> dict:
     loc: dict = {
         "physicalLocation": {
-            "artifactLocation": {"uri": tp.file},
+            "artifactLocation": {"uri": _uri(tp.file, base_uri)},
             "region": {"startLine": max(1, tp.line), "snippet": {"text": tp.snippet}},
         }
     }
@@ -39,7 +52,7 @@ def _message(f: Finding) -> str:
     return "\n\n".join(parts)
 
 
-def to_sarif(findings: list[Finding], tool_version: str | None = None) -> str:
+def to_sarif(findings: list[Finding], tool_version: str | None = None, base_uri: str = "") -> str:
     version = tool_version or __version__
     rules: dict[str, dict] = {}
     for f in findings:
@@ -63,10 +76,10 @@ def to_sarif(findings: list[Finding], tool_version: str | None = None) -> str:
                 "ruleIndex": rule_index[f.rule_id],
                 "level": _LEVEL.get(f.severity, "warning"),
                 "message": {"text": _message(f)},
-                "locations": [_location(f.sink)],
+                "locations": [_location(f.sink, base_uri=base_uri)],
                 "relatedLocations": [
-                    _location(f.source, "source"),
-                    _location(f.llm, "llm"),
+                    _location(f.source, "source", base_uri=base_uri),
+                    _location(f.llm, "llm", base_uri=base_uri),
                 ],
                 "partialFingerprints": {"palisade/v1": f.fingerprint},
             }
