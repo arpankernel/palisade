@@ -485,9 +485,29 @@ class _Exec:
         elif isinstance(s, ir.WhileLoop):
             self.exec_block(s.body)
         elif isinstance(s, ir.TryBlock):
+            # A var's post-try taint is the JOIN over the branches that could
+            # define it: the try-body running to completion, or a handler
+            # firing after the body partially ran. Executing body then handlers
+            # sequentially on one env let a handler's clean reassignment
+            # (`except: code = "safe"`) erase taint the body established
+            # (`try: code = <llm output>`), silently dropping the finding when
+            # exec(code) runs the attacker-controlled path.
+            before = dict(self.env)
             self.exec_block(s.body)
+            branch_states = [dict(self.env)]
             for h in s.handlers:
+                # A handler runs after an exception, so it may observe taint the
+                # body established before raising: start from before | after-body.
+                self.env = dict(before)
+                for k, v in branch_states[0].items():
+                    self.env[k] = union(self.env.get(k, EMPTY), v)
                 self.exec_block(h)
+                branch_states.append(dict(self.env))
+            joined: dict[str, TaintSet] = {}
+            for st in branch_states:
+                for k, v in st.items():
+                    joined[k] = union(joined.get(k, EMPTY), v)
+            self.env = joined
             self.exec_block(s.finalbody)
         elif isinstance(s, ir.WithBlock):
             for var, expr in s.items:
@@ -780,6 +800,19 @@ def _is_stub(fn: ir.FuncDef) -> bool:
     )
 
 
+def _is_empty_params(expr: ir.Expr | None) -> bool:
+    """An empty parameter binding: `execute(sql, ())` / `[]` / `{}` / None.
+
+    An empty tuple/dict provides no placeholder substitution, so the SQL string
+    itself is still what executes - parameterization is illusory and the sink
+    stays armed. Empty `()`/`[]`/`{}` all lower to an empty Collection."""
+    if isinstance(expr, ir.Collection):
+        return not expr.items
+    if isinstance(expr, ir.Const):
+        return expr.value in (None, "", (), [], {})
+    return False
+
+
 def _sink_armed(c: ir.Call, spec) -> bool:
     """Apply sink-shape guards: shell=True requirements and parameterized-SQL
     safety (FP-5)."""
@@ -789,10 +822,13 @@ def _sink_armed(c: ir.Call, spec) -> bool:
             if not isinstance(actual, ir.Const) or actual.value != expected:
                 return False
     if spec.safe_if_extra_args:
-        if len(c.args) >= 2:
+        # A real parameter binding disarms the sink; an empty one does not.
+        if len(c.args) >= 2 and not _is_empty_params(c.args[1]):
             return False  # cursor.execute(query, params)
-        if any(k in c.kwargs for k in ("params", "parameters", "args", "vars")):
-            return False
+        for k in ("params", "parameters", "args", "vars"):
+            v = c.kwargs.get(k)
+            if k in c.kwargs and not _is_empty_params(v):
+                return False
     return True
 
 
