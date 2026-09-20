@@ -1,7 +1,7 @@
-"""Palisade - a linter for LLM security.
+"""Palisade - applied agentic-safety infrastructure.
 
-Statically detects prompt-injection-to-sink vulnerabilities
-(untrusted input -> LLM -> dangerous sink) in Python codebases.
+Statically detects, evaluates, and gates untrusted-input -> LLM -> dangerous
+sink paths in Python and JavaScript/TypeScript AI systems.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
