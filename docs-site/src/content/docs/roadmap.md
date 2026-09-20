@@ -17,7 +17,7 @@ runs on. Each existing capability maps onto a pillar of that agenda:
 | Palisade capability | Agenda pillar it instantiates |
 |---|---|
 | `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
-| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
+| `redteam` synthesis (gated execution + scoring upcoming), on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
 | `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
 | advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
 | SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |

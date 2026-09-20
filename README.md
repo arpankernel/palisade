@@ -14,8 +14,8 @@ untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  f
 
 The offline static core detects these paths with no API key, no signup, and no
 network calls - measured precision 1.000 on a pinned benchmark corpus. An opt-in
-layer (`audit`, `review`) adds evals and a grounded safety-case posture over an
-endpoint you configure. Everything is MIT and free to run.
+layer (`audit`, `review`) adds grounded exploitability judgment and a safety-case
+posture over an endpoint you configure. Everything is MIT and free to run.
 
 This is the applied arm of a long-horizon program to reduce catastrophic risk
 from autonomous AI: the failure it hardens today - untrusted input driving a
