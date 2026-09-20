@@ -25,6 +25,14 @@ is used only by `audit` (and, later, `review`).
   (`add_node`/`add_edge`, a node's capabilities read from its function body), and
   **CrewAI** (`Crew(agents=, process=)` - sequential chains the agents,
   hierarchical connects the first to the rest).
+- **Judgment-layer calibration harness (`scripts/calibrate.py`).** Measures how
+  well a JudgeBackend agrees with ground truth on a labelled corpus
+  (`corpus/judgment/cases.yaml`): per-question precision / recall / accuracy plus
+  a Brier score for the yes/no signals, and exact-tier accuracy + MAE for the
+  severity/harm scores. Exits non-zero below the corpus thresholds, so judged
+  quality can only ratchet up. This is what turns the exploitability / agency /
+  posture signals from "uncalibrated" into measured; the scoring is pure and
+  tested offline, and a real keyed run publishes the numbers.
 - **Multi-agent calibration.** Labeled fixtures under `corpus/fixtures/agents/`
   (must-flag handoff paths + must-stay-silent safe wirings) join the precision
   corpus, so `PI-AGENT-HANDOFF` is measured (precision/recall) and gated in CI -
