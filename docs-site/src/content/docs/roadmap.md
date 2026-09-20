@@ -3,9 +3,56 @@ title: "Roadmap"
 description: "Phases 0–6, Measure → Remediate, with the sequencing thesis and status."
 ---
 
-How Palisade goes from a working v0.3.x to a tool a security team puts in
-front of every PR. This sequences the work and argues **why this order** -
-then reports current status honestly against it.
+How Palisade goes from a working v0.4.x to applied agentic-safety
+infrastructure a team puts in front of every PR. This sequences the work and
+argues **why this order** - then reports current status honestly against it.
+
+## v1: the agentic-safety layer
+
+Alongside the phase progression below, Palisade is growing from a taint linter
+into applied agentic-safety infrastructure: it exercises, in miniature and at
+the application layer, the disciplines the long-horizon catastrophic-risk agenda
+runs on. Each existing capability maps onto a pillar of that agenda:
+
+| Palisade capability | Agenda pillar it instantiates |
+|---|---|
+| `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
+| `redteam` synthesis (gated execution + scoring upcoming), on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
+| `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
+| advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
+| SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |
+
+The scope is deliberate and honest: this is engineering infrastructure at the
+deployment layer, **not frontier alignment research**. Its catastrophic-risk
+relevance is anticipatory - the failure it hardens today is the same shape that
+scales as agents gain capability and autonomy. It is layered on the
+deterministic core, never replacing it. It is all MIT and free; the split is
+keyless-and-offline versus bring-your-own-endpoint.
+
+**Shipped:**
+
+- `map` - offline inventory of the AI surface (LLM calls, prompts, tools, agents,
+  retrieval, dangerous flags).
+- Judgment layer over any OpenAI-compatible endpoint (TypeSafe by default),
+  configured in `.env`, behind one `JudgeBackend` interface. An unverified
+  backend is best-effort and can never BLOCK or raise a Critical posture on
+  judgment alone.
+- `audit` - excessive-agency and taint-path exploitability checks, each grounded
+  in a verified static fact.
+- `review` + **posture score** - one composed, risk-ranked report (a number and
+  a band over detected findings).
+- Red-team **synthesis** - a Map-driven adversarial attack suite (advisory,
+  offline).
+
+**Upcoming (no dates; sequenced after the checks are calibrated on the corpus):**
+
+- Guardrail generation - installable guardrail middleware plus a regression test
+  per confirmed finding.
+- Red-team **execution** - firing the synthesized suite at a user-provided target
+  under an explicit approval gate, then scoring what landed.
+- Calibration of the judgment signals on the benchmark corpus; until then, the
+  exploitability and posture signals are labelled uncalibrated, and the
+  deterministic scanner's precision stands on its own.
 
 ## The ordering thesis
 
@@ -25,11 +72,11 @@ open-source *security* tool, three facts fix the order:
 Through-line: **Measure → Distribute → Cover → Scale → Certify → Expand →
 Remediate.** Trust before reach before depth.
 
-## Where we are (v0.3.4)
+## Where we are (v0.4.0-dev)
 
 **Phase 0 is complete.** The engine, five rules, both frontends, library
 mode, the baseline/CI flow and a template-based `fix` are shipped and
-published, pinned by 134 tests. Quality is now measured rather than
+published, pinned by 185 tests. Quality is now measured rather than
 asserted, against a pinned benchmark corpus of 26 third-party repos
 (17,343 files Palisade actually scans):
 

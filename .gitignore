@@ -7,7 +7,12 @@ build/
 .pytest_cache/
 .ruff_cache/
 palisade-report.md
+palisade-review.md
+palisade-demo/
 .palisade/
+
+# Local judgment-layer config; holds endpoint keys. Never commit it.
+.env
 
 # Benchmark corpus clones (fetched by corpus/fetch.py, gigabytes)
 corpus/repos/

@@ -4,8 +4,10 @@ Five minutes from zero to your first finding.
 
 ## Install
 
-Palisade needs no API key, no account, and makes no network calls while
-scanning. Python ≥ 3.11.
+The offline core (`scan`, `map`, `baseline`, `fix`) needs no API key, no
+account, and makes no network calls. Python ≥ 3.11. (The optional judgment
+layer, `audit` and `review`, calls an endpoint you configure - see
+[Next steps](#next-steps).)
 
 ```bash
 # one-shot, nothing installed permanently
@@ -97,3 +99,7 @@ Actions example:
 - Auditing a **library** rather than an app? See library mode
   (`--assume-params-untrusted`) in the [CLI reference](cli-reference.md).
 - Wiring an **AI agent** to run Palisade? Start at [agents.md](agents.md).
+- Want more than taint paths? `palisade-sec map` inventories your AI surface
+  (offline), and `palisade-sec audit` / `review` add a judgment layer over an
+  endpoint you set in `.env`. See the
+  [CLI reference](cli-reference.md#judgment-configuration).

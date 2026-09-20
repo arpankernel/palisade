@@ -49,6 +49,16 @@ class Metrics:
     fp: int = 0
     fn: int = 0
     detail: list[str] = field(default_factory=list)
+    # Targets the engine scanned without minting a single untrusted source.
+    # Their silence is unearned and must not be counted as precision.
+    unchallenged: list[str] = field(default_factory=list)
+    # Targets that DID mint at least one source. These are the ones the
+    # precision claim actually rests on.
+    challenged: int = 0
+    # Targets that ASSERT they are challenged (library_mode, or kind: cve)
+    # but minted nothing. Unlike plain unchallenged targets this is a real
+    # defect - their ground-truth labels can never be reached - so it fails.
+    misconfigured: list[str] = field(default_factory=list)
 
     @property
     def precision(self) -> float:
@@ -79,6 +89,15 @@ def score_fixtures(manifest: Path) -> tuple[Metrics, float]:
     for target in doc.get("targets", []):
         root = (base / target["path"]).resolve()
         res = run_scan(root, assume_params_untrusted=target.get("assume_params_untrusted") or None)
+        # Same rule as the repo corpus: a fixture that mints no source cannot
+        # produce a finding, so its silence proves nothing. These are the
+        # project's own example apps with deliberate sources, so zero here is
+        # always a defect (a broken frontend or a mislabelled target) rather
+        # than the benign app-mode-library case, and it fails the run.
+        if res.sources_found == 0:
+            m.misconfigured.append(str(target["path"]))
+        else:
+            m.challenged += 1
         expected = _expected(target)
         got = {(f.sink.file, f.sink.line, f.rule_id) for f in res.findings}
         for hit in sorted(got & expected):
@@ -98,12 +117,35 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
     dest = manifest.resolve().parent / "repos"
     m = Metrics()
     missing = []
+    unchallenged = []
     for entry in doc.get("repos", []):
         root = dest / entry["name"]
         if not root.is_dir():
             missing.append(entry["name"])
             continue
         res = run_scan(root, assume_params_untrusted=entry.get("library_mode") or None)
+        # A scan that minted no untrusted sources had nowhere for taint to
+        # start, so "no findings" there is not evidence the code is clean -
+        # it is an unchallenged scan being counted as a clean one. Silence
+        # only means something when the engine had somewhere to begin.
+        if res.sources_found == 0:
+            # A target asserted to be challenged that mints nothing is a
+            # genuine defect, not benign silence: `library_mode: true` says
+            # "treat every public parameter as untrusted", and a `cve` target
+            # is claimed to contain a reachable vulnerability. Either one
+            # producing zero sources means the config or the frontend is
+            # broken, and the recall label below would be unreachable.
+            if entry.get("library_mode") or entry.get("kind") == "cve":
+                print(
+                    f"FAIL: {entry['name']} is declared "
+                    f"{'library_mode' if entry.get('library_mode') else 'kind: cve'} "
+                    "but minted no untrusted sources - its labels are unreachable.",
+                    file=sys.stderr,
+                )
+                m.misconfigured.append(entry["name"])
+            unchallenged.append(f"{entry['name']} ({res.files_scanned} files)")
+        else:
+            m.challenged += 1
         # Recall counts a finding at ANY severity: a real vulnerability that
         # Palisade deliberately downgrades to MED (a denylist or an unverified
         # sanitizer on the path) is still a hit, not a miss. Vanna's
@@ -135,6 +177,8 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
     if missing:
         print(f"not fetched ({len(missing)}): {', '.join(missing)}", file=sys.stderr)
         print("run: uv run python corpus/fetch.py", file=sys.stderr)
+    if unchallenged:
+        m.unchallenged = unchallenged
     return m, float(doc.get("threshold", 0.90))
 
 
@@ -160,6 +204,46 @@ def main() -> int:
             "\nFAIL: no expected findings were scored. The corpus has no "
             "ground-truth `expect:` entries, so recall is unmeasurable and "
             "this run proves nothing."
+        )
+        return 1
+
+    # The precision-side twin of the check above. Recall goes vacuous when
+    # nothing is labelled; precision goes vacuous when nothing is *challenged*.
+    # A target that mints no untrusted source cannot produce a finding at all,
+    # so its silence is not evidence of precision.
+    #
+    # But an unchallenged target is not a *failure*. A library scanned in app
+    # mode legitimately has no `request.*`, no `input()`, no `sys.argv` - that
+    # is correct behaviour, and failing the build on it would turn the gate
+    # red for code that is working exactly as designed. `llm-cli` and
+    # `outlines` are both this case today.
+    #
+    # So: exclude them from the claim and say so, rather than failing. The
+    # gate fails only when a target that was *supposed* to be challenged was
+    # not (see score_repos), or when nothing was challenged at all.
+    if m.unchallenged:
+        print(
+            f"\nnote: {len(m.unchallenged)} target(s) minted no untrusted "
+            "sources. Taint had nowhere to start, so their silence is not "
+            "evidence of precision and they are excluded from the claim:"
+        )
+        for name in m.unchallenged:
+            print(f"  unchallenged  {name}")
+    # Checked BEFORE the wholly-vacuous case below. A corpus whose only
+    # target is a misconfigured one satisfies both conditions, and "your cve
+    # target mints nothing" names the actual defect, where "nothing was
+    # challenged" only describes the symptom and sends the reader hunting.
+    if m.misconfigured:
+        print(
+            f"\nFAIL: {len(m.misconfigured)} target(s) declare themselves "
+            "challenged (library_mode, or kind: cve) but minted no untrusted "
+            "sources, so their ground-truth labels are unreachable: " + ", ".join(m.misconfigured)
+        )
+        return 1
+    if m.challenged == 0:
+        print(
+            "\nFAIL: no target minted a single untrusted source, so nothing "
+            "was challenged and this run proves nothing about precision."
         )
         return 1
     print(

@@ -68,6 +68,148 @@ def test_precision_harness_fails_on_an_unlabelled_corpus(tmp_path, monkeypatch):
     assert "no expected findings were scored" in proc.stdout
 
 
+def _run_harness(tmp_path, manifest_body: str):
+    """Run the repo-corpus harness over a throwaway manifest."""
+    import subprocess
+    import sys
+
+    manifest = tmp_path / "corpus.yaml"
+    manifest.write_text(manifest_body)
+    root = Path(__file__).parent.parent
+    return subprocess.run(
+        [sys.executable, str(root / "scripts" / "precision.py"), str(manifest), "--repos"],
+        capture_output=True,
+        text=True,
+        cwd=root,
+    )
+
+
+_INERT = (
+    "import openai\n"
+    "def render(question):\n"
+    "    out = openai.chat.completions.create(model='gpt-4', messages=[])\n"
+    "    exec(out)\n"
+)
+_CHALLENGED = (
+    "from flask import request\n"
+    "import openai\n"
+    "def handler():\n"
+    "    q = request.args['q']\n"
+    "    out = openai.chat.completions.create(model='gpt-4', messages=[{'role':'user'}])\n"
+    "    exec(out)\n"
+)
+
+
+def test_unchallenged_clean_target_is_noted_not_failed(tmp_path):
+    """An app-mode library with no sources is CORRECT, and must not fail.
+
+    Library code has no `request.*`, no `input()`, no `sys.argv`, so scanned
+    without `library_mode: true` there is nothing for taint to start from.
+    That silence proves nothing about precision and must be excluded from the
+    claim - but it is not a defect, and failing the build on it would turn
+    the gate red for code behaving exactly as designed. `llm-cli` and
+    `outlines` are both this case in the real corpus, so this test is what
+    stops the guard breaking the weekly run.
+    """
+    repos = tmp_path / "repos"
+    (repos / "inert").mkdir(parents=True)
+    (repos / "inert" / "lib.py").write_text(_INERT)
+    # A second, challenged target so the run is not wholly vacuous.
+    (repos / "live").mkdir()
+    (repos / "live" / "app.py").write_text(_CHALLENGED)
+
+    proc = _run_harness(
+        tmp_path,
+        "threshold: 0.90\nrepos:\n"
+        "  - {name: inert, url: https://example.invalid/x, kind: clean}\n"
+        "  - name: live\n"
+        "    url: https://example.invalid/y\n"
+        "    kind: cve\n"
+        "    expect:\n"
+        "      - {file: app.py, line: 6, rule: PI-EXEC, verdict: flag}\n",
+    )
+    assert "minted no untrusted sources" in proc.stdout, proc.stdout
+    assert "unchallenged  inert" in proc.stdout, proc.stdout
+    assert proc.returncode == 0, (
+        f"a source-free CLEAN target is correct behaviour and must not fail "
+        f"the gate:\n{proc.stdout}\n{proc.stderr}"
+    )
+
+
+def test_target_claiming_to_be_challenged_but_minting_nothing_fails(tmp_path):
+    """`kind: cve` or `library_mode` with zero sources is a real defect.
+
+    Those targets assert a reachable vulnerability. Minting nothing means
+    their ground-truth labels can never be hit, so the recall they contribute
+    is unmeasurable - that fails, unlike the benign case above.
+    """
+    repos = tmp_path / "repos"
+    (repos / "inert").mkdir(parents=True)
+    (repos / "inert" / "lib.py").write_text(_INERT)
+
+    proc = _run_harness(
+        tmp_path,
+        "threshold: 0.90\nrepos:\n"
+        "  - name: inert\n"
+        "    url: https://example.invalid/x\n"
+        "    kind: cve\n"
+        "    expect:\n"
+        "      - {file: lib.py, line: 4, rule: PI-EXEC, verdict: flag}\n",
+    )
+    assert proc.returncode == 1, f"misconfigured target must fail: {proc.stdout}"
+    assert "unreachable" in proc.stdout, proc.stdout
+
+
+def test_guard_stays_quiet_on_a_genuinely_challenged_target(tmp_path):
+    """The half that makes the guard worth having.
+
+    Firing on a source-free target is trivially satisfied by a counter stuck
+    at zero - every target would look unchallenged and the gate would go red
+    for the wrong reason. So prove it also stays QUIET when sources exist.
+    """
+    repos = tmp_path / "repos"
+    (repos / "live").mkdir(parents=True)
+    (repos / "live" / "app.py").write_text(_CHALLENGED)
+
+    proc = _run_harness(
+        tmp_path,
+        "threshold: 0.90\nrepos:\n"
+        "  - name: live\n"
+        "    url: https://example.invalid/y\n"
+        "    kind: cve\n"
+        "    expect:\n"
+        "      - {file: app.py, line: 6, rule: PI-EXEC, verdict: flag}\n",
+    )
+    assert "minted no untrusted sources" not in proc.stdout, (
+        "a target with a real `request.args` source must not be called "
+        f"unchallenged - the counter is broken:\n{proc.stdout}"
+    )
+
+
+def test_source_counter_is_wired():
+    """The guard is only as good as the counter behind it.
+
+    If `sources_found` silently stopped incrementing, every target would look
+    unchallenged and the gate would fail loudly - but the reverse mistake
+    (counting nothing while still passing) is the dangerous one, so pin that
+    real sources are actually observed.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        app = Path(d) / "app.py"
+        app.write_text("from flask import request\ndef h():\n    return request.args['q']\n")
+        res = run_scan(Path(d))
+        assert res.sources_found > 0, "request.args is a source but none were counted"
+
+    # And library mode must mint parameter sources where app mode does not.
+    with tempfile.TemporaryDirectory() as d:
+        lib = Path(d) / "lib.py"
+        lib.write_text("def public(question):\n    return question\n")
+        assert run_scan(Path(d)).sources_found == 0
+        assert run_scan(Path(d), assume_params_untrusted=True).sources_found > 0
+
+
 def test_corpus_labels_point_at_real_sinks():
     """Ground truth must describe the code, not the author's memory.
 

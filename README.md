@@ -2,15 +2,28 @@
 
 > **Website:** https://arpankernel.github.io/palisade/ · **Docs:** https://arpankernel.github.io/palisade/docs/
 
-**A linter for LLM security.** Palisade statically detects prompt-injection
-vulnerabilities in Python and JavaScript/TypeScript codebases - untrusted
-input flowing through an LLM into a dangerous sink - in CI, before they ship.
+**Applied agentic-safety infrastructure.** Palisade instruments the boundary
+where AI systems take real-world actions - detecting, evaluating, and gating
+the untrusted-input → model → dangerous-capability paths that are the near-term,
+tractable shape of loss-of-control risk. It runs on Python and
+JavaScript/TypeScript codebases, in CI, before they ship.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL   (no sanitizer)   ⇒  finding
 ```
 
-No API key. No signup. No network calls. Pure static analysis.
+The offline static core detects these paths with no API key, no signup, and no
+network calls - measured precision 1.000 on a pinned benchmark corpus. An opt-in
+layer (`audit`, `review`) adds grounded exploitability judgment and a safety-case
+posture over an endpoint you configure. Everything is MIT and free to run.
+
+This is the applied arm of a long-horizon program to reduce catastrophic risk
+from autonomous AI: the failure it hardens today - untrusted input driving a
+model into a high-impact action with no oversight - is the same shape that
+scales as agents gain capability and autonomy. Palisade works the tractable,
+verifiable end of that problem: agentic safety, evals, safety cases, oversight,
+and governance at the application layer. It is engineering infrastructure, not
+frontier alignment research.
 
 ```bash
 uvx palisade-sec scan .
@@ -59,6 +72,12 @@ path) or guardrail libraries you have to know to wire in. Palisade is the
 missing piece - **free, static, LLM-dataflow-aware, and CI-native**, like
 ruff or semgrep but for the OWASP LLM Top-10 #1 risk.
 
+These CVEs are the small, exploited-today version of a larger problem: as
+systems become more agentic, the input → model → high-impact-action path stops
+being a web-app bug and becomes the loss-of-control surface. Hardening it now -
+with measured tooling, evals, and a defensible safety posture - is the applied,
+tractable end of reducing catastrophic risk from autonomous AI.
+
 ## What it detects
 
 | Rule | Path | Real-world precedent |
@@ -98,6 +117,33 @@ Palisade runs **taint analysis, not grep**: it only reports a *complete*
   CVE-2024-5565 straight through such a function.
 - Several rules matching one `source → sink` path? **One finding** - the
   most specific rule wins; no duplicate noise.
+
+## Two layers: offline core, optional judgment
+
+Palisade is one open-source tool with two layers. The distinction is not
+free-versus-paid (it is all MIT and free); it is **keyless-and-offline** versus
+**bring-your-own-endpoint**.
+
+| Layer | Commands | Network | Key |
+|---|---|---|---|
+| **Offline core** | `scan`, `map`, `baseline`, `fix` | none | none |
+| **Judgment layer** | `audit`, `review` | your endpoint | your key (`.env`) |
+
+- `map` inventories the AI surface of a codebase (LLM calls, prompts, tools,
+  agents, retrieval, dangerous flags). Offline and keyless.
+- `audit` judges grounded findings: whether an agent tool has excessive agency,
+  and whether a `source → LLM → sink` path is realistically exploitable. Every
+  question is anchored to a fact the static analyzer verified.
+- `review` composes scan + map + the semantic checks into one prioritized report
+  with a **posture score** (a number and a band over *detected* findings, not a
+  safety score).
+
+The judgment layer speaks any OpenAI-compatible endpoint, configured in `.env`
+(see [`.env.example`](.env.example)); **[TypeSafe](https://typesafe.ai)** is the
+default and returns calibrated answers. A generic endpoint is supported as
+best-effort and never blocks CI on judgment alone. The exploitability and posture
+signals are **uncalibrated until scored on the corpus**; the deterministic
+scanner's precision (below) is unaffected by the judgment layer.
 
 ## Install & run
 

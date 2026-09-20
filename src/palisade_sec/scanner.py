@@ -4,6 +4,10 @@ SAFETY (SF-1..SF-3): scanning only reads source text and parses it with
 `ast.parse`. It never imports or executes scanned code, makes no network
 calls, and writes nothing (the CLI owns the only writes: `.palisade/` and an
 explicitly requested report file).
+
+The file-discovery + lowering step is exposed as `lower_project`, so the
+deterministic taint engine (`run_scan`) and the opt-in semantic layer
+(`palisade_sec.semantic`) build IR from the exact same code path.
 """
 
 from __future__ import annotations
@@ -179,6 +183,21 @@ def _ignored_by_cfg(rel: str, cfg: ScanConfig) -> bool:
 
 
 @dataclass
+class LoweredProject:
+    """The IR + bookkeeping produced by discovery + lowering, before any
+    engine runs. Shared by `run_scan` (taint) and the semantic layer."""
+
+    modules: list[ir.Module] = field(default_factory=list)
+    cfg: ScanConfig = field(default_factory=ScanConfig)
+    base: Path = field(default_factory=Path)
+    suppressions: dict[str, dict[int, Suppression]] = field(default_factory=dict)
+    skipped: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    files_scanned: int = 0
+
+
+@dataclass
 class ScanResult:
     findings: list[Finding] = field(default_factory=list)
     files_scanned: int = 0
@@ -187,51 +206,48 @@ class ScanResult:
     notes: list[str] = field(default_factory=list)
     # findings silenced by inline `palisade: ignore` comments
     suppressed: list[dict] = field(default_factory=list)
+    # Untrusted sources the engine minted. Zero means the scan was never
+    # challenged - taint had nowhere to start - so "no findings" is not
+    # evidence the code is clean. See EngineResult.sources_found.
+    sources_found: int = 0
 
 
-def run_scan(
-    target: Path,
-    config_file: str | None = None,
-    rules_dir: str | None = None,
-    max_hops: int | None = None,
-    assume_params_untrusted: bool | None = None,
-) -> ScanResult:
-    result = ScanResult()
-    root = target.resolve()
-    cfg, cfg_warnings = load_config(root if root.is_dir() else root.parent, config_file)
-    result.warnings.extend(cfg_warnings)
-
-    rules_result = load_rules(rules_dir or cfg.rules_dir)
-    result.warnings.extend(rules_result.warnings)
-    if not rules_result.rules:
-        result.warnings.append("no valid rules loaded; nothing to scan for")
-        return result
-
+def _make_frontends() -> tuple[dict[str, Frontend], bool]:
+    """Python is always available; JS/TS needs the optional [js] extra."""
     frontends: dict[str, Frontend] = {ext: PythonFrontend() for ext in PY_EXTENSIONS}
-    js_frontend = None
     js_unavailable = False
     try:
         from palisade_sec.frontends.tree_sitter_js import AVAILABLE, JavaScriptFrontend
 
         if AVAILABLE:
-            js_frontend = JavaScriptFrontend()
+            frontends.update({ext: JavaScriptFrontend() for ext in JS_EXTENSIONS})
         else:
             js_unavailable = True
     except ImportError:
         js_unavailable = True
-    if js_frontend is not None:
-        frontends.update({ext: js_frontend for ext in JS_EXTENSIONS})
+    return frontends, js_unavailable
 
+
+def lower_project(target: Path, config_file: str | None = None) -> LoweredProject:
+    """Discover files and lower them to IR - no engine, no findings.
+
+    This is the seam the semantic layer builds on: it needs the same IR that
+    taint sees, without paying for (or coupling to) the taint pass.
+    """
+    root = target.resolve()
+    cfg, cfg_warnings = load_config(root if root.is_dir() else root.parent, config_file)
+    out = LoweredProject(cfg=cfg, warnings=list(cfg_warnings))
+
+    frontends, js_unavailable = _make_frontends()
     base = root if root.is_dir() else root.parent
+    out.base = base
     resolved_base = base.resolve()
-    modules = []
     js_skipped = 0
-    suppressions: dict[str, dict[int, Suppression]] = {}
     started = time.monotonic()
     for path in collect_files(root, cfg):
         rel = path.relative_to(base).as_posix()
         if cfg.max_scan_seconds is not None and time.monotonic() - started > cfg.max_scan_seconds:
-            result.warnings.append(
+            out.warnings.append(
                 f"scan time budget ({cfg.max_scan_seconds}s) exceeded; remaining files skipped"
             )
             break
@@ -246,59 +262,84 @@ def run_scan(
         try:
             resolved = path.resolve()
             if root.is_dir() and not resolved.is_relative_to(resolved_base):
-                result.skipped.append(f"{rel}: symlink escapes the scan root, skipped")
+                out.skipped.append(f"{rel}: symlink escapes the scan root, skipped")
                 continue
             size = path.stat().st_size
         except OSError as exc:
-            result.skipped.append(f"{rel}: unreadable ({exc})")
+            out.skipped.append(f"{rel}: unreadable ({exc})")
             continue
         if size > cfg.max_file_bytes:
-            result.skipped.append(
+            out.skipped.append(
                 f"{rel}: exceeds max_file_bytes ({size} > {cfg.max_file_bytes}), skipped"
             )
             continue
         try:
             raw = path.read_bytes()
         except OSError as exc:
-            result.skipped.append(f"{rel}: unreadable ({exc})")
+            out.skipped.append(f"{rel}: unreadable ({exc})")
             continue
         source = raw.decode("utf-8", errors="replace")
         lowered = frontend.lower_file(str(path), rel, source)
         if isinstance(lowered, ParseFailure):
-            result.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
+            out.skipped.append(f"{rel}: parse error, file skipped ({lowered.reason})")
             continue
         lowered.content_hash = hashlib.sha256(raw).hexdigest()[:16]
         found = parse_suppressions(source)
         if found:
-            suppressions[rel] = found
-        modules.append(lowered)
-        result.files_scanned += 1
+            out.suppressions[rel] = found
+        out.modules.append(lowered)
+        out.files_scanned += 1
     if js_skipped:
-        result.notes.append(
+        out.notes.append(
             f"{js_skipped} JS/TS file(s) skipped - install the JS frontend with "
             "`pip install 'palisade-sec[js]'` (or `uvx --with 'palisade-sec[js]' ...`)"
         )
+    return out
+
+
+def run_scan(
+    target: Path,
+    config_file: str | None = None,
+    rules_dir: str | None = None,
+    max_hops: int | None = None,
+    assume_params_untrusted: bool | None = None,
+) -> ScanResult:
+    result = ScanResult()
+
+    low = lower_project(target, config_file)
+    result.warnings.extend(low.warnings)
+    result.skipped.extend(low.skipped)
+    result.notes.extend(low.notes)
+    result.files_scanned = low.files_scanned
+
+    rules_result = load_rules(rules_dir or low.cfg.rules_dir)
+    # rule warnings come after config warnings, matching the historical order
+    result.warnings.extend(rules_result.warnings)
+    if not rules_result.rules:
+        result.warnings.append("no valid rules loaded; nothing to scan for")
+        return result
 
     engine = Engine(
-        modules,
+        low.modules,
         rules_result.rules,
-        max_hops=max_hops or cfg.max_hops,
+        max_hops=max_hops or low.cfg.max_hops,
         assume_params_untrusted=(
-            cfg.assume_params_untrusted
+            low.cfg.assume_params_untrusted
             if assume_params_untrusted is None
             else assume_params_untrusted
         ),
     )
     engine_result = engine.run()
-    kept, suppressed = apply_suppressions(engine_result.findings, suppressions)
+    kept, suppressed = apply_suppressions(engine_result.findings, low.suppressions)
     result.findings = kept
     result.suppressed = suppressed
+    result.sources_found = engine_result.sources_found
     result.notes.extend(engine_result.notes)
     if suppressed:
         result.notes.append(
             f"{len(suppressed)} finding(s) silenced by inline `palisade: ignore` comments"
         )
-    stale = stale_suppressions(suppressions)
+    stale = stale_suppressions(low.suppressions)
     if stale:
         result.notes.append(
             "stale `palisade: ignore` comment(s) matching nothing: " + ", ".join(stale[:10])

@@ -12,8 +12,8 @@ export default defineConfig({
     starlight({
       title: "Palisade",
       description:
-        "A linter for LLM security - statically detects prompt-injection paths in Python and JS/TS.",
-      tagline: "A linter for LLM security.",
+        "Applied agentic-safety infrastructure - detects, evaluates, and gates untrusted-input → model → dangerous-capability paths in Python and JS/TS.",
+      tagline: "Applied agentic-safety infrastructure.",
       logo: { src: "./src/assets/logo.svg", replacesTitle: false },
       social: { github: "https://github.com/arpankernel/palisade" },
       customCss: ["./src/styles/theme.css"],

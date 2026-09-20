@@ -25,9 +25,11 @@ from palisade_sec.scanner import run_scan
 app = typer.Typer(
     name="palisade-sec",
     help=(
-        "Palisade - a linter for LLM security. Statically detects prompt-injection "
-        "paths (untrusted input -> LLM -> dangerous sink) in Python code. "
-        "Pure static analysis: no code execution, no network, no API key."
+        "Palisade - security tooling for LLM apps. Statically detects prompt-injection "
+        "paths (untrusted input -> LLM -> dangerous sink) in Python and "
+        "JavaScript/TypeScript. The core (scan, map, baseline, fix) is offline and "
+        "keyless; audit and review add a judgment layer over an endpoint you configure "
+        "in .env. Everything is MIT and free to run."
     ),
     add_completion=False,
     no_args_is_help=True,
@@ -76,7 +78,7 @@ def scan(
         ),
     ),
 ) -> None:
-    """Scan a Python project for prompt-injection-to-sink paths."""
+    """Scan a project (Python, JavaScript/TypeScript) for prompt-injection-to-sink paths."""
     target = Path(path)
     if not target.exists():
         typer.echo(f"error: path does not exist: {path}", err=True)
@@ -197,6 +199,186 @@ def fix(
         "each guardrail ships with a regression test; adapt the allowlists, "
         "then add the tests to your suite."
     )
+
+
+@app.command(name="map")
+def map_cmd(
+    path: str = typer.Argument(".", help="File or directory to inventory."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """Inventory the codebase's AI surface: LLM calls, prompts, tools, agents,
+    retrieval, and dangerous config flags.
+
+    Deterministic and OFFLINE - like `scan`, it makes no network calls and needs
+    no API key. This is the foundation the semantic `audit` checks build on.
+    """
+    from palisade_sec.scanner import lower_project
+    from palisade_sec.semantic.inventory import build_map, print_map, to_json
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    low = lower_project(target, config)
+    ai_map = build_map(low.modules)
+    if json_out:
+        typer.echo(to_json(ai_map, low.files_scanned), nl=False)
+    else:
+        console = Console(highlight=False)
+        for w in low.warnings:
+            console.print(f"[yellow]warning:[/yellow] {w}")
+        print_map(console, ai_map, low.files_scanned)
+
+
+@app.command()
+def redteam(
+    path: str = typer.Argument(".", help="File or directory to target."),
+    json_out: bool = typer.Option(False, "--json", help="Emit the attack suite as JSON."),
+    variants: int = typer.Option(2, "--variants", help="Attack variants per target (1-5)."),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """Synthesize a targeted adversarial attack suite from the AI System Map.
+
+    ADVISORY and OFFLINE: it reads your code, finds the tools/prompts/agents, and
+    generates attacks aimed at them - but it does NOT run them. Executing the
+    suite against a live system is a gated library call (run(..., approved=True))
+    that drives a target you provide, in your environment, with your keys.
+    """
+    from palisade_sec.scanner import lower_project
+    from palisade_sec.semantic.inventory import build_map
+    from palisade_sec.semantic.redteam import plan, plan_to_json, print_plan
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    low = lower_project(target, config)
+    ai_map = build_map(low.modules)
+    cases = plan(ai_map, variants=max(1, min(5, variants)))
+    if json_out:
+        typer.echo(plan_to_json(cases, low.files_scanned), nl=False)
+    else:
+        print_plan(Console(highlight=False), cases, low.files_scanned)
+
+
+@app.command()
+def audit(
+    path: str = typer.Argument(".", help="File or directory to audit."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    ci: bool = typer.Option(
+        False, "--ci", help="CI mode: exit non-zero if any tool is a BLOCK decision."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """AI-safety audit (judgment tier): excessive-agency and taint-path exploitability.
+
+    UNLIKE `scan`, this is bring-your-own-endpoint: it reads the judgment backend
+    from `.env` (see .env.example) and sends small, IR-verified snippets (tool
+    names and their dangerous call sites) to that endpoint. `scan`, `map`, and
+    `baseline` stay fully offline and keyless.
+    """
+    from palisade_sec.judge.base import JudgeError
+    from palisade_sec.judge.config import describe, get_backend
+    from palisade_sec.semantic.audit import print_findings, run_audit, to_json
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    try:
+        backend = get_backend()
+    except JudgeError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+    if not json_out:
+        console = Console(highlight=False, stderr=True)
+        console.print(
+            f"[yellow]note:[/yellow] `audit` sends IR-verified snippets to your "
+            f"configured backend: {describe(backend)}. `scan` stays offline."
+        )
+
+    report = run_audit(target, backend, config_file=config)
+
+    if json_out:
+        typer.echo(to_json(report), nl=False)
+    else:
+        print_findings(Console(highlight=False), report)
+
+    if ci and any(f.decision == "block" for f in report.findings):
+        raise typer.Exit(1)
+
+
+@app.command()
+def review(
+    path: str = typer.Argument(".", help="File or directory to review."),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    report_out: bool = typer.Option(
+        False, "--report", help="Write a markdown report to palisade-review.md."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="CI mode: exit non-zero on a new HIGH taint finding (baseline-diffed)."
+    ),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help=f"Baseline file to diff --ci against (e.g. {DEFAULT_BASELINE})."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+) -> None:
+    """One prioritized report with a posture score, composing scan + map + the
+    semantic checks + red-team synthesis.
+
+    If a judgment backend is configured in `.env`, findings are judged and the
+    posture reflects that (labelled, and capped for an unverified backend). If
+    not, the review runs taint-only and says so. `--ci` gates only on NEW HIGH
+    taint findings (deterministic); judged signals are advisory and never gate.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.judge.base import JudgeError
+    from palisade_sec.judge.config import get_backend
+    from palisade_sec.semantic.review import print_review, run_review, to_json, to_markdown
+
+    target = Path(path)
+    if not target.exists():
+        typer.echo(f"error: path does not exist: {path}", err=True)
+        raise typer.Exit(2)
+
+    backend = None
+    try:
+        backend = get_backend()
+    except JudgeError:
+        backend = None  # taint-only review; labelled in the report
+
+    result = run_review(target, backend, config_file=config)
+
+    if json_out:
+        typer.echo(to_json(result), nl=False)
+    else:
+        print_review(Console(highlight=False), result)
+
+    if report_out:
+        out = Path("palisade-review.md")
+        out.write_text(to_markdown(result, str(target)), encoding="utf-8")
+        if not json_out:
+            typer.echo(f"report written to {out}")
+
+    if ci:
+        findings = result.taint_findings
+        if baseline:
+            findings = diff_against_baseline(findings, Path(baseline)).new
+        if any(f.severity == "high" for f in findings):
+            raise typer.Exit(1)
 
 
 @app.command()

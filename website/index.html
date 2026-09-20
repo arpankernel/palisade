@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Palisade - a linter for LLM security</title>
-<meta name="description" content="Palisade statically detects prompt-injection paths - untrusted input → LLM → dangerous sink - in Python and JavaScript/TypeScript, in CI, before they ship. Free, open source, no API key.">
-<meta property="og:title" content="Palisade - a linter for LLM security">
-<meta property="og:description" content="Catches untrusted input → LLM → exec/shell/SQL paths in CI. Precision 1.000 across a pinned 26-repo benchmark corpus. Finds the exact CVE-2024-5565 line. MIT, no API key.">
+<title>Palisade - applied agentic-safety infrastructure</title>
+<meta name="description" content="Palisade instruments the boundary where AI systems take real-world actions - detecting, evaluating, and gating untrusted-input → model → dangerous-capability paths in Python and JavaScript/TypeScript, in CI, before they ship. The applied arm of reducing catastrophic risk from autonomous AI. Free, open source, no API key.">
+<meta property="og:title" content="Palisade - applied agentic-safety infrastructure">
+<meta property="og:description" content="Catches untrusted input → LLM → exec/shell/SQL paths in CI. Precision 1.000 across a pinned 26-repo benchmark corpus. Finds the exact CVE-2024-5565 line. MIT and free; the offline core needs no key.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -349,9 +349,9 @@
   <header class="hero">
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
-      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · No API key · v0.4.0</span>
-      <h1 class="hero-anim">A linter for <span class="accent">LLM security.</span></h1>
-      <p class="hero-anim sub">Palisade statically catches prompt-injection paths - untrusted input flowing through an LLM into <em>exec</em>, a shell, raw SQL, or an outbound fetch - in CI, before they ship. Python and JavaScript/TypeScript.</p>
+      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · Offline core, no key · v0.4.0</span>
+      <h1 class="hero-anim">Applied <span class="accent">agentic-safety infrastructure.</span></h1>
+      <p class="hero-anim sub">Palisade instruments the boundary where AI systems take real-world actions - statically catching untrusted input flowing through a model into <em>exec</em>, a shell, raw SQL, or an outbound fetch - in CI, before they ship. Python and JavaScript/TypeScript. The applied, tractable end of reducing catastrophic risk from autonomous AI.</p>
       <div class="hero-anim flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
       <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
@@ -583,7 +583,7 @@
       <div class="faq reveal">
         <div class="faq-item">
           <button class="faq-q" type="button">Does my code ever leave my machine?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request.</p></div></div>
+          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, and the core never calls out.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">How is this different from Semgrep or Bandit?<span class="ic">+</span></button>

@@ -1,9 +1,9 @@
 ---
 template: splash
 title: "Palisade"
-description: "A linter for LLM security: prompt-injection paths caught in CI, before they ship."
+description: "Applied agentic-safety infrastructure: untrusted-input → model → dangerous-capability paths caught in CI, before they ship."
 hero:
-  tagline: Catches untrusted input → LLM → exec / shell / SQL / fetch, in CI, before it ships.
+  tagline: Instruments the boundary where AI systems take real-world actions - catches untrusted input → LLM → exec / shell / SQL / fetch, in CI, before it ships.
   actions:
     - text: Get started
       link: ./getting-started/
@@ -14,9 +14,14 @@ hero:
       variant: minimal
 ---
 
-**Palisade is a linter for LLM security**: it statically detects
-prompt-injection paths - untrusted input → LLM → dangerous sink - in Python
-and JavaScript/TypeScript, in CI, before they ship.
+**Palisade is applied agentic-safety infrastructure**: it instruments the
+boundary where AI systems take real-world actions, statically detecting the
+untrusted-input → LLM → dangerous-sink paths that are the near-term, tractable
+shape of loss-of-control risk - in Python and JavaScript/TypeScript, in CI,
+before they ship. It is the applied arm of a long-horizon program to reduce
+catastrophic risk from autonomous AI (agentic safety, evals, safety cases,
+oversight, governance - at the application layer), not frontier alignment
+research.
 
 ```
 untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitizer)   ⇒  finding

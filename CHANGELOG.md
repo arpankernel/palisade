@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased
+
+Work toward the pre-production AI safety engineer. The deterministic core
+(`scan`, `map`, `baseline`, `fix`) stays offline and keyless. A new judgment
+layer is bring-your-own-endpoint: it reads an endpoint and key from `.env` and
+is used only by `audit` (and, later, `review`).
+
+### Added
+
+- **Judgment backends (`palisade_sec.judge`).** One `JudgeBackend` interface
+  with two adapters, selected in `.env`: **TypeSafe** (default, calibrated
+  typed answers, `verified=True`) and a **generic OpenAI-compatible** endpoint
+  (strict-JSON prompt validated against a schema, labelled best-effort and
+  `verified=False`). Batched: one call per artifact. Keys are read from the
+  environment only and never logged. See `.env.example`.
+- **`[judge]` extra** (`httpx`, `python-dotenv`); `[semantic]` kept as an alias.
+- **Taint-path exploitability check.** Grounded in a verified `source -> LLM ->
+  sink` dataflow, it asks the backend to judge exploitability and impact of that
+  specific path. Uncalibrated until scored on the corpus. A verified backend
+  refines a finding up or down; an unverified backend is advisory only and never
+  moves the deterministic risk.
+- **`palisade-sec review`.** One prioritized report composing scan + map + the
+  semantic checks + red-team synthesis, with a **posture score** (0-100 plus a
+  named band: Critical / High / Moderate / Low). The score is derived from the
+  tier counts and printed with the breakdown beside it; it is a posture over
+  *detected* findings (`likelihood x impact`), not a safety score. When the
+  judgment layer ran, the report says so and marks it uncalibrated; an unverified
+  backend cannot manufacture a Critical posture. Terminal, `--json`, `--report`
+  (markdown). `--ci` gates only on new HIGH taint findings (baseline-diffed);
+  judged signals never gate.
+- **`audit` now runs both checks** (excessive agency over tools, exploitability
+  over taint paths), so it produces findings on apps that expose no agent tools.
+- **`review` judges once per run.** It performs a single judgment pass and emits
+  both the composed posture and the audit view (`audit_findings` in `--json`)
+  from it, so `audit` and `review` never disagree within a run and a run makes
+  half the endpoint calls. Judged output is deterministic within a run but not
+  across runs, because the model is probabilistic; the posture score is not
+  claimed to be stable run-to-run.
+
+### Changed
+
+- `audit` now reads its backend from `.env` (`PALISADE_JUDGE_BACKEND`,
+  `PALISADE_JUDGE_ENDPOINT`, `PALISADE_JUDGE_MODEL`, key vars) instead of the
+  TypeSafe SDK, so any OpenAI-compatible endpoint works. An unverified backend
+  can never emit a BLOCK on judgment alone; such a decision downgrades to
+  REVIEW. The judgment layer is uncalibrated until scored on the corpus.
+
 ## 0.4.0 - 2026-09-16
 
 Phase 0 of the roadmap is complete: quality is now measured against a pinned
