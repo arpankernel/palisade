@@ -18,6 +18,14 @@ is used only by `audit` (and, later, `review`).
   (`add_node`/`add_edge`, a node's capabilities read from its function body), and
   **CrewAI** (`Crew(agents=, process=)` - sequential chains the agents,
   hierarchical connects the first to the rest).
+- **Red-team execution (`redteam --execute`).** The advisory synthesis can now
+  be fired at a live target you own, gated by `--approve` plus a `--target` URL
+  (or `PALISADE_REDTEAM_TARGET`). `HttpTarget` POSTs each attack and reads the
+  output/tool-calls across common response shapes; a judge-backed scorer decides
+  whether each attack landed (deterministic tool-invocation checks plus a
+  JudgeBackend for behavioral judgment). `--execute --ci` exits non-zero if any
+  attack lands. Palisade never executes your code; it drives the endpoint you
+  provide, in your environment. Synthesis stays offline and dependency-free.
 - **`PI-AGENT-HANDOFF` finding (`scan`).** A multi-agent prompt-injection path:
   untrusted input runs an agent that can hand off (>=1 hop) to an agent holding a
   dangerous-capability tool. Deterministic, offline, and precision-first - it
