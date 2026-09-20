@@ -798,7 +798,10 @@ def _sink_armed(c: ir.Call, spec) -> bool:
 
 # Calls that constitute validation on their own (pattern matching / strict
 # parsing of the whole value). Language-agnostic names welcome here.
-_VALIDATOR_CALLS = frozenset({"re.fullmatch", "re.match", "uuid.UUID", "ipaddress.ip_address"})
+# Strict validators only. `re.match` is deliberately excluded: it is a prefix
+# match and, worse, a `re.match(...)` on any unrelated constant elsewhere in the
+# body used to mark a cosmetic sanitizer "verified" (a silencing bypass).
+_VALIDATOR_CALLS = frozenset({"re.fullmatch", "uuid.UUID", "ipaddress.ip_address"})
 
 
 def _walk_stmts(stmts: list[ir.Stmt]):
@@ -852,16 +855,96 @@ def _iter_call_paths(stmts: list[ir.Stmt]):
                     stack.extend(e.children)
 
 
+def _refs(expr: ir.Expr | None, names: set[str]) -> bool:
+    """Does `expr` read any name in `names` (root variable of a dotted path)?"""
+    if expr is None:
+        return False
+    if isinstance(expr, ir.VarRef):
+        return expr.base_var in names
+    if isinstance(expr, ir.Member):
+        return _refs(expr.base, names)
+    if isinstance(expr, ir.Call):
+        return (
+            _refs(expr.receiver, names)
+            or any(_refs(a, names) for a in expr.args)
+            or any(_refs(a, names) for a in expr.star_args)
+            or any(_refs(a, names) for a in expr.kwargs.values())
+        )
+    if isinstance(expr, ir.StrJoin):
+        return any(_refs(p, names) for p in expr.parts)
+    if isinstance(expr, ir.Collection):
+        return any(_refs(i, names) for i in expr.items)
+    if isinstance(expr, ir.Unknown):
+        return any(_refs(c, names) for c in expr.children)
+    return False
+
+
+def _is_transform_expr(expr: ir.Expr | None, names: set[str]) -> bool:
+    """A *transform* of the input: an expression built from `names` that is not
+    a bare read. `code.replace(...)`, `f"{code}"`, `wrap(code)` all transform;
+    a bare `code` (passthrough) does not."""
+    return not isinstance(expr, ir.VarRef) and _refs(expr, names)
+
+
+def _returns_transformed_input(fn: ir.FuncDef) -> bool:
+    """Does the function return a *transformed* copy of one of its parameters?
+
+    This is the cosmetic-sanitizer shape (the Vanna `_sanitize_plotly_code`
+    pattern): mutate the model output with `.replace(...)` / f-strings, then
+    hand the mutated value to the sink. Returning a parameter *unchanged* after
+    a real check is not caught here - that is genuine validate-and-passthrough.
+    """
+    params = set(fn.params)
+    if not params:
+        return False
+    assigns = [s for s in _walk_stmts(fn.body) if isinstance(s, ir.Assign)]
+    tainted = set(params)  # names carrying input-derived data
+    transformed: set[str] = set()  # names carrying a *transformed* input value
+    # Fixpoint (small bodies): _walk_stmts is not source-ordered, so iterate
+    # until the transformed/tainted sets stop growing.
+    changed = True
+    while changed:
+        changed = False
+        for a in assigns:
+            if _is_transform_expr(a.value, tainted):
+                for t in a.targets:
+                    if t not in transformed:
+                        transformed.add(t)
+                        tainted.add(t)
+                        changed = True
+            elif _refs(a.value, tainted):  # passthrough copy: y = x
+                for t in a.targets:
+                    if t not in tainted:
+                        tainted.add(t)
+                        changed = True
+    for s in _walk_stmts(fn.body):
+        if isinstance(s, ir.Return) and not s.raises and s.value is not None:
+            v = s.value
+            if isinstance(v, ir.VarRef) and v.base_var in transformed:
+                return True
+            if _is_transform_expr(v, tainted):
+                return True
+    return False
+
+
 def _body_validates(fn: ir.FuncDef) -> bool:
     """Heuristic: does this function's body look like real validation?
 
-    Signals: a membership test anywhere (`x in ALLOWED`), a guard branch (an
-    if that raises/returns, or an enum-literal membership), a raise anywhere
-    (validators reject by raising, including inside try/except), or a call
-    to a strict-matching validator (re.fullmatch & co). A body that only
-    transforms its input (e.g. `.replace(...)` then return) has none of
-    these and is treated as unverified.
+    A sanitizer that transforms its input and returns the transformed value is
+    cosmetic and never counts as verified, regardless of any unrelated `raise`
+    or guard in the body - unless it also carries a strong allowlist / strict
+    validator signal (membership test or re.fullmatch & co). This closes the
+    silencing bypass where `code = code.replace(...); if not code: raise;
+    return code` was treated as validated.
+
+    Otherwise the signals are: a membership test anywhere (`x in ALLOWED`), a
+    guard branch (an if that raises/returns, or an enum-literal membership), a
+    raise anywhere (validators reject by raising), or a strict-matching
+    validator call (re.fullmatch & co).
     """
+    strong = fn.has_membership_test or any(p in _VALIDATOR_CALLS for p in _iter_call_paths(fn.body))
+    if not strong and _returns_transformed_input(fn):
+        return False
     if fn.has_membership_test:
         return True
     for s in _walk_stmts(fn.body):

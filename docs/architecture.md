@@ -232,7 +232,13 @@ in the scan notes.
   beyond bounded static taint; framework-specific rules are the pragmatic
   path.
 - Sanitizer body verification is a heuristic - it judges shape, not
-  semantics. It errs toward flagging (downgrade, never silence).
+  semantics. It silences only on a recognized allowlist / strict-validator
+  shape (membership test, `re.fullmatch`, enum-literal guard); an ambiguous
+  or cosmetic body downgrades to MED "unverified sanitizer" rather than
+  suppressing. A transform-and-return body (`code = code.replace(...);
+  return code`) is treated as cosmetic even when it also raises on an
+  unrelated condition - that closed a silencing bypass (see
+  `_returns_transformed_input`).
 - The `map` command resolves a literal `model=` argument only; a model id held
   in a variable or module constant is reported as `?`. Offline-map only; it does
   not affect taint findings or the judgment layer.
