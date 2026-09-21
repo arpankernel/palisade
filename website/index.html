@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Palisade - find prompt injection before it ships</title>
-<meta name="description" content="Palisade is an open-source CLI that finds prompt-injection dataflow paths - untrusted input → LLM → exec, shell, SQL, or HTTP - in your Python and JavaScript, in CI, before they ship. The scanner runs locally with no API key; your code never leaves your machine. Precision 1.000, zero false positives across 17,343 files of real code. MIT.">
-<meta property="og:title" content="Palisade - find prompt injection before it ships">
-<meta property="og:description" content="One command finds the untrusted-input → LLM → exec/shell/SQL/HTTP paths OWASP ranks the #1 LLM risk, before they merge. Python & JS, in CI. The scanner runs locally, no API key. Precision 1.000, zero false positives across 17,343 files. MIT and free.">
+<title>Palisade - your AI's safety engineer</title>
+<meta name="description" content="Palisade is the safety engineer for your AI. It finds where your app can be tricked into leaking data, running commands, or hitting your database, tests those weaknesses, and blocks them before you ship. Open source, MIT, runs locally. Precision 1.000, zero false positives across 17,343 files of real code.">
+<meta property="og:title" content="Palisade - your AI's safety engineer">
+<meta property="og:description" content="AI can be tricked with a crafted message into leaking data, running commands, or hitting your database. Palisade finds it, tests it, and gates it in CI - before you ship. Open source, MIT, the scanner runs locally with no API key.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -332,10 +332,10 @@
       PALISADE
     </a>
     <div class="nav-links">
-      <a href="#why">Why</a>
+      <a href="#why">The risk</a>
       <a href="#how">How it works</a>
       <a href="#proof">Proof</a>
-      <a href="#vision">Vision</a>
+      <a href="#vision">The whole job</a>
     </div>
     <div class="nav-cta">
       <a class="gh" href="https://github.com/arpankernel/palisade">GitHub</a>
@@ -350,9 +350,9 @@
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
       <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · the scanner runs locally, no API key</span>
-      <h1 class="hero-anim">Find prompt injection <span class="accent">before it ships.</span></h1>
-      <p class="hero-anim sub">Palisade traces untrusted input → LLM → <em>exec</em>, a shell, raw SQL, or an outbound call across your Python and JavaScript, and gates it in CI. The scanner runs locally with no API key, and your code never leaves your machine.</p>
-      <div class="hero-anim flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
+      <h1 class="hero-anim">Meet Palisade. <span class="accent">Your AI's safety engineer.</span></h1>
+      <p class="hero-anim sub">AI can be tricked into leaking data, running commands, or hitting your database. Palisade is the engineer that finds those weaknesses, tests them, and blocks them before you ship - one command, right in your pipeline.</p>
+      <div class="hero-anim flow">a crafted message <span class="arrow">──▶</span> <b>your AI</b> <span class="arrow">──▶</span> <b>a dangerous action</b> <span class="dim">(no guardrail)</span> <span class="x">⇒ caught</span></div>
       <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
           <span class="prompt">$</span> uvx palisade-sec scan .
@@ -386,10 +386,10 @@
   <section style="padding-top:40px">
     <div class="wrap">
       <div class="stats reveal stagger">
-        <div class="stat"><div class="n"><em class="count" data-to="17343">0</em></div><div class="l">files in the benchmark corpus · zero false positives</div></div>
-        <div class="stat"><div class="n"><em class="count" data-to="1">0</em> CVE</div><div class="l">exact vanna cve-2024-5565 line found</div></div>
-        <div class="stat"><div class="n">~<em class="count" data-to="36" data-suffix="s">0</em></div><div class="l">1,576-file python + ts monorepo</div></div>
-        <div class="stat"><div class="n"><em class="count" data-to="5">0</em> rules</div><div class="l">python · js/ts - same engine, same rules</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="17343">0</em></div><div class="l">files checked · zero false alarms</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="1">0</em> CVE</div><div class="l">real Vanna CVE found, exact line</div></div>
+        <div class="stat"><div class="n">~<em class="count" data-to="36" data-suffix="s">0</em></div><div class="l">to scan a 1,576-file codebase</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="5">0</em> rules</div><div class="l">python · js/ts · one engine</div></div>
       </div>
     </div>
   </section>
@@ -399,9 +399,9 @@
   <!-- PROBLEM / STAKES -->
   <section id="why">
     <div class="wrap">
-      <span class="kicker">Why it matters</span>
-      <h2>In an agent, an injection is an action.</h2>
-      <p class="section-sub">Prompt injection is OWASP's #1 LLM risk. In an autonomous agent a successful one isn't a bad answer - it's your shell, your database, or an outbound request running with your privileges. Guardrails are probabilistic and get bypassed. The dataflow path is the part you can actually find.</p>
+      <span class="kicker">The risk</span>
+      <h2>A sentence can turn your AI against you.</h2>
+      <p class="section-sub">Feed a model untrusted text and its answer can reach the real world - your shell, your database, an outbound request - running with your privileges. It is the #1 risk on the industry's LLM list, it has already been exploited in the wild, and no prompt fully prevents it. The one place you can reliably catch it is your code, before it ships.</p>
       <div class="rules reveal stagger">
 
         <div class="rule-card">
@@ -417,9 +417,9 @@
         </div>
 
         <div class="rule-card">
-          <span class="sev">THE FIX</span><div class="rid">FIND THE PATH</div>
-          <h3>Catch it in code, before merge</h3>
-          <p>You can't patch the model, but you can find every place untrusted input reaches a dangerous sink through an LLM - and fail CI on it before it ships.</p>
+          <span class="sev">THE FIX</span><div class="rid">CATCH IT EARLY</div>
+          <h3>Find it in code, before it ships</h3>
+          <p>You can't fix the model, but you can find every place a manipulated answer could reach something dangerous - and block it in your pipeline before it ever reaches production.</p>
         </div>
 
       </div>
@@ -431,9 +431,9 @@
   <!-- HOW IT WORKS -->
   <section id="how">
     <div class="wrap">
-      <span class="kicker">The ground-truth core</span>
-      <h2>Taint analysis, not grep.</h2>
-      <p class="section-sub">A finding requires the <b>complete</b> source → LLM → sink data-flow path with no real sanitizer in between. Calling an LLM is never a finding. That single rule is why the noise floor is zero.</p>
+      <span class="kicker">How it works</span>
+      <h2>It reads your code the way an attacker would.</h2>
+      <p class="section-sub">Palisade follows the path from untrusted input, through the model, to anything dangerous - and only flags a real, complete path with no guardrail in between. Calling an AI is never a finding on its own. That one rule is why it almost never cries wolf.</p>
       <div class="pipe reveal stagger">
         <div class="pipe-step"><span class="num">01</span><span class="tag">FRONTEND</span><h3>Parse</h3><p>Python via stdlib <code>ast</code>, JS/TS via tree-sitter. Source text only - scanned code is <b>never executed</b>.</p></div>
         <div class="pipe-step"><span class="num">02</span><span class="tag">IR</span><h3>Lower</h3><p>Both languages compile to one normalized taint IR. Import aliases resolve, so <code>sp.run</code> is <code>subprocess.run</code>.</p></div>
@@ -511,9 +511,9 @@
   <!-- PRECISION -->
   <section id="precision">
     <div class="wrap">
-      <span class="kicker">The contract</span>
-      <h2>Precision is the product.</h2>
-      <p class="section-sub">A noisy security tool trains developers to ignore it. Every "will not flag" below is pinned by a permanent test - the false-positive tests are the most important tests in the repo.</p>
+      <span class="kicker">Why you can trust it</span>
+      <h2>It doesn't cry wolf.</h2>
+      <p class="section-sub">A security tool that raises false alarms gets ignored, then uninstalled. So Palisade holds itself to precision as the product: every "won't flag" below is locked by a permanent test, and every false alarm anyone reports becomes one too.</p>
       <div class="prec reveal">
         <div class="prec-col silent">
           <header>Stays silent - safe shapes</header>
@@ -618,9 +618,9 @@
   <!-- VISION / WHERE THIS IS GOING -->
   <section id="vision">
     <div class="wrap">
-      <span class="kicker">Where this is going</span>
-      <h2>From a linter to your AI system's safety engineer.</h2>
-      <p class="section-sub">The scanner is the proven floor. On top of it, Palisade is growing into more of an AI safety engineer's job for teams shipping agents to production - evals, safety cases, oversight, governance. Each capability is marked for what it does today versus what is still being built. No blur; the frontier is the point.</p>
+      <span class="kicker">The whole job</span>
+      <h2>One engineer. The whole safety job.</h2>
+      <p class="section-sub">Finding the risk is where Palisade starts. A real safety engineer also stress-tests the system, argues it is safe with evidence, gates the risk in your pipeline, and keeps a human in charge as AI writes more of the code. Palisade is growing into all of it - one honest tool across every facet of AI safety engineering. Each piece is marked for what it does today versus what is still being built.</p>
       <div class="rules reveal stagger">
 
         <div class="rule-card">
@@ -725,8 +725,8 @@
   <div class="dg" aria-hidden="true"></div>
   <div class="wrap">
     <span class="kicker" style="color:var(--cream-bright)">Free forever · MIT</span>
-    <h2>Scan your repo<br>in 30 seconds.</h2>
-    <p>One command scans your repo - no key, no signup, no code leaving your machine. Find every untrusted-input → LLM → sink path before it merges.</p>
+    <h2>Put a safety engineer<br>on your AI.</h2>
+    <p>One command, 30 seconds - no key, no signup, no code leaving your machine. Find where your AI could be turned against you, before it ships.</p>
     <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
       <span class="prompt">$</span> uvx palisade-sec scan .
       <span class="copy">copy</span>
