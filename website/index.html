@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Palisade - find prompt injection before it ships</title>
-<meta name="description" content="Palisade is an open-source CLI that finds prompt-injection dataflow paths - untrusted input → LLM → exec, shell, SQL, or HTTP - in your Python and JavaScript, in CI, before they ship. Runs locally, no API key, your code never leaves your machine. Precision 1.000, zero false positives across 17,343 files of real code. MIT.">
+<meta name="description" content="Palisade is an open-source CLI that finds prompt-injection dataflow paths - untrusted input → LLM → exec, shell, SQL, or HTTP - in your Python and JavaScript, in CI, before they ship. The scanner runs locally with no API key; your code never leaves your machine. Precision 1.000, zero false positives across 17,343 files of real code. MIT.">
 <meta property="og:title" content="Palisade - find prompt injection before it ships">
-<meta property="og:description" content="One command finds the untrusted-input → LLM → exec/shell/SQL/HTTP paths OWASP ranks the #1 LLM risk, before they merge. Python & JS, in CI. Runs locally, no API key. Precision 1.000, zero false positives across 17,343 files. MIT and free.">
+<meta property="og:description" content="One command finds the untrusted-input → LLM → exec/shell/SQL/HTTP paths OWASP ranks the #1 LLM risk, before they merge. Python & JS, in CI. The scanner runs locally, no API key. Precision 1.000, zero false positives across 17,343 files. MIT and free.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='6' width='6' height='22' fill='%232A1512'/%3E%3Crect x='13' y='2' width='6' height='26' fill='%236E1F2A'/%3E%3Crect x='22' y='6' width='6' height='22' fill='%232A1512'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -349,9 +349,9 @@
   <header class="hero">
     <div class="dotbg dotgrid" aria-hidden="true"></div>
     <div class="wrap">
-      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · runs locally, no API key</span>
+      <span class="hero-anim badge"><span class="pulse"></span>Open source · MIT · the scanner runs locally, no API key</span>
       <h1 class="hero-anim">Find prompt injection <span class="accent">before it ships.</span></h1>
-      <p class="hero-anim sub">Palisade traces untrusted input → LLM → <em>exec</em>, a shell, raw SQL, or an outbound call across your Python and JavaScript, and gates it in CI. Runs locally, no API key, your code never leaves your machine.</p>
+      <p class="hero-anim sub">Palisade traces untrusted input → LLM → <em>exec</em>, a shell, raw SQL, or an outbound call across your Python and JavaScript, and gates it in CI. The scanner runs locally with no API key, and your code never leaves your machine.</p>
       <div class="hero-anim flow">untrusted input <span class="arrow">──▶</span> <b>LLM</b> <span class="arrow">──▶</span> <b>dangerous sink</b> <span class="dim">(no sanitizer)</span> <span class="x">⇒ finding</span></div>
       <div class="hero-anim cta-row" id="get-started">
         <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
@@ -360,6 +360,7 @@
         </button>
         <a class="btn btn-secondary" href="https://github.com/arpankernel/palisade">Star on GitHub ↗</a>
       </div>
+      <div class="hero-anim meta-note">JavaScript / TypeScript? add the extra: <code>uvx --from "palisade-sec[js]" palisade-sec scan .</code></div>
       <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 17,343 files of real code · never executes your code</div>
 
       <!-- TERMINAL -->
@@ -449,15 +450,15 @@
   <section id="rules">
     <div class="wrap">
       <span class="kicker">What it catches</span>
-      <h2>Five rules. Every one backed by a real CVE class.</h2>
-      <p class="section-sub">Rules are plain YAML - sources, LLM signatures, sinks, sanitizers. Adding coverage for your framework is a data change, never an engine change.</p>
+      <h2>Five taint rules, plus multi-agent handoffs. Each mapped to a real CVE class.</h2>
+      <p class="section-sub">Rules are plain YAML - sources, LLM signatures, sinks, sanitizers. Adding coverage for your framework is a data change, never an engine change. The CVEs below name the vulnerability <em>class</em> each rule covers; the <a href="#proof" style="color:var(--crimson)">proof</a> section shows what is verified end-to-end, including the one documented miss.</p>
       <div class="rules reveal stagger">
         <div class="rule-card">
           <span class="sev high">HIGH</span><div class="rid">PI-EXEC</div>
           <h3>Injection → code execution</h3>
           <p>Model output executed as code. The most common real-world LLM vulnerability class.</p>
           <div class="sinks">exec · eval · compile · PythonREPL<br>new Function · vm.runIn*</div>
-          <div class="cve">CVE-2024-12366 · CVE-2025-3248 · CVE-2023-36258</div>
+          <div class="cve">CVE-2024-12366 · CVE-2023-36258</div>
         </div>
         <div class="rule-card">
           <span class="sev high">HIGH</span><div class="rid">PI-SHELL</div>
@@ -486,6 +487,13 @@
           <p>Model-chosen URLs fetched directly - cloud metadata, internal APIs, attacker hosts. Advisory: never gates CI.</p>
           <div class="sinks">requests.* · httpx.* · urlopen <span style="color:var(--t25)">(URL arg only)</span></div>
           <div class="cve">OWASP LLM Top-10 · SSRF</div>
+        </div>
+        <div class="rule-card">
+          <span class="sev high">HIGH</span><div class="rid">PI-AGENT-HANDOFF</div>
+          <h3>Injection → agent handoff → dangerous tool</h3>
+          <p>Multi-agent path: untrusted input runs an agent that hands off (≥1 hop) to an agent holding a dangerous-capability tool. Deterministic and offline.</p>
+          <div class="sinks">OpenAI Agents SDK · LangGraph · CrewAI</div>
+          <div class="cve">agentic prompt-injection class</div>
         </div>
         <div class="rule-card">
           <span class="sev">YOURS</span><div class="rid">PI-CUSTOM</div>
@@ -619,16 +627,16 @@
           <span class="sev high">CORE SHIPPED</span><div class="rid">01 · AGENTIC & MULTI-AGENT SAFETY</div>
           <h3>The action boundary</h3>
           <p>Where a model reaches a real capability - exec, a shell, SQL, an outbound call. This is the loss-of-control surface as autonomy grows.</p>
-          <div class="sinks">today · scan input→model→sink<br>today · map tools + capabilities<br>today · audit excessive agency</div>
-          <div class="cve">next — agent→agent handoffs · cross-agent taint · langgraph / crewai / autogen graphs</div>
+          <div class="sinks">today · scan input→model→sink · PI-AGENT-HANDOFF<br>today · map agents + handoffs (openai · langgraph · crewai)<br>today · audit excessive agency</div>
+          <div class="cve">next — deeper cross-agent taint · autogen graphs · conditional-edge coverage</div>
         </div>
 
         <div class="rule-card">
           <span class="sev">PARTIAL</span><div class="rid">02 · EVALS & RED-TEAMING</div>
           <h3>Exercise it adversarially</h3>
           <p>Attack the system with inputs built from its own map, and measure what lands - on a pinned, reproducible harness rather than a vibe.</p>
-          <div class="sinks">today · red-team synthesis from the live map<br>today · pinned 26-repo precision gate in CI</div>
-          <div class="cve">next — red-team execution (HttpTarget + live scorer) · calibrated per-check P/R</div>
+          <div class="sinks">today · red-team synthesis from the live map<br>today · gated red-team execution (HttpTarget + scorer)<br>today · pinned 26-repo precision gate in CI</div>
+          <div class="cve">next — calibrated per-check P/R on a full benchmark corpus</div>
         </div>
 
         <div class="rule-card">
@@ -643,8 +651,8 @@
           <span class="sev">BUILDING</span><div class="rid">04 · TECHNICAL AI GOVERNANCE</div>
           <h3>Make it enforceable</h3>
           <p>Turn safety practice into an organizational requirement a pipeline enforces, with an audit trail teams and regulators can read.</p>
-          <div class="sinks">today · CI gates · exit-code contract<br>today · stable JSON schema · disclosure policy</div>
-          <div class="cve">next — SARIF · CWE / OWASP-LLM tags · signing / SBOM / provenance</div>
+          <div class="sinks">today · CI gates · exit-code contract<br>today · SARIF + GitHub code-scanning Action<br>today · stable JSON schema · disclosure policy</div>
+          <div class="cve">next — CWE / OWASP-LLM tags · signing / SBOM / provenance</div>
         </div>
 
         <div class="rule-card">
@@ -660,7 +668,7 @@
           <h3>Why the ambition stays honest</h3>
           <p>Every judgment is anchored to a deterministic finding the engine can prove. The floor under the whole roadmap is a real, measured detector.</p>
           <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 17,343 files<br>today · zero false positives</div>
-          <div class="cve">honest — the judged layer is uncalibrated until scored on the corpus; the core's precision stands alone</div>
+          <div class="cve">honest — the judged layer has a preliminary seed-corpus calibration; full-benchmark calibration is pending, so it stays advisory. The core's precision stands alone</div>
         </div>
 
       </div>
@@ -681,11 +689,11 @@
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Which parts are shipped, and is the judgment layer calibrated?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>The single-agent action boundary and the taint core are shipped and gated in CI at precision 1.000. The judged layer (<code>audit</code>, <code>review</code>, posture) runs today but is <b>uncalibrated</b> - it has no published precision/recall yet, so it is advisory and can never gate CI or raise a critical posture on its own. Multi-agent modeling, red-team execution, SARIF and governance surfaces, and the oversight-of-AI-code mode are on the public roadmap, marked <b>building</b>. We would rather show the frontier than blur it.</p></div></div>
+          <div class="faq-a"><div><p>The taint core - single-agent paths and multi-agent handoff detection - is shipped and gated in CI at precision 1.000, and SARIF output plus gated red-team execution ship alongside it. The judged layer (<code>audit</code>, <code>review</code>, posture) runs today with a <b>preliminary seed-corpus calibration</b> but no full-benchmark precision/recall yet, so it is advisory and can never gate CI or raise a critical posture on its own. Deeper cross-agent taint, governance tags and SBOM/signing, and the oversight-of-AI-code mode are on the public roadmap, marked <b>building</b>. We would rather show the frontier than blur it.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Does my code ever leave my machine?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, it is currently uncalibrated and advisory, and the core never calls out.</p></div></div>
+          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, it currently has a preliminary seed-corpus calibration and stays advisory, and the core never calls out.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">How is this different from Semgrep or Bandit?<span class="ic">+</span></button>
@@ -718,7 +726,7 @@
   <div class="wrap">
     <span class="kicker" style="color:var(--cream-bright)">Free forever · MIT</span>
     <h2>Scan your repo<br>in 30 seconds.</h2>
-    <p>One command. No key, no signup, no code leaving your machine. Find every untrusted-input → LLM → sink path before it merges.</p>
+    <p>One command scans your repo - no key, no signup, no code leaving your machine. Find every untrusted-input → LLM → sink path before it merges.</p>
     <button class="install" data-copy="uvx palisade-sec scan ." type="button" aria-label="Copy install command">
       <span class="prompt">$</span> uvx palisade-sec scan .
       <span class="copy">copy</span>
