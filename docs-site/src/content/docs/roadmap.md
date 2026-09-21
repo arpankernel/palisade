@@ -54,6 +54,9 @@ keyless-and-offline versus bring-your-own-endpoint.
   and `irreversible` at precision/recall 1.00, `severity`/`harm` within +/-1
   tier. `gated` is measured but below bar (the model over-predicts gating) and is
   marked known-weak - reported, not trusted to downgrade a finding.
+- **SARIF output + GitHub code-scanning Action** - `scan --sarif` emits SARIF
+  2.1.0 (severity mapped, line-shift-resilient fingerprints); a five-line
+  workflow uploads findings to the Security tab, dogfooded on our own `src`.
 
 **Upcoming (no dates):**
 
@@ -156,10 +159,10 @@ suppressions shipped. **Trap:** overfitting to the four CVE repos.
 **Constraint:** "Even people who like it can't get it into their workflow."
 Directly serves the North Star metric: repos running Palisade in CI.
 
-- **SARIF output** - the single highest-leverage feature; the standard
-  interface every AppSec pipeline speaks.
-- **GitHub Code Scanning integration** - SARIF upload → findings in the
-  Security tab and as inline PR annotations, zero glue.
+- **SARIF output** *(shipped)* - the single highest-leverage feature; the
+  standard interface every AppSec pipeline speaks. `scan --sarif` emits SARIF 2.1.0.
+- **GitHub Code Scanning integration** *(shipped)* - a five-line workflow uploads
+  findings to the Security tab, dogfooded on our own `src`.
 - Published GitHub Action (pinned) on the Marketplace; pre-commit hook;
   CI recipes for GitLab/CircleCI/Jenkins/Azure.
 - Versioned `--json` schema *(shipped: `schema_version: 1`, documented)*;
