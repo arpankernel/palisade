@@ -222,6 +222,38 @@ def test_transform_with_early_return_guard_downgrades(tmp_path):
     _assert_unverified(res)
 
 
+def test_transform_via_augmented_assignment_downgrades(tmp_path):
+    """Audit bypass: the transform-and-return check tracks assignment targets
+    by name, but an augmented assignment (`code += x`) lowers to a target
+    key prefixed `+` (`+code`) to signal "union with prior taint" to the
+    taint engine. `_returns_transformed_input` never normalizes that prefix
+    away, so `code += ""` was invisible to it - the function's `code`
+    param never entered `transformed`, transform-and-return went undetected,
+    and the unrelated `raise` alone made the cosmetic sanitizer read as fully
+    verified (silent), instead of downgrading to MED like the `=` form of the
+    identical shape does one test up."""
+    res = _scan(
+        tmp_path,
+        app=PREAMBLE
+        + """
+        from cleaners import sanitize
+
+        def handler():
+            q = request.json["q"]
+            resp = client.chat.completions.create(messages=[{"role": "user", "content": q}])
+            exec(sanitize(resp.choices[0].message.content))
+        """,
+        cleaners="""
+        def sanitize(code):
+            code += ""
+            if not code:
+                raise ValueError("empty")
+            return code
+        """,
+    )
+    _assert_unverified(res)
+
+
 def test_re_match_on_constant_does_not_verify(tmp_path):
     """Audit bypass: `re.match` on an unrelated constant used to mark a cosmetic
     sanitizer verified. re.match is no longer a validator signal."""

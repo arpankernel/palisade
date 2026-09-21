@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Sanitizer-silencing bypass via augmented assignment.** The
+  transform-and-return detection added in 0.5.0 (`_returns_transformed_input`)
+  tracked assignment targets by name, but `code += x` lowers to a target key
+  prefixed `+` (`+code`, "union with prior taint") that the check never
+  normalized. A cosmetic sanitizer written with `+=` instead of `=` - e.g.
+  `code += ""; if not code: raise ...; return code` - was scored as fully
+  verified and silenced the finding, reintroducing the exact CVE-2024-5565
+  (Vanna) shape the 0.5.0 fix closed for the `=` spelling. The equivalent
+  `code = code + ""` form was correctly downgraded to MED throughout; only
+  the augmented-assignment spelling was affected. New regression test in
+  `tests/test_sanitizer_strictness.py`.
+
 ## 0.5.0 - 2026-09-21
 
 The applied agentic-safety layer. The deterministic core (`scan`, `map`,
