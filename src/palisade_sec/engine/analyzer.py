@@ -942,14 +942,31 @@ def _returns_transformed_input(fn: ir.FuncDef) -> bool:
     while changed:
         changed = False
         for a in assigns:
+            # An augmented assignment (`code += x`) lowers to a target key
+            # prefixed `+` ("union with prior taint", ir/model.py Assign).
+            # `code += x` always transforms `code` when `code` already
+            # carries input-derived data - its new value folds in the old
+            # one regardless of what `x` is (`code += ""` still transforms a
+            # tainted `code`, even though "" itself references nothing
+            # tainted). Without treating augmented targets specially, `+code`
+            # never entered `transformed`/`tainted` and the cosmetic
+            # transform-and-return shape (Vanna CVE-2024-5565) went
+            # undetected for the `+=` spelling of an otherwise-identical
+            # sanitizer body.
+            aug_targets = [t[1:] for t in a.targets if t.startswith("+")]
+            plain_targets = [t for t in a.targets if not t.startswith("+")]
+            for t in aug_targets:
+                if t in tainted and t not in transformed:
+                    transformed.add(t)
+                    changed = True
             if _is_transform_expr(a.value, tainted):
-                for t in a.targets:
+                for t in plain_targets:
                     if t not in transformed:
                         transformed.add(t)
                         tainted.add(t)
                         changed = True
             elif _refs(a.value, tainted):  # passthrough copy: y = x
-                for t in a.targets:
+                for t in plain_targets:
                     if t not in tainted:
                         tainted.add(t)
                         changed = True
