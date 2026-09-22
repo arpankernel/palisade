@@ -66,7 +66,9 @@ def _resolve_env() -> tuple[dict[str, str], set[str]]:
     return env, from_file
 
 
-def _refuse_split_origin(from_file: set[str], key_env: str) -> None:
+def _refuse_split_origin(
+    from_file: set[str], key_env: str, endpoint: str, safe_default: str | None
+) -> None:
     """Refuse an endpoint from `.env` paired with a key from the shell.
 
     Palisade is run inside repositories it does not trust. A cloned repo can
@@ -74,7 +76,10 @@ def _refuse_split_origin(from_file: set[str], key_env: str) -> None:
     real API key lives in their shell environment, it would be sent there as
     an Authorization header. Endpoint and key must come from the same place.
     """
-    if (ENDPOINT_ENV in from_file or BACKEND_ENV in from_file) and key_env not in from_file:
+    redirected = ENDPOINT_ENV in from_file and (
+        safe_default is None or endpoint.rstrip("/") != safe_default.rstrip("/")
+    )
+    if redirected and key_env not in from_file:
         raise JudgeError(
             f"refusing to send your {key_env} from the shell environment to an endpoint "
             f"chosen by a .env file in this directory. A repository you did not write "
@@ -111,7 +116,7 @@ def get_backend() -> JudgeBackend:
                 "layer sends IR-verified snippets to the endpoint. The offline core "
                 "(scan, map, baseline, fix) needs no key."
             )
-        _refuse_split_origin(from_file, TYPESAFE_KEY_ENV)
+        _refuse_split_origin(from_file, TYPESAFE_KEY_ENV, endpoint, DEFAULT_ENDPOINT)
         return TypeSafeBackend(
             api_key=key,
             endpoint=endpoint or DEFAULT_ENDPOINT,
@@ -131,7 +136,7 @@ def get_backend() -> JudgeBackend:
         raise JudgeError(f"{ENDPOINT_ENV} is required for {name} (no default).")
     if not model:
         raise JudgeError(f"{MODEL_ENV} is required for {name} (no default).")
-    _refuse_split_origin(from_file, GENERIC_KEY_ENV)
+    _refuse_split_origin(from_file, GENERIC_KEY_ENV, endpoint, None)
     return OpenAICompatibleBackend(api_key=key, endpoint=endpoint, model=model)
 
 

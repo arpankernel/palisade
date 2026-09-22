@@ -21,7 +21,7 @@ def main() -> None:
     result = run_scan(TARGET)
     visible = [f for f in result.findings if f.severity == "high" or f.risky]
     console = Console(record=True, width=100, force_terminal=True)
-    console.print("[bold green]$[/bold green] uvx palisade-sec scan .")
+    console.print("[bold green]$[/bold green] uvx palisade-sec scan examples/vulnerable-app")
     print_findings(
         console,
         visible,

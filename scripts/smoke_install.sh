@@ -62,5 +62,8 @@ check 2 "audit without [judge]"          -- audit "$APP"
 check 2 "redteam --execute without [judge]" -- redteam "$APP" --execute --approve --target http://127.0.0.1:9
 check 2 "scan --ci on an empty dir"      -- scan "$WORK/empty" --ci
 check 2 "scan --ci on JS without [js]"   -- scan "$WORK/jsonly" --ci
+check 2 "review --ci on an empty dir"    -- review "$WORK/empty" --ci
+check 2 "missing explicit --config"      -- scan "$APP" --config "$WORK/nope.toml"
+check 2 "redteam --variants out of range" -- redteam "$APP" --variants 99
 
 exit "$FAIL"

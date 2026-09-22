@@ -274,3 +274,23 @@ def test_sarif_records_an_empty_run_as_unsuccessful(tmp_path):
     assert any(
         "nothing was scanned" in n["message"]["text"] for n in inv["toolExecutionNotifications"]
     )
+
+
+def test_dotenv_naming_the_real_endpoint_still_works_with_a_shell_key(tmp_path, monkeypatch):
+    """The shipped .env.example used to set the default endpoint explicitly;
+    that must not trip the redirect guard, which exists for OTHER endpoints."""
+    _use_real_dotenv(monkeypatch, tmp_path, "PALISADE_JUDGE_ENDPOINT=https://api.typesafe.ai\n")
+    monkeypatch.setenv(jconfig.TYPESAFE_KEY_ENV, "real-shell-key")
+    assert jconfig.get_backend().name == "typesafe"
+
+
+def test_dotenv_endpoint_with_key_in_same_file_is_allowed(tmp_path, monkeypatch):
+    _use_real_dotenv(
+        monkeypatch,
+        tmp_path,
+        "PALISADE_JUDGE_BACKEND=openai_compatible\n"
+        "PALISADE_JUDGE_ENDPOINT=http://127.0.0.1:8000/v1\n"
+        "PALISADE_JUDGE_MODEL=m\n"
+        "PALISADE_JUDGE_API_KEY=file-key\n",
+    )
+    assert jconfig.get_backend().name == "openai_compatible"
