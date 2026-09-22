@@ -236,8 +236,12 @@ def test_corpus_labels_point_at_real_sinks():
                 f"{repo['name']}: {exp['file']}:{exp['line']} is out of range"
             )
             text = lines[exp["line"] - 1]
-            assert any(k in text for k in ("exec(", "eval(", "system(", "execute(", "query(")), (
-                f"{repo['name']}: {exp['file']}:{exp['line']} is not a sink: {text.strip()!r}"
+            # Every label quotes the code it points at, so a drifted clone or
+            # a mistyped line number fails here instead of silently scoring.
+            assert "code" in exp, f"{repo['name']}: {exp['file']}:{exp['line']} has no `code:`"
+            assert exp["code"] in text, (
+                f"{repo['name']}: {exp['file']}:{exp['line']} is {text.strip()!r}, "
+                f"but the label says {exp['code']!r}"
             )
             checked += 1
     assert checked, "no labels were checked"
