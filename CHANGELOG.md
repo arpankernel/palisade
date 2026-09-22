@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Jupyter notebook support (`.ipynb`).** A new frontend reassembles a
+  notebook's code cells into one Python source - a name bound in one cell and
+  used in a later one, exactly like top-level statements in a `.py` file -
+  and delegates entirely to `PythonFrontend`, so every existing rule, the
+  taint engine, and PI-AGENT-HANDOFF all work on notebooks with zero engine
+  changes. Non-code cells and IPython line/cell magics (`%matplotlib inline`,
+  `!pip install`, `%%time`) are blanked rather than passed to `ast.parse`,
+  which would reject them outright. Reported line numbers follow the
+  `jupyter nbconvert --to script` convention (a `# In[N]:` marker line per
+  cell), so a finding is traceable back to its cell. A notebook whose kernel
+  is not Python (`metadata.language_info.name`) is skipped with a clear
+  reason rather than guessed at. `.ipynb_checkpoints/` joins the
+  always-excluded directory list.
+
 ## 0.5.1 - 2026-09-22
 
 A pre-launch hardening release. Three independent audits (fresh-install
