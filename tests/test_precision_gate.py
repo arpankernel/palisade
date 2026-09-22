@@ -30,10 +30,12 @@ def test_fixture_corpus_precision_and_recall_are_perfect():
 
 
 def test_multi_agent_fixtures_flag_exactly_the_vulnerable_files():
-    # The calibration dir must flag PI-AGENT-HANDOFF on the two vuln files and
-    # stay silent on the safe wirings (safe handoff target, constant input).
+    # The calibration dir must flag PI-AGENT-HANDOFF on every vuln_*.py file
+    # and stay silent on every safe_*.py wiring (safe handoff target,
+    # constant input, safe crew, safe compiled-graph invoke).
     from palisade_sec.scanner import run_scan
 
     findings = run_scan(ROOT / "corpus" / "fixtures" / "agents").findings
-    agent = sorted(f.sink.file for f in findings if f.rule_id == "PI-AGENT-HANDOFF")
-    assert agent == ["vuln_receiver.py", "vuln_runner.py"]
+    agent = sorted({f.sink.file for f in findings if f.rule_id == "PI-AGENT-HANDOFF"})
+    vuln_files = sorted(p.name for p in (ROOT / "corpus" / "fixtures" / "agents").glob("vuln_*.py"))
+    assert agent == vuln_files

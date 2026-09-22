@@ -23,3 +23,9 @@ targets:
     expect:
       - {file: vuln_runner.py,   line: 14, rule: PI-AGENT-HANDOFF, verdict: flag}
       - {file: vuln_receiver.py, line: 14, rule: PI-AGENT-HANDOFF, verdict: flag}
+      # Entry through a container (crew.kickoff() / a compiled LangGraph's
+      # .invoke()), not an agent's own .run() - and through
+      # add_conditional_edges, not a plain add_edge.
+      - {file: vuln_crew_kickoff.py,            line: 17, rule: PI-AGENT-HANDOFF, verdict: flag}
+      - {file: vuln_compiled_graph_invoke.py,   line: 20, rule: PI-AGENT-HANDOFF, verdict: flag}
+      - {file: vuln_conditional_edges.py,       line: 24, rule: PI-AGENT-HANDOFF, verdict: flag}

@@ -165,3 +165,4 @@ def test_map_json_carries_agent_graph():
         ("triage", "writer"),
         ("triage", "researcher"),
     }
+    assert ag["entry_aliases"] == {}  # no Crew/compiled-graph container in this fixture

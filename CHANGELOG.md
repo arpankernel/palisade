@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Multi-agent recall: container entry points and conditional routing.**
+  `PI-AGENT-HANDOFF` previously recognized only an agent variable's own
+  `.run()`/`.invoke()` as a run site - `crew.kickoff()` (CrewAI) and a
+  compiled LangGraph's `app.invoke()` were entirely invisible, even with a
+  fully-built dangerous graph behind them, because the container (`Crew`
+  instance / compiled `StateGraph`) was never itself a graph node. `AgentGraph`
+  gains `entry_aliases`, resolving a container variable to the real node it
+  enters at (`Crew(agents=[...])` -> its first agent; `graph.compile()` ->
+  whatever `add_edge(START, ...)` / `set_entry_point(...)` named), surfaced in
+  `map`'s `--json` under `agent_graph.entry_aliases`.
+- **`add_conditional_edges` support.** LangGraph's router-based branching
+  (`g.add_conditional_edges(source, router_fn, path_map)`) previously produced
+  zero edges - a documented, deliberate deferral - even though it is the
+  idiomatic way LangGraph expresses branching. Every destination in the
+  `path_map` becomes an edge from `source` (kind `conditional_handoff`,
+  precision-first: only path-map targets that resolve to a real `add_node`'d
+  destination are kept).
+- Five new must-flag/must-stay-silent fixture pairs added to the
+  `PI-AGENT-HANDOFF` calibration corpus (`corpus/fixtures/agents/`) exercising
+  the above; the fixture-corpus precision gate stays at 1.000/1.000.
+
+### Fixed
+
+- `g.add_edge(START, "node")` / `g.add_edge("node", END)` were dropped from
+  the graph only as an accidental side effect of `START`/`END` (imported
+  module constants, not string literals) failing a string-literal check -
+  the intended `_LG_SPECIAL` filtering never actually matched them. Now
+  matched explicitly, and also used to detect a graph's start node for entry
+  aliasing.
+
 ## 0.5.1 - 2026-09-22
 
 A pre-launch hardening release. Three independent audits (fresh-install
