@@ -1,10 +1,8 @@
-"""PI-AGENT-HANDOFF (Phase 1b). Precision-first: a finding needs a complete
-untrusted -> run -> handoff -> dangerous-agent path. Every must-flag case has a
-must-stay-silent twin."""
-
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
 from palisade_sec.semantic.agents.findings import find_agent_handoff_findings
@@ -164,6 +162,119 @@ def test_run_scan_safe_twin_is_clean(tmp_path):
         "    return Runner.run(triage, request.json['q'])\n",
     )
     assert not any(f.rule_id == "PI-AGENT-HANDOFF" for f in run_scan(d).findings)
+
+
+# -- container entry points: crew.kickoff() / compiled-graph .invoke() /
+# add_conditional_edges, exercised end to end through run_scan. Each case is
+# (label, source, expect_finding); the vulnerable and safe variant of each
+# entry-point mechanism live side by side so a regression in either direction
+# - a real path going silent, or a safe wiring starting to flag - fails here.
+_CREW_TOOLS = (
+    "import subprocess\n"
+    "from crewai import Agent, Crew\n"
+    "from crewai.tools import tool\n"
+    "@tool\n"
+    "def shell(cmd):\n    subprocess.run(cmd, shell=True)\n"
+    "@tool\n"
+    "def greet(name):\n    return f'hi {name}'\n"
+)
+_LANGGRAPH_TOOLS = (
+    "import shutil\n"
+    "from langgraph.graph import StateGraph, START\n"
+    "def triage(state):\n    return state\n"
+    "def escalate(state):\n    shutil.rmtree(state['path'])\n"
+)
+
+CONTAINER_ENTRY_CASES = [
+    pytest.param(
+        _CREW_TOOLS + "researcher = Agent(role='researcher', tools=[])\n"
+        "executor = Agent(role='executor', tools=[shell])\n"
+        "crew = Crew(agents=[researcher, executor])\n"
+        "def handle():\n"
+        "    return crew.kickoff(inputs={'topic': request.json['topic']})\n",
+        True,
+        id="crew-kickoff-vulnerable",
+    ),
+    pytest.param(
+        _CREW_TOOLS + "researcher = Agent(role='researcher', tools=[])\n"
+        "helper = Agent(role='helper', tools=[greet])\n"
+        "crew = Crew(agents=[researcher, helper])\n"
+        "def handle():\n"
+        "    return crew.kickoff(inputs={'topic': request.json['topic']})\n",
+        False,
+        id="crew-kickoff-safe-target",
+    ),
+    pytest.param(
+        _CREW_TOOLS + "researcher = Agent(role='researcher', tools=[])\n"
+        "executor = Agent(role='executor', tools=[shell])\n"
+        "crew = Crew(agents=[researcher, executor])\n"
+        "def handle():\n"
+        "    return crew.kickoff(inputs={'topic': 'quarterly report'})\n",
+        False,
+        id="crew-kickoff-constant-input",
+    ),
+    pytest.param(
+        _LANGGRAPH_TOOLS + "g = StateGraph(dict)\n"
+        "g.add_node('triage', triage)\n"
+        "g.add_node('escalate', escalate)\n"
+        "g.add_edge(START, 'triage')\n"
+        "g.add_edge('triage', 'escalate')\n"
+        "app = g.compile()\n"
+        "def handle():\n"
+        "    return app.invoke({'path': request.json['q']})\n",
+        True,
+        id="compiled-graph-invoke-vulnerable",
+    ),
+    pytest.param(
+        _LANGGRAPH_TOOLS + "g = StateGraph(dict)\n"
+        "g.add_node('triage', triage)\n"
+        "g.add_node('escalate', escalate)\n"
+        "g.add_edge(START, 'triage')\n"
+        "g.add_edge('triage', 'escalate')\n"
+        "app = g.compile()\n"
+        "def handle():\n"
+        "    return app.invoke({'path': '/tmp/fixed'})\n",
+        False,
+        id="compiled-graph-invoke-constant-input",
+    ),
+    pytest.param(
+        _LANGGRAPH_TOOLS + "def route(state):\n"
+        "    return 'escalate' if state.get('risky') else '__end__'\n"
+        "g = StateGraph(dict)\n"
+        "g.add_node('triage', triage)\n"
+        "g.add_node('escalate', escalate)\n"
+        "g.add_edge(START, 'triage')\n"
+        "g.add_conditional_edges('triage', route, "
+        "{'escalate': 'escalate', '__end__': '__end__'})\n"
+        "app = g.compile()\n"
+        "def handle():\n"
+        "    return app.invoke({'path': request.json['q']})\n",
+        True,
+        id="conditional-edges-vulnerable",
+    ),
+]
+
+
+@pytest.mark.parametrize("source, expect_finding", CONTAINER_ENTRY_CASES)
+def test_container_entry_points_end_to_end(tmp_path, source, expect_finding):
+    """A run site reached only through a container (crew.kickoff(),
+    a compiled LangGraph's .invoke()) or only through add_conditional_edges
+    (not a plain add_edge) must flag exactly like a direct agent.run() call
+    - and stay silent under the same conditions (safe target, constant
+    input) a direct call would. Runs the real scan pipeline, matching what
+    `palisade-sec scan` reports to a user."""
+    from palisade_sec.scanner import run_scan
+
+    d = tmp_path / "agentapp"
+    d.mkdir()
+    (d / "app.py").write_text("from flask import request\n" + source, encoding="utf-8")
+    findings = run_scan(d).findings
+    flagged = [f for f in findings if f.rule_id == "PI-AGENT-HANDOFF"]
+    if expect_finding:
+        assert len(flagged) == 1, findings
+        assert flagged[0].severity == "high"
+    else:
+        assert flagged == []
 
 
 # -- audit: taint precision (cast / sanitizer / flow-sensitivity) ------------

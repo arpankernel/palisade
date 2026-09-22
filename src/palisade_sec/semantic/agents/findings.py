@@ -180,6 +180,12 @@ def _run_site(call: ir.Call, graph: AgentGraph) -> _RunSite | None:
     recv = _ref_name(call.receiver) if call.receiver is not None else None
     if recv in graph.nodes:
         inputs = list(call.args)
+    elif recv in graph.entry_aliases:
+        # crew.kickoff(...) / app.invoke(...): recv is a container (a Crew
+        # instance, a compiled LangGraph) rather than an agent/node itself -
+        # resolve it to the real node it enters at.
+        recv = graph.entry_aliases[recv]
+        inputs = list(call.args)
     elif call.args and _ref_name(call.args[0]) in graph.nodes:
         recv = _ref_name(call.args[0])
         inputs = list(call.args[1:])
