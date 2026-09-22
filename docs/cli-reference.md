@@ -4,12 +4,19 @@
 palisade-sec [--version] <command> [args]
 ```
 
-Commands split into two layers. The **offline core** - `scan` · `map` ·
-`baseline` · `fix` - makes no network calls, needs no API key, and sends no
-telemetry. The **judgment layer** - `audit` · `review` - calls an
-OpenAI-compatible endpoint you configure in `.env` (see
-[Judgment configuration](#judgment-configuration)). Everything is MIT and free
-to run; the split is keyless-and-offline versus bring-your-own-endpoint.
+Commands split into two layers. The **offline core** makes no network calls,
+needs no API key, and sends no telemetry. The **judgment layer** calls an
+endpoint you configure in `.env` - TypeSafe by default, or any OpenAI-compatible
+endpoint. Everything is MIT and free to run; the split is keyless-and-offline
+versus bring-your-own-endpoint. Full setup in the
+[judgment layer guide](judgment-layer.md).
+
+| Command | Needs a judgment endpoint? |
+|---|---|
+| `scan`, `map`, `baseline`, `fix`, `redteam` (synthesis) | **No** - offline, keyless |
+| `audit` | **Yes** |
+| `review` | Only for the AI-judged layer; runs **taint-only** without a key |
+| `redteam --execute` | **Yes** |
 
 ## Exit codes (the contract)
 
