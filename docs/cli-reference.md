@@ -5,26 +5,39 @@ palisade-sec [--version] <command> [args]
 ```
 
 Commands split into two layers. The **offline core** makes no network calls,
-needs no API key, and sends no telemetry. The **judgment layer** calls an
-endpoint you configure in `.env` - TypeSafe by default, or any OpenAI-compatible
-endpoint. Everything is MIT and free to run; the split is keyless-and-offline
-versus bring-your-own-endpoint. Full setup in the
+needs no API key, and sends no telemetry. The **judgment layer** needs the
+`[judge]` extra (`pip install 'palisade-sec[judge]'`, or
+`uvx --from 'palisade-sec[judge]' palisade-sec ...`) and calls an endpoint you
+configure in the environment or a `.env` - TypeSafe by default, or any
+OpenAI-compatible endpoint. Everything is MIT and free to run; the split is
+keyless-and-offline versus bring-your-own-endpoint. Full setup in the
 [judgment layer guide](judgment-layer.md).
 
-| Command | Needs a judgment endpoint? |
+| Command | Needs `[judge]` + a judgment endpoint? |
 |---|---|
 | `scan`, `map`, `baseline`, `fix`, `redteam` (synthesis) | **No** - offline, keyless |
-| `audit` | **Yes** |
-| `review` | Only for the AI-judged layer; runs **taint-only** without a key |
-| `redteam --execute` | **Yes** |
+| `audit` | **Yes** - exits `2` with a hint if the extra or key is missing |
+| `review` | Only for the AI-judged layer; runs **taint-only** without them, and says so on stderr |
+| `redteam --execute` | **Yes** - exits `2` with a hint if the extra or key is missing |
 
 ## Exit codes (the contract)
 
 | Code | Meaning |
 |---|---|
-| `0` | Success. Includes "findings exist but `--ci` not set" and "all findings baselined under `--ci`". |
-| `1` | `--ci` was set and at least one **new HIGH** finding exists. |
-| `2` | Usage error (e.g. target path does not exist). |
+| `0` | Success, or nothing new. Includes "findings exist but `--ci` not set" and "all findings baselined under `--ci`". |
+| `1` | A gate tripped: `scan --ci` / `review --ci` found a **new HIGH** finding, `redteam --execute --ci` saw an attack land, or `audit --ci` produced a **BLOCK** decision. |
+| `2` | Usage or target error: the path does not exist, an explicit `--config`/`--rules` is missing, a `--ci` run scanned **0 files**, the judgment layer is missing its `[judge]` extra or key, an output path is a symlink (refused), or `redteam --execute --ci` had attacks that errored. |
+| `3` | Internal error - a bug in Palisade, not a finding. Please report it. |
+
+A scan that read 0 files never prints a green tick: it warns "Nothing was
+scanned ... This is not a clean result." in every output format, and under
+`--ci` it exits `2` rather than passing a gate that checked nothing (a
+JS/TS-only repo without the `[js]` extra is the usual cause).
+
+Output files (`palisade-report.md`, `palisade-fixes.md`,
+`palisade-review.md`, `.palisade/baseline.json`, or an explicit `--output`)
+are never written through a symlink: a scanned repository could plant one at
+those names, so Palisade refuses and exits `2` instead.
 
 ## `palisade-sec scan [PATH]`
 
@@ -36,7 +49,7 @@ Scan a file or directory (default `.`) for source → LLM → sink paths.
 | `--json` | Emit the stable JSON document (below) to stdout instead of terminal output. |
 | `--sarif` | Emit SARIF 2.1.0 to stdout, for GitHub code scanning / any AppSec pipeline. |
 | `--report` | Also write `palisade-report.md` - a shareable mini threat model grouped by severity. |
-| `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists. |
+| `--ci` | Exit `1` if any (new, when combined with `--baseline`) HIGH finding exists; exit `2` if 0 files were scanned. |
 | `--baseline FILE` | Diff against a baseline; only new findings are reported/counted. Stale entries are noted. |
 | `--rules DIR` | Load additional/overriding YAML rules from a directory (same `id` overrides a builtin). |
 | `--config FILE` | Explicit config file (`.palisade.toml` format). |
@@ -120,15 +133,16 @@ pass / review / block:
 - **taint exploitability** - over each verified `source → LLM → sink` finding:
   how realistically exploitable is that specific path, and how severe.
 
-Every question is anchored to a fact the static analyzer verified. Reads the
-backend from `.env`; if no key is set it stops with a clear message. An
+Every question is anchored to a fact the static analyzer verified. Needs the
+`[judge]` extra and reads the backend from the environment or `.env`; if either
+is missing it exits `2` with a clear message. An
 unverified (generic) backend never emits BLOCK on judgment alone - such a
 decision downgrades to REVIEW.
 
 | Flag | Effect |
 |---|---|
 | `--json` | Emit findings as JSON (`schema_version: 1`). |
-| `--ci` | Exit `1` if any finding is a BLOCK decision. |
+| `--ci` | Opt-in gate: exit `1` if any finding is a BLOCK decision. |
 | `--config FILE` | As in `scan`. |
 
 ## `palisade-sec review [PATH]` (judgment layer)
@@ -138,7 +152,8 @@ prioritized report with a **posture score**: a number `0..100` and a named band
 (Critical / High / Moderate / Low), derived from the tier counts and printed
 with the breakdown beside it. It is a posture over *detected* findings
 (`likelihood × impact`), not a safety score. If no judgment backend is
-configured, `review` runs taint-only and says so.
+configured (or the `[judge]` extra is not installed), `review` runs taint-only
+and says why on stderr, so `--json` stays parseable.
 
 `review` judges each finding once per run and emits both the composed posture
 and the audit view (`audit_findings` in `--json`) from that single pass, so a
@@ -150,7 +165,7 @@ separate runs; the score is deterministic within a run, not across runs.
 |---|---|
 | `--json` | Emit the report as JSON (`schema_version: 1`), including the posture block. |
 | `--report` | Also write `palisade-review.md`. |
-| `--ci` | Exit `1` on a **new HIGH taint** finding (baseline-diffed). Judged signals never gate CI - they are uncalibrated until scored on the corpus. |
+| `--ci` | Exit `1` on a **new HIGH taint** finding (baseline-diffed); exit `2` if 0 files were scanned. Gates only on deterministic taint findings: `review`'s judged signals never gate. Their calibration is preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays advisory. For an explicit gate on judged decisions, opt in with `audit --ci`. |
 | `--baseline FILE` | Baseline to diff `--ci` against. |
 | `--config FILE` | As in `scan`. |
 
@@ -170,19 +185,22 @@ data exfiltration, jailbreak, system-prompt leak) but does NOT run them.
 | `--execute` | Fire the suite at a live target. Requires `--approve`. |
 | `--approve` | Required with `--execute`: you authorize firing adversarial inputs. |
 | `--target URL` | Target endpoint (or set `PALISADE_REDTEAM_TARGET`; key via `PALISADE_REDTEAM_KEY`). |
-| `--ci` | With `--execute`: exit `1` if any attack lands. |
+| `--ci` | With `--execute`: exit `1` if any attack lands; exit `2` if attacks errored. |
 | `--config FILE` | As in `scan`. |
 
 Execution drives the endpoint **you** provide, in your environment - Palisade
 never executes your code. It scores landed attacks with the judgment backend
 from `.env` (deterministic tool-invocation checks plus a model for behavioral
-judgment). Run it only against systems you own and are authorized to test.
+judgment), so `--execute` needs the `[judge]` extra and a configured backend.
+Run it only against systems you own and are authorized to test.
 
 ## Judgment configuration
 
-`audit` and `review` read their backend from environment variables, loaded from
-a local `.env` (see [`.env.example`](../.env.example)). Keys are read from the
-environment only and are never logged.
+`audit`, `review`, and `redteam --execute` read their backend from environment
+variables, or from a `.env` in the current working directory (see
+[`.env.example`](../.env.example), or the template in the
+[judgment layer guide](judgment-layer.md)). The process environment wins over
+`.env`. Keys are never logged.
 
 | Variable | Meaning |
 |---|---|
@@ -192,10 +210,12 @@ environment only and are never logged.
 | `TYPESAFE_API_KEY` | Key for the `typesafe` backend. |
 | `PALISADE_JUDGE_API_KEY` | Key for the `openai_compatible` backend. |
 
-Install the extra with `pip install 'palisade-sec[judge]'`. **TypeSafe** returns
-calibrated answers; a generic OpenAI-compatible endpoint is validated against a
+Install the extra with `pip install 'palisade-sec[judge]'`. **TypeSafe** answers
+are treated as verified; a generic OpenAI-compatible endpoint is validated against a
 strict schema and treated as best-effort/unverified, so it can never BLOCK or
-raise a Critical posture on judgment alone.
+raise a Critical posture on judgment alone. Calibration of the judged signals is
+preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a
+benchmark result; the judged layer stays advisory.
 
 ## Inline suppressions
 
@@ -264,7 +284,7 @@ parse defensively on any other value.
 ```jsonc
 {
   "schema_version": 1,
-  "tool": "palisade-sec 0.3.2",
+  "tool": "palisade-sec 0.5.1",
   "summary": {
     "files_scanned": 6,
     "high": 4, "med": 1, "low": 0,
@@ -319,7 +339,7 @@ Notes for consumers:
 ```jsonc
 {
   "schema_version": 1,
-  "tool": "palisade-sec 0.3.2",
+  "tool": "palisade-sec 0.5.1",
   "findings": {
     "<fingerprint>": { "rule": "PI-EXEC", "file": "app.py", "severity": "high", "count": 1 }
   }

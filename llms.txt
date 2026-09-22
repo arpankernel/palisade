@@ -3,10 +3,16 @@
 > A linter for LLM security: statically detects prompt-injection paths -
 > untrusted input → LLM → dangerous sink (exec/eval, shell, raw SQL, URL
 > fetch) - in Python and JavaScript/TypeScript codebases, in CI. Pure static
-> analysis: never executes scanned code, no network calls, no API key.
-> Install: `pip install palisade-sec` (add `[js]` for JS/TS). Run:
-> `palisade-sec scan . --json`. Exit codes: 0 ok, 1 new HIGH under --ci,
-> 2 usage error. JSON schema_version: 1.
+> analysis: never executes scanned code. The offline core (`scan`, `map`,
+> `baseline`, `fix`, `redteam` synthesis) makes no network calls and needs no
+> API key. Install: `pip install palisade-sec` (add `[js]` for JS/TS). Run:
+> `palisade-sec scan . --json`. Exit codes: 0 ok or nothing new; 1 a gate
+> tripped (new HIGH under `scan`/`review --ci`, BLOCK under `audit --ci`, a
+> landed attack under `redteam --execute --ci`); 2 usage/target error (bad
+> path, missing explicit `--config`/`--rules`, a `--ci` run that scanned 0
+> files, judgment layer missing its `[judge]` extra or key, refused symlinked
+> output path, errored attacks under `redteam --execute --ci`); 3 internal
+> error (a bug, not a finding). JSON schema_version: 1.
 
 Key facts for tools and agents: findings require a complete
 source→LLM→sink data-flow path (near-zero false positives by design);
@@ -15,7 +21,12 @@ to MED "risky" rather than suppressing them; `palisade-sec fix` emits
 guardrail templates + regression tests without modifying code;
 `--assume-params-untrusted` enables library mode (public function params
 become sources); `baseline` + `scan --ci --baseline` gates CI on NEW
-findings only.
+findings only. `map` inventories the AI surface offline. The optional
+judgment layer - `audit`, the judged checks in `review`, and `redteam
+--execute` - needs `pip install 'palisade-sec[judge]'` plus an endpoint and
+key in the environment or a `.env` in the current directory; without them
+`review` runs taint-only. `review --ci` gates only on deterministic taint
+findings; `audit --ci` is an explicit opt-in gate on BLOCK decisions.
 
 ## Docs
 
@@ -23,9 +34,10 @@ Hosted documentation (human-readable, searchable): https://arpankernel.github.io
 
 - [Agent contract](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/agents.md): exact commands, JSON parsing rules, remediation policy - start here if you are an AI agent
 - [CLI reference](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/cli-reference.md): all commands, flags, exit codes, config keys, full JSON + baseline schemas
-- [Rules reference](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/rules-reference.md): the five builtin rules, pattern semantics, sanitizer tiers, custom rules
+- [Rules reference](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/rules-reference.md): the six builtin rules, pattern semantics, sanitizer tiers, custom rules
 - [End-to-end tutorial](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/tutorial.md): scan → fix → verify → baseline → CI on a sample app
 - [Architecture](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/architecture.md): frontends → taint IR → engine → rules; precision decisions; safety contract
+- [Judgment layer](https://raw.githubusercontent.com/arpankernel/palisade/main/docs/judgment-layer.md): which commands are keyless, the `[judge]` extra, and `.env` setup for audit/review/redteam --execute
 
 ## Optional
 

@@ -52,7 +52,14 @@ def _message(f: Finding) -> str:
     return "\n\n".join(parts)
 
 
-def to_sarif(findings: list[Finding], tool_version: str | None = None, base_uri: str = "") -> str:
+def to_sarif(
+    findings: list[Finding],
+    tool_version: str | None = None,
+    base_uri: str = "",
+    *,
+    files_scanned: int | None = None,
+    notifications: list[str] | None = None,
+) -> str:
     version = tool_version or __version__
     rules: dict[str, dict] = {}
     for f in findings:
@@ -85,21 +92,32 @@ def to_sarif(findings: list[Finding], tool_version: str | None = None, base_uri:
             }
         )
 
+    run: dict = {
+        "tool": {
+            "driver": {
+                "name": "palisade-sec",
+                "informationUri": _INFO_URI,
+                "version": version,
+                "rules": list(rules.values()),
+            }
+        },
+        "results": results,
+    }
     doc = {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "palisade-sec",
-                        "informationUri": _INFO_URI,
-                        "version": version,
-                        "rules": list(rules.values()),
-                    }
-                },
-                "results": results,
-            }
-        ],
+        "runs": [run],
     }
+    if files_scanned is not None or notifications:
+        # Without an invocation record, an empty `results` array reads as a
+        # clean run in GitHub code scanning even when nothing was checked.
+        # Record whether the run examined anything and what it skipped.
+        run["invocations"] = [
+            {
+                "executionSuccessful": files_scanned is None or files_scanned > 0,
+                "toolExecutionNotifications": [
+                    {"level": "warning", "message": {"text": n}} for n in notifications or []
+                ],
+            }
+        ]
     return json.dumps(doc, indent=2)

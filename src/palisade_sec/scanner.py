@@ -116,26 +116,36 @@ def _load_gitignore(root: Path) -> list[str]:
         try:
             for line in gi.read_text(encoding="utf-8", errors="replace").splitlines():
                 line = line.strip()
-                if not line or line.startswith("#") or line.startswith("!"):
+                if not line or line.startswith("#"):
                     continue
+                # Negations (`!src/`) are kept, in order: dropping them made
+                # an allowlist-style .gitignore (`*` then `!src/`) hide the
+                # whole source tree, and a scan of nothing looks clean.
                 patterns.append(line.rstrip("/"))
         except OSError:
             pass
     return patterns
 
 
+def _gitignore_match(rel: str, parts: list[str], pat: str) -> bool:
+    if "/" in pat:
+        return fnmatch.fnmatch(rel, pat.lstrip("/")) or fnmatch.fnmatch(rel, pat.lstrip("/") + "/*")
+    return any(fnmatch.fnmatch(p, pat) for p in parts)
+
+
 def _ignored(rel: str, patterns: list[str]) -> bool:
+    """gitignore semantics, approximately: patterns apply in order and the last
+    match wins, so a later `!pattern` re-includes. Where this is looser than
+    git (git cannot re-include a file under an excluded directory) it errs
+    toward scanning more, which is the safe direction for a security tool."""
     parts = rel.split("/")
+    ignored = False
     for pat in patterns:
-        if "/" in pat:
-            if fnmatch.fnmatch(rel, pat.lstrip("/")) or fnmatch.fnmatch(
-                rel, pat.lstrip("/") + "/*"
-            ):
-                return True
-        else:
-            if any(fnmatch.fnmatch(p, pat) for p in parts):
-                return True
-    return False
+        negated = pat.startswith("!")
+        body = pat[1:] if negated else pat
+        if body and _gitignore_match(rel, parts, body):
+            ignored = not negated
+    return ignored
 
 
 def _is_test_path(rel: str) -> bool:
@@ -196,6 +206,12 @@ class LoweredProject:
     notes: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     files_scanned: int = 0
+
+
+NOTHING_SCANNED = (
+    "nothing was scanned: no supported source files were found under the target "
+    "(0 files). This is not a clean result."
+)
 
 
 @dataclass
@@ -290,8 +306,15 @@ def lower_project(target: Path, config_file: str | None = None) -> LoweredProjec
             out.suppressions[rel] = found
         out.modules.append(lowered)
         out.files_scanned += 1
+    if out.files_scanned == 0:
+        # A scan that read no files proves nothing. Say so in the structured
+        # output too (JSON `warnings`), not just the terminal, so no consumer
+        # can mistake "checked nothing" for "found nothing".
+        out.warnings.append(NOTHING_SCANNED)
     if js_skipped:
-        out.notes.append(
+        # A warning, not a note: these files were NOT checked, and in a mixed
+        # repo the Python findings alone must not read as full coverage.
+        out.warnings.append(
             f"{js_skipped} JS/TS file(s) skipped - install the JS frontend with "
             "`pip install 'palisade-sec[js]'` (or `uvx --with 'palisade-sec[js]' ...`)"
         )
@@ -313,7 +336,23 @@ def run_scan(
     result.notes.extend(low.notes)
     result.files_scanned = low.files_scanned
 
-    rules_result = load_rules(rules_dir or low.cfg.rules_dir)
+    cfg_rules = low.cfg.rules_dir
+    if cfg_rules and not rules_dir:
+        # rules_dir from the scanned repo's own config (.palisade.toml /
+        # pyproject) must stay inside that repo: an untrusted repo must not
+        # direct Palisade to read YAML elsewhere on the user's disk. The
+        # --rules flag is the user's own choice and is not restricted.
+        base = target.resolve() if target.is_dir() else target.resolve().parent
+        resolved = (base / cfg_rules).resolve()
+        if not resolved.is_relative_to(base):
+            result.warnings.append(
+                f"config rules_dir {cfg_rules!r} points outside the scanned tree and was "
+                "ignored; pass --rules to use it"
+            )
+            cfg_rules = None
+        else:
+            cfg_rules = str(resolved)
+    rules_result = load_rules(rules_dir or cfg_rules)
     # rule warnings come after config warnings, matching the historical order
     result.warnings.extend(rules_result.warnings)
     if not rules_result.rules:

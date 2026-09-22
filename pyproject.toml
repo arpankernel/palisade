@@ -1,6 +1,6 @@
 [project]
 name = "palisade-sec"
-version = "0.5.0"
+version = "0.5.1"
 description = "Applied agentic-safety infrastructure: statically detects, evaluates, and gates untrusted-input-to-dangerous-capability paths in Python and JavaScript/TypeScript AI systems."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ Homepage = "https://github.com/arpankernel/palisade"
 Issues = "https://github.com/arpankernel/palisade/issues"
 
 [project.scripts]
-palisade-sec = "palisade_sec.cli:app"
+palisade-sec = "palisade_sec.cli:run"
 
 [project.optional-dependencies]
 js = [

@@ -31,20 +31,20 @@ untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitiz
 
 | Document | What it covers | Read it when |
 |---|---|---|
-| [Getting started](../getting-started/) | Install, first scan, reading a finding, exit codes | You have 5 minutes |
-| [End-to-end tutorial](../tutorial/) | A full workflow on a sample app: scan → understand → fix → verify → baseline → CI → library mode → JS | You're adopting Palisade on a real project |
-| [Architecture](../architecture/) | Frontends → taint IR → engine → rules; how a finding is born; the precision philosophy; the safety contract | You're contributing, or evaluating how it works |
-| [CLI reference](../cli-reference/) | Every command, flag, exit code, config key, the JSON schema, the baseline format | You're wiring it into tooling |
-| [Rules reference](../rules-reference/) | All five builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
-| [For AI agents](../agents/) | A machine-oriented contract: exact commands, JSON parsing, pass/fail policy, remediation loop | You're an agent - or you're pointing one at Palisade |
-| [Roadmap](../roadmap/) | Phases 0–6 (Measure → Remediate), the sequencing thesis, current status per phase | You want to know where this is going |
-| [Proof scans](../proof-scans/) | Palisade vs. the real CVE repos - hits, misses, and what each miss taught the engine | You want the evidence |
+| [Getting started](/palisade/docs/getting-started/) | Install, first scan, reading a finding, exit codes | You have 5 minutes |
+| [End-to-end tutorial](/palisade/docs/tutorial/) | A full workflow on a sample app: scan → understand → fix → verify → baseline → CI → library mode → JS | You're adopting Palisade on a real project |
+| [Architecture](/palisade/docs/architecture/) | Frontends → taint IR → engine → rules; how a finding is born; the precision philosophy; the safety contract | You're contributing, or evaluating how it works |
+| [CLI reference](/palisade/docs/cli-reference/) | Every command, flag, exit code, config key, the JSON schema, the baseline format | You're wiring it into tooling |
+| [Rules reference](/palisade/docs/rules-reference/) | All six builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
+| [For AI agents](/palisade/docs/agents/) | A machine-oriented contract: exact commands, JSON parsing, pass/fail policy, remediation loop | You're an agent - or you're pointing one at Palisade |
+| [Roadmap](/palisade/docs/roadmap/) | Phases 0–6 (Measure → Remediate), the sequencing thesis, current status per phase | You want to know where this is going |
+| [Proof scans](/palisade/docs/proof-scans/) | Palisade vs. the real CVE repos - hits, misses, and what each miss taught the engine | You want the evidence |
 
 Related, outside `docs/`:
 
 - [`README.md`](https://github.com/arpankernel/palisade/blob/main/README.md) - the front page.
-- [`examples/support-bot/`](https://github.com/arpankernel/palisade/blob/main/examples/support-bot/) - the tutorial's sample app.
-- [`examples/vulnerable-app/`](https://github.com/arpankernel/palisade/blob/main/examples/vulnerable-app/) - the acceptance fixtures (every behavior claim in these docs is pinned by a test against this app).
+- [`examples/support-bot/`](https://github.com/arpankernel/palisade/tree/main/examples/support-bot/) - the tutorial's sample app.
+- [`examples/vulnerable-app/`](https://github.com/arpankernel/palisade/tree/main/examples/vulnerable-app/) - the acceptance fixtures (every behavior claim in these docs is pinned by a test against this app).
 - [`src/palisade_sec/rules/README.md`](https://github.com/arpankernel/palisade/blob/main/src/palisade_sec/rules/README.md) - the 5-minute "add a rule" guide.
 - [`CONTRIBUTING.md`](https://github.com/arpankernel/palisade/blob/main/CONTRIBUTING.md) · [`CHANGELOG.md`](https://github.com/arpankernel/palisade/blob/main/CHANGELOG.md) · [`AGENTS.md`](https://github.com/arpankernel/palisade/blob/main/AGENTS.md) (repo-level agent instructions) · [`llms.txt`](https://github.com/arpankernel/palisade/blob/main/llms.txt)
 

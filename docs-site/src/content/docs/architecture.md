@@ -67,7 +67,7 @@ Frontends emit a deliberately small vocabulary (`ir/model.py`):
   `Return` (with `raises` flag), `IfBranch` (with guard metadata:
   test names/calls, negation, literal-membership, terminates), loops,
   try/with blocks.
-- **Definitions** - `FuncDef` (params, decorators, membership-test flag),
+- **Definitions** - `FuncDef` (params, decorators, allowlist-membership flag),
   `Module` (import aliases, class bases).
 
 Anything a frontend can't express folds into `Unknown`, which propagates
@@ -104,17 +104,20 @@ Walk the tutorial's `/report` route through the engine:
    - `trusted: true` patterns (pydantic `model_validate`, marshmallow
      `schema.load`, `shlex.quote`, …) - suppress on name match.
    - Name-heuristic patterns (`validate…`, `sanitize…`, `…allowlist`) -
-     suppress **only if the resolved body shows a real validation shape**
-     (a membership test, a guard branch that raises/returns, a raise
-     anywhere, an `re.fullmatch`-style call, or one level of delegation to
-     such a body). Otherwise the taint keeps flowing, tagged
+     suppress **only if the resolved body shows an allowlist shape**
+     (the input looked up in a fixed allowed collection, an AST node-type
+     allowlist over the parsed input, an enum-literal guard, an
+     `re.fullmatch`-style strict validator call, or one level of delegation
+     to such a body). A bare raise, a length check, or a denylist
+     search of the input does not count. Otherwise the taint keeps flowing, tagged
      `unverified_sanitizer` → the finding lands as **MED "risky"**.
    - Full sanitizers also include `int()`/enum casts and literal-membership
      guards (`if verb in ("list", "status")`).
 6. **Partial defenses never suppress.** Denylists and confirmation gates
    (`is_blocked(...)`, `confirm(...)`) tag the taint and downgrade the
-   eventual finding to MED - because PAL's denylist and Open Interpreter's
-   gate were bypassed in the wild.
+   eventual finding to MED - because PAL's denylist was bypassed in a
+   disclosed CVE (CVE-2023-44467), and Open Interpreter's confirmation gate
+   is the only barrier by design.
 7. **Sink.** `exec(code)` matches a sink pattern. Sink specs carry shape
    guards: `taint_args: [0]` (only `exec`'s *code* argument is dangerous -
    a tainted globals dict is not), `require_kwargs: {shell: true}`
@@ -141,8 +144,8 @@ sanitizers are on the path.
 | `cursor.execute(q, params)` / `pool.query(text, values)` | silent | parameterized |
 | LLM output only logged/printed/returned | silent | not a sink |
 | pydantic/marshmallow validation on path | silent | trusted sanitizer tier |
-| Verified project sanitizer (raises/allowlists) | silent | body-verified |
-| Denylist / confirmation gate | **MED risky** | bypassed in real CVEs |
+| Verified project sanitizer (allowlist-shaped) | silent | body-verified |
+| Denylist / confirmation gate | **MED risky** | bypassed in a disclosed CVE (LangChain PAL) |
 | Sanitizer in name only (cosmetic transform) | **MED unverified sanitizer** | Vanna CVE-2024-5565 shipped through one |
 | `tests/**`, `conftest.py`, `.venv`, `.gitignore`d | skipped | configurable (`include_tests`) |
 
@@ -150,8 +153,9 @@ sanitizers are on the path.
 
 The taint engine is deterministic. On top of it sits an optional judgment layer
 that answers questions the engine cannot decide by dataflow alone. It is reached
-only by `map`, `audit`, and `review`, never by `scan`, and only `audit`/`review`
-call out.
+only by `map`, `audit`, `review`, and `redteam --execute`, never by `scan`, and
+only `audit`, `review`, and `redteam --execute` call out (they need the
+`palisade-sec[judge]` extra plus an endpoint you configure).
 
 ```
   IR ──▶ PROBE (map): inventory the AI surface (offline, deterministic)
@@ -160,7 +164,7 @@ call out.
                   │       excessive_agency (tools) · taint_exploitability (paths)
                   ▼
              JudgeBackend.ask(state, questions)   # one batched call per artifact
-              ├─ TypeSafe: calibrated typed answers (verified)
+              ├─ TypeSafe: typed answers with confidence (verified)
               └─ OpenAI-compatible: strict-JSON validated against a schema
                                      (best-effort, unverified)
                   ▼
@@ -173,7 +177,7 @@ Three properties keep it honest:
    (a real tool, a real `source → LLM → sink` path). The state sent to the
    endpoint is that verified fact, not raw files.
 2. **Two adapters, one interface.** `judge/` defines a `JudgeBackend` with
-   backend-neutral `Question`/`Answer` types. TypeSafe returns calibrated answers
+   backend-neutral `Question`/`Answer` types. TypeSafe returns typed answers
    (`verified=True`); a generic OpenAI-compatible endpoint is validated against a
    pydantic schema and labelled best-effort (`verified=False`).
 3. **The unverified ceiling.** An unverified backend can never emit a BLOCK on
@@ -181,8 +185,10 @@ Three properties keep it honest:
    risk, and never manufacture a Critical posture. The same rule is enforced at
    the finding level and again at the aggregate.
 
-The exploitability and posture signals are **uncalibrated until scored on the
-corpus**; the deterministic scanner's published precision is independent of them.
+Calibration of the judged signals is **preliminary: measured on a 10-case seed
+corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays
+advisory** (see `corpus/judgment/RESULTS.md`). The deterministic scanner's
+published precision is independent of them.
 
 Judged output is **deterministic within a single run and non-deterministic
 across runs**. `review` performs one judgment pass and exposes both the audit
@@ -217,8 +223,9 @@ module, so same-named agents in different files are not merged.
 
 ## Scale characteristics
 
-Measured on real repos (see [proof-scans.md](proof-scans.md)): 1,576 mixed
-Python+TypeScript files (Langflow 1.2.0, backend + frontend) in ~36 s, zero
+Measured on real repos (see [proof-scans.md](/palisade/docs/proof-scans/)): 1,576 mixed
+Python+TypeScript files (Langflow 1.2.0, backend + frontend) in ~9 s on an
+Apple M3 Pro (re-measured for 0.5.1), zero
 crashes, zero skipped files, zero false positives. Inter-procedural depth is
 bounded (default 3 hops, configurable) and truncation is reported honestly
 in the scan notes.
@@ -235,7 +242,13 @@ in the scan notes.
   beyond bounded static taint; framework-specific rules are the pragmatic
   path.
 - Sanitizer body verification is a heuristic - it judges shape, not
-  semantics. It errs toward flagging (downgrade, never silence).
+  semantics. It silences only on a recognized allowlist / strict-validator
+  shape (allowlist membership, an AST node-type allowlist, `re.fullmatch`,
+  enum-literal guard); an ambiguous
+  or cosmetic body downgrades to MED "unverified sanitizer" rather than
+  suppressing. A bare raise, a length or emptiness check, or a denylist
+  search of the input is not an allowlist shape: 0.5.0 counted those as
+  verified and silenced the finding; 0.5.1 downgrades instead.
 - The `map` command resolves a literal `model=` argument only; a model id held
   in a variable or module constant is reported as `?`. Offline-map only; it does
   not affect taint findings or the judgment layer.

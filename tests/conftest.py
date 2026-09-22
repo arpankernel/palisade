@@ -8,6 +8,23 @@ EXAMPLE_APP = REPO_ROOT / "examples" / "vulnerable-app"
 
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from palisade_sec.judge import config as _jconfig  # noqa: E402
+
+# The real .env reader, kept for the tests that exercise it; every other test
+# sees an empty .env (see _never_read_a_real_dotenv).
+REAL_DOTENV_VALUES = _jconfig._dotenv_values
+
+
+@pytest.fixture(autouse=True)
+def _never_read_a_real_dotenv(monkeypatch):
+    """The judge config reads `.env` from the working directory and its
+    parents. A developer's real .env (with live keys) must never leak into
+    the suite and trigger network calls; tests that exercise .env loading
+    patch this themselves."""
+    from palisade_sec.judge import config as jconfig
+
+    monkeypatch.setattr(jconfig, "_dotenv_values", lambda: {})
+
 
 @pytest.fixture(scope="session")
 def example_scan():

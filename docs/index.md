@@ -23,7 +23,7 @@ untrusted input  →  LLM  →  exec / shell / raw SQL / URL fetch   (no sanitiz
 | [End-to-end tutorial](tutorial.md) | A full workflow on a sample app: scan → understand → fix → verify → baseline → CI → library mode → JS | You're adopting Palisade on a real project |
 | [Architecture](architecture.md) | Frontends → taint IR → engine → rules; how a finding is born; the precision philosophy; the safety contract | You're contributing, or evaluating how it works |
 | [CLI reference](cli-reference.md) | Every command, flag, exit code, config key, the JSON schema, the baseline format | You're wiring it into tooling |
-| [Rules reference](rules-reference.md) | All five builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
+| [Rules reference](rules-reference.md) | All six builtin rules in depth; pattern semantics; sanitizer tiers; writing custom rules | You're tuning or extending coverage |
 | [For AI agents](agents.md) | A machine-oriented contract: exact commands, JSON parsing, pass/fail policy, remediation loop | You're an agent - or you're pointing one at Palisade |
 | [Roadmap](roadmap.md) | Phases 0–6 (Measure → Remediate), the sequencing thesis, current status per phase | You want to know where this is going |
 | [Proof scans](proof-scans.md) | Palisade vs. the real CVE repos - hits, misses, and what each miss taught the engine | You want the evidence |

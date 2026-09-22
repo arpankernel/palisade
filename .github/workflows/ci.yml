@@ -37,3 +37,21 @@ jobs:
           fi
       - name: Self-check - palisade's own source must be clean
         run: uv run palisade-sec scan src --ci
+
+  install-surface:
+    # The `test` job runs in a dev environment with every optional extra
+    # installed, so it cannot see what `pip install palisade-sec` gets.
+    # This job builds the wheel and drives every command from a fresh venv
+    # with no extras. It exists because 0.5.0 shipped a `review` crash and
+    # a zero-files `--ci` pass that only a plain install could reveal.
+    name: Plain install (no extras)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build the wheel
+        run: uv build --wheel
+      - name: Smoke-test the CLI as a user installs it
+        run: PYTHON="$(uv python find 3.12)" scripts/smoke_install.sh dist/*.whl

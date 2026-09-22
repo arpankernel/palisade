@@ -59,6 +59,10 @@ class Metrics:
     # but minted nothing. Unlike plain unchallenged targets this is a real
     # defect - their ground-truth labels can never be reached - so it fails.
     misconfigured: list[str] = field(default_factory=list)
+    # Files scanned, in total and in challenged targets only. Printed so the
+    # published "N files" figure is reproducible from any CI run's output.
+    files: int = 0
+    challenged_files: int = 0
 
     @property
     def precision(self) -> float:
@@ -146,6 +150,8 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
             unchallenged.append(f"{entry['name']} ({res.files_scanned} files)")
         else:
             m.challenged += 1
+            m.challenged_files += res.files_scanned
+        m.files += res.files_scanned
         # Recall counts a finding at ANY severity: a real vulnerability that
         # Palisade deliberately downgrades to MED (a denylist or an unverified
         # sanitizer on the path) is still a hit, not a miss. Vanna's
@@ -246,6 +252,11 @@ def main() -> int:
             "was challenged and this run proves nothing about precision."
         )
         return 1
+    if m.files:
+        print(
+            f"\nfiles scanned: {m.files:,} ({m.challenged_files:,} in {m.challenged} "
+            "challenged target(s))"
+        )
     print(
         f"\nprecision={m.precision:.3f} recall={m.recall:.3f} f1={m.f1:.3f} "
         f"(tp={m.tp} fp={m.fp} fn={m.fn}; threshold={threshold})"

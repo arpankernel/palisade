@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.5.1 - 2026-09-22
+
+A pre-launch hardening release. Three independent audits (fresh-install
+behaviour, the tool's own security, and every public claim) ran against the
+published 0.5.0. Everything they reproduced is fixed here, each with a
+regression test that fails on 0.5.0. Re-validated on the pinned 26-repo
+benchmark: precision **1.000** (0 false positives), recall 0.667 unchanged,
+and no new finding of any severity in the 23 clean repos.
+
+### Security
+
+- **Output writes no longer follow planted symlinks.** A repository that
+  shipped `palisade-report.md`, `palisade-fixes.md`, `palisade-review.md` or a
+  `.palisade` directory as symlinks made `scan --report`, `fix`, `review
+  --report` and `baseline` overwrite files outside it (e.g. `~/.bashrc`) when
+  run inside an untrusted clone. Writes now refuse a symlink at the file or
+  any directory below the working directory, and open with `O_NOFOLLOW`.
+- **Scanned text is shown, never interpreted.** Control characters (terminal
+  escape sequences) and Unicode bidi overrides ("Trojan Source") in snippets
+  and file paths are neutralized into visible escapes, so scanned code can no
+  longer rewrite Palisade's own terminal output. Backticks and pipes in paths
+  and snippets can no longer break out of markdown report formatting.
+- **A cloned repo's `.env` cannot redirect your key.** An endpoint chosen by a
+  `.env` file is used only with a key from that same file.
+- **A repo's own config cannot point `rules_dir` outside the repo.** `--rules`
+  is unrestricted.
+
+### Fixed
+
+- **Only allowlist-shaped sanitizers silence a finding.** 0.5.0 silenced
+  PI-EXEC when the sanitizer was a denylist search of the input (`if "import"
+  in code: raise`), a length check, or any raise (e.g. `ast.parse` in a
+  try/except), contradicting "downgrade, never silence". Those now land as
+  MED "unverified sanitizer". Silencing requires an allowlist lookup, an AST
+  node-type allowlist, an enum-literal guard, or a strict matcher such as
+  `re.fullmatch` (now also recognized inside an `if` condition).
+- **`review`, `audit` and `redteam --execute` no longer crash on a plain
+  install.** Without the `[judge]` extra they printed an httpx
+  `ModuleNotFoundError` traceback. `review` now runs taint-only and says why;
+  `audit` and `redteam --execute` exit 2 with an install hint.
+- **An empty scan is never a pass.** Scanning zero files (a JS/TS repo
+  without `[js]`, an over-broad ignore, an empty target) printed a green tick
+  and passed `--ci`. It now warns in every output, and `scan`/`review`/
+  `audit --ci` exit 2. SARIF records the run as unsuccessful.
+- **A copy-pasted known vulnerability is a new finding.** Baseline
+  fingerprints are line-independent, so a duplicate passed `--ci`; the diff
+  now compares occurrence counts.
+- **`redteam --execute`: an unreachable target is not "0 landed".** Attacks
+  with no response are reported as errors, are never scored or sent to the
+  judge, and fail `--ci`.
+- **`.env` is read from the working directory.** 0.5.0 searched from the
+  installed package, so the documented `.env` setup never worked for pip/uvx.
+- **gitignore negations (`!src/`) are honoured.** An allowlist-style
+  `.gitignore` previously hid the whole source tree.
+- **Only the real TypeSafe endpoint counts as verified.** Pointing the
+  TypeSafe adapter elsewhere now gets the unverified-backend posture cap.
+- **Rule references are accurate.** PI-EXEC no longer cites Langflow's
+  CVE-2025-3248 (no LLM on its path; the corpus scores it out of contract),
+  and PI-SQL no longer cites Vanna's CVE-2024-5565/-5826 (exec bugs). A test
+  fails if a rule cites a CVE the corpus scores clean.
+
+### Changed
+
+- **Exit code 3 means an internal error** (a bug, not a finding). 0.5.0 exited
+  1 on a crash, the same as "found a HIGH". `PALISADE_DEBUG=1` shows the
+  traceback.
+- Exit code 2 now also covers: a `--ci` run that scanned nothing, a missing
+  `[judge]` extra or key, an explicitly named `--config`/`--rules` that does
+  not exist, a refused output path, and red-team attacks that got no response
+  under `--ci`.
+- A judge outage during `review` falls back to taint-only; it never fails the
+  deterministic `--ci` gate. During `audit` it is a clean exit 2.
+- Every command reports warnings, skipped files and notes (on stderr, so
+  `--json` stays parseable). JS/TS files skipped for want of `[js]` are a
+  warning, and files that failed to parse are counted beside the verdict.
+- `redteam --variants` is range-checked against the templates that exist
+  (1-2); larger values silently produced duplicates.
+- The precision harness prints the number of files it scanned.
+- `.env.example` no longer sets the endpoint and model (both have defaults).
+
+### Internal
+
+- New CI job **"Plain install (no extras)"**: builds the wheel and drives every
+  command from a fresh venv with no extras (`scripts/smoke_install.sh`). It
+  also runs in the release workflow before publishing. It fails on the 0.5.0
+  wheel and passes on 0.5.1.
+
 ## 0.5.0 - 2026-09-21
 
 The applied agentic-safety layer. The deterministic core (`scan`, `map`,

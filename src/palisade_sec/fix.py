@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding
+from palisade_sec.report.markdown import md_code
 
 _GUARDRAILS: dict[str, tuple[str, str]] = {
     # family -> (guardrail snippet, pytest snippet)
@@ -176,12 +177,12 @@ def build_fix_plan(findings: list[Finding], files_scanned: int, target: str) -> 
     for i, f in enumerate(findings, 1):
         guard, test = _GUARDRAILS[_family(f)]
         lines += [
-            f"## {i}. [{f.rule_id}] {f.title} - `{f.file}:{f.line}`",
+            f"## {i}. [{f.rule_id}] {f.title} - `{md_code(f.file)}:{f.line}`",
             "",
             f"- severity **{f.severity.upper()}**, confidence {f.confidence}",
-            f"- source: `{f.source.snippet}` (`{f.source.file}:{f.source.line}`)",
-            f"- llm: `{f.llm.snippet}` (`{f.llm.file}:{f.llm.line}`)",
-            f"- sink: `{f.sink.snippet}` (`{f.sink.file}:{f.sink.line}`)",
+            f"- source: `{md_code(f.source.snippet)}` (`{md_code(f.source.file)}:{f.source.line}`)",
+            f"- llm: `{md_code(f.llm.snippet)}` (`{md_code(f.llm.file)}:{f.llm.line}`)",
+            f"- sink: `{md_code(f.sink.snippet)}` (`{md_code(f.sink.file)}:{f.sink.line}`)",
         ]
         if f.partial_defenses:
             what = ", ".join(f"`{p.pattern}`" for p in f.partial_defenses)

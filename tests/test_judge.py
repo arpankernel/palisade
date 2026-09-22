@@ -46,7 +46,9 @@ def test_typesafe_maps_questions_and_parses_answers():
             },
         )
 
-    b = TypeSafeBackend(api_key="k-secret", endpoint="https://ts.test", client=_client(handler))
+    # The default endpoint (the real service) is the only verified one; the
+    # mocked client intercepts the request, so nothing leaves the process.
+    b = TypeSafeBackend(api_key="k-secret", client=_client(handler))
     result = b.ask({"tool_name": "wipe"}, QUESTIONS)
 
     assert seen["url"].endswith("/v1/systemone")
@@ -141,7 +143,7 @@ def test_openai_compatible_rejects_missing_field():
 @pytest.fixture(autouse=True)
 def _no_dotenv(monkeypatch):
     # Never read a real .env during config tests.
-    monkeypatch.setattr(jconfig, "_load_dotenv", lambda: None)
+    monkeypatch.setattr(jconfig, "_dotenv_values", lambda: {})
     for var in (
         jconfig.BACKEND_ENV,
         jconfig.ENDPOINT_ENV,
@@ -190,3 +192,11 @@ def test_config_rejects_unknown_backend(monkeypatch):
     monkeypatch.setenv(jconfig.BACKEND_ENV, "nonsense")
     with pytest.raises(JudgeError):
         jconfig.get_backend()
+
+
+def test_typesafe_protocol_on_another_endpoint_is_unverified():
+    """Pointing PALISADE_JUDGE_ENDPOINT anywhere else must not inherit the
+    real service's "calibrated" label, or it would bypass the posture cap for
+    unverified backends."""
+    b = TypeSafeBackend(api_key="k", endpoint="http://127.0.0.1:9", client=_client(lambda r: None))
+    assert b.verified is False

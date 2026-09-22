@@ -33,7 +33,7 @@ def load_rules(extra_dir: str | None = None) -> RuleLoadResult:
         for f in sorted(d.glob("*.yaml")) + sorted(d.glob("*.yml")):
             try:
                 data = yaml.safe_load(f.read_text(encoding="utf-8"))
-            except (yaml.YAMLError, OSError) as exc:
+            except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:
                 result.warnings.append(f"invalid rule file skipped: {f.name}: {exc}")
                 continue
             if not isinstance(data, dict):

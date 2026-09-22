@@ -95,6 +95,11 @@ jobs:
           /tmp/smoke/bin/python -c "import json; d=json.load(open('/tmp/out.json')); \
             assert d['summary']['high'] == 4, d['summary']; print('smoke scan OK')"
 
+      # The same plain-install smoke test CI runs on every PR, repeated on
+      # the exact artifact about to be published.
+      - name: Every command works from a plain install (no extras)
+        run: PYTHON="$(uv python find 3.12)" scripts/smoke_install.sh dist/*.whl
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist

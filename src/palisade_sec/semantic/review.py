@@ -22,6 +22,7 @@ from rich.markup import escape
 
 from palisade_sec.engine import Finding
 from palisade_sec.judge.base import JudgeBackend
+from palisade_sec.report.markdown import md_code
 from palisade_sec.semantic.audit import (
     SemanticFinding,
     audit_excessive_agency,
@@ -93,6 +94,11 @@ class ReviewReport:
     # The audit findings from the SAME single judgment pass that produced the
     # risk items, so audit and review never disagree within one run.
     semantic_findings: list[SemanticFinding] = field(default_factory=list)
+    # (warnings, notes, skipped) from lowering the project, so the CLI can say
+    # what the review did NOT check.
+    diagnostics: tuple[list[str], list[str], list[str]] = field(
+        default_factory=lambda: ([], [], [])
+    )
 
     def breakdown(self) -> dict[str, int]:
         counts = Counter(i.tier for i in self.items)
@@ -170,6 +176,7 @@ def run_review(
         backend_name=backend.name if backend is not None else None,
         backend_verified=backend.verified if backend is not None else True,
         semantic_findings=agency + exploitability,
+        diagnostics=(list(low.warnings), list(low.notes), list(low.skipped)),
     )
 
 
@@ -319,7 +326,7 @@ def to_markdown(report: ReviewReport, target: str) -> str:
     for item in sorted(report.items, key=lambda x: -x.risk):
         lines.append(
             f"| {item.tier} | {item.risk:.2f} | {item.kind} | {item.title} | "
-            f"`{item.file}:{item.line}` | {'yes' if item.judged else 'static'} |"
+            f"`{md_code(item.file)}:{item.line}` | {'yes' if item.judged else 'static'} |"
         )
     lines += [
         "",

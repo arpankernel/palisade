@@ -253,7 +253,12 @@ class _JsLowerer:
                 out.append(self.text(p))
         return out
 
-    def _has_membership(self, node) -> bool:
+    def _has_allowlist_membership(self, node, params: list[str]) -> bool:
+        """`ALLOWED.includes(code)` / `.has()` / `.indexOf()` where the input is
+        the element looked up in a collection - an allowlist. A denylist search
+        of the input (`code.includes("os.")`) or a substring test against a
+        string literal (`"abc".includes(code)`) does not count."""
+        literal = ("string", "template_string", "number")
         stack = [node]
         while stack:
             n = stack.pop()
@@ -261,7 +266,18 @@ class _JsLowerer:
                 fn = n.child_by_field_name("function")
                 if fn is not None and fn.type == "member_expression":
                     prop = fn.child_by_field_name("property")
-                    if prop is not None and self.text(prop) in ("includes", "has", "indexOf"):
+                    recv = fn.child_by_field_name("object")
+                    args = n.child_by_field_name("arguments")
+                    first = args.named_children[0] if args and args.named_children else None
+                    if (
+                        prop is not None
+                        and self.text(prop) in ("includes", "has", "indexOf")
+                        and recv is not None
+                        and recv.type not in literal
+                        and not (recv.type == "identifier" and self.text(recv) in params)
+                        and first is not None
+                        and first.type not in literal
+                    ):
                         return True
             stack.extend(n.named_children)
         return False
@@ -297,7 +313,7 @@ class _JsLowerer:
                 body=stmts,
                 loc=self.loc(node),
                 class_name=class_name,
-                has_membership_test=self._has_membership(node),
+                has_allowlist_membership=self._has_allowlist_membership(node, params),
                 decorators=decorators,
             )
         )

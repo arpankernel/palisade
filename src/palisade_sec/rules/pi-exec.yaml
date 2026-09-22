@@ -5,8 +5,8 @@ description: >
   Untrusted input flows into an LLM whose output is then executed as code
   (exec / eval / compile / PythonREPL). An attacker can craft input that makes
   the model emit arbitrary Python, which then runs on your server. This is the
-  most common real-world LLM vulnerability class (PandasAI, Langflow, Vanna.ai,
-  LangChain PAL - all assigned CVEs, one on CISA KEV).
+  most common real-world LLM vulnerability class (PandasAI, Vanna.ai,
+  LangChain PAL - all assigned CVEs).
 sources:
   - kind: attribute
     patterns:
@@ -114,7 +114,6 @@ partial_defenses:
 references:
   - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
   - "CVE-2024-12366 (PandasAI)"
-  - "CVE-2025-3248 (Langflow, CISA KEV, exploited in the wild)"
   - "CVE-2024-5565 (Vanna.ai)"
   - "CVE-2023-36258 (LangChain PALChain)"
 attack: >

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Palisade - your AI's safety engineer</title>
-<meta name="description" content="Palisade is the safety engineer for your AI. It finds where your app can be tricked into leaking data, running commands, or hitting your database, tests those weaknesses, and blocks them before you ship. Open source, MIT, runs locally. Precision 1.000, zero false positives across 17,343 files of real code.">
+<meta name="description" content="Palisade is the safety engineer for your AI. It finds where your app can be tricked into leaking data, running commands, or hitting your database, tests those weaknesses, and blocks them before you ship. Open source, MIT, runs locally. Precision 1.000, zero false positives across 17,352 files of real code.">
 <meta property="og:title" content="Palisade - your AI's safety engineer">
 <meta property="og:description" content="AI can be tricked with a crafted message into leaking data, running commands, or hitting your database. Palisade finds it, tests it, and gates it in CI - before you ship. Open source, MIT, the scanner runs locally with no API key.">
 <meta property="og:type" content="website">
@@ -361,22 +361,25 @@
         <a class="btn btn-secondary" href="https://github.com/arpankernel/palisade">Star on GitHub ↗</a>
       </div>
       <div class="hero-anim meta-note">JavaScript / TypeScript? add the extra: <code>uvx --from "palisade-sec[js]" palisade-sec scan .</code></div>
-      <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 17,343 files of real code · never executes your code</div>
+      <div class="hero-anim meta-note">precision 1.000 · 0 false positives across 17,352 files of real code · never executes your code</div>
 
       <!-- TERMINAL -->
       <div class="terminal-frame reveal">
         <div class="term-bar"><i></i><i></i><i class="o"></i><span class="title">palisade-sec · scan</span></div>
         <div class="term-body">
-<span class="cmd">uvx palisade-sec scan .</span><span class="blank"></span><span class="hi">HIGH</span>  app.py:34  <span class="rule">[PI-SQL]</span> Prompt injection reaching raw SQL
-  <span class="arrow">↳</span> <span class="dim">source:</span> question = request.json["question"]   <span class="dim">(app.py:24)</span>
-  <span class="arrow">↳</span> <span class="dim">llm:</span>    resp = client.chat.completions.create( <span class="dim">(app.py:25)</span>
-  <span class="arrow">↳</span> <span class="dim">sink:</span>   cur.execute(sql)                       <span class="dim">(app.py:34)</span>
-  <span class="dim">No sanitizer on path.  Confidence: HIGH · CVE-2024-5565 (Vanna.ai)</span><span class="blank"></span><span class="hi">HIGH</span>  app.py:64  <span class="rule">[PI-EXEC]</span> Prompt injection reaching code execution
-  <span class="arrow">↳</span> <span class="dim">source:</span> spec = request.json["spec"]            <span class="dim">(app.py:56)</span>
-  <span class="arrow">↳</span> <span class="dim">llm:</span>    resp = client.chat.completions.create( <span class="dim">(app.py:57)</span>
-  <span class="arrow">↳</span> <span class="dim">sink:</span>   exec(code)                             <span class="dim">(app.py:64)</span>
-  <span class="dim">Attack: crafted input makes the model emit Python that runs on your server.</span>
-  <span class="dim">Fix: never exec model output; sandbox + strict allowlist.</span><span class="blank"></span><span class="med">MED</span>   app.py:97  <span class="rule">[PI-EXEC]</span> <span class="dim">(risky: partial defense only - denylists are bypassable)</span><span class="blank"></span>Found <span class="hi">2 high</span>, <span class="med">1 med</span> finding(s) in 6 file(s).  <span class="dim">exit 1 (--ci)</span>
+<span class="cmd">uvx palisade-sec scan examples/support-bot</span><span class="blank"></span><span class="hi">HIGH</span>  app.py:33  <span class="rule">[PI-SQL]</span> Prompt injection reaching raw SQL
+  <span class="arrow">↳</span> <span class="dim">source:</span> question = request.json["question"]  <span class="dim">(app.py:23)</span>
+  <span class="arrow">↳</span> <span class="dim">llm:</span>    resp = client.chat.completions.create(  <span class="dim">(app.py:24)</span>
+  <span class="arrow">↳</span> <span class="dim">sink:</span>   cur.execute(sql)  <span class="dim">(app.py:33)</span>
+  <span class="dim">No sanitizer on path.  Confidence: HIGH</span><span class="blank"></span><span class="hi">HIGH</span>  app.py:48  <span class="rule">[PI-SHELL]</span> Prompt injection reaching an OS command
+  <span class="arrow">↳</span> <span class="dim">source:</span> symptom = request.json["symptom"]  <span class="dim">(app.py:40)</span>
+  <span class="arrow">↳</span> <span class="dim">llm:</span>    resp = client.chat.completions.create(  <span class="dim">(app.py:41)</span>
+  <span class="arrow">↳</span> <span class="dim">sink:</span>   output = subprocess.run(command, shell=True, capture_output=True, text=True)  <span class="dim">(app.py:48)</span>
+  <span class="dim">No sanitizer on path.  Confidence: HIGH</span><span class="blank"></span><span class="hi">HIGH</span>  app.py:63  <span class="rule">[PI-EXEC]</span> Prompt injection reaching code execution
+  <span class="arrow">↳</span> <span class="dim">source:</span> spec = request.json["spec"]  <span class="dim">(app.py:55)</span>
+  <span class="arrow">↳</span> <span class="dim">llm:</span>    resp = client.chat.completions.create(  <span class="dim">(app.py:56)</span>
+  <span class="arrow">↳</span> <span class="dim">sink:</span>   exec(code)  <span class="dim">(app.py:63)</span>
+  <span class="dim">No sanitizer on path.  Confidence: HIGH</span><span class="blank"></span>Found <span class="hi">3 high</span> finding(s) in 2 file(s).  <span class="dim">exit 1 (--ci)</span>
         </div>
       </div>
     </div>
@@ -386,10 +389,10 @@
   <section style="padding-top:40px">
     <div class="wrap">
       <div class="stats reveal stagger">
-        <div class="stat"><div class="n"><em class="count" data-to="17343">0</em></div><div class="l">files checked · zero false alarms</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="17352">0</em></div><div class="l">files checked · zero false alarms</div></div>
         <div class="stat"><div class="n"><em class="count" data-to="1">0</em> CVE</div><div class="l">real Vanna CVE found, exact line</div></div>
-        <div class="stat"><div class="n">~<em class="count" data-to="36" data-suffix="s">0</em></div><div class="l">to scan a 1,576-file codebase</div></div>
-        <div class="stat"><div class="n"><em class="count" data-to="5">0</em> rules</div><div class="l">python · js/ts · one engine</div></div>
+        <div class="stat"><div class="n">~<em class="count" data-to="9" data-suffix="s">0</em></div><div class="l">to scan a 1,576-file codebase</div></div>
+        <div class="stat"><div class="n"><em class="count" data-to="6">0</em> rules</div><div class="l">python · js/ts · one engine</div></div>
       </div>
     </div>
   </section>
@@ -401,7 +404,7 @@
     <div class="wrap">
       <span class="kicker">The risk</span>
       <h2>A sentence can turn your AI against you.</h2>
-      <p class="section-sub">Feed a model untrusted text and its answer can reach the real world - your shell, your database, an outbound request - running with your privileges. It is the #1 risk on the industry's LLM list, it has already been exploited in the wild, and no prompt fully prevents it. The one place you can reliably catch it is your code, before it ships.</p>
+      <p class="section-sub">Feed a model untrusted text and its answer can reach the real world - your shell, your database, an outbound request - running with your privileges. It is the #1 risk on the industry's LLM list, it has already shipped in disclosed CVEs, and no prompt fully prevents it. The one place you can reliably catch it is your code, before it ships.</p>
       <div class="rules reveal stagger">
 
         <div class="rule-card">
@@ -411,9 +414,9 @@
         </div>
 
         <div class="rule-card">
-          <span class="sev high">IN THE WILD</span><div class="rid">NOT THEORETICAL</div>
+          <span class="sev high">REAL CVEs</span><div class="rid">NOT THEORETICAL</div>
           <h3>Real CVEs, this exact shape</h3>
-          <p>Langflow's injection → exec path (CVE-2025-3248) is on the CISA KEV list, exploited in the wild. PandasAI (CVE-2024-12366, CVSS 9.8) and Vanna (CVE-2024-5565) shipped the same pattern.</p>
+          <p>PandasAI (CVE-2024-12366, CVSS 9.8), Vanna.ai (CVE-2024-5565) and LangChain PAL (CVE-2023-36258) all shipped it: user text into a model, the model's answer into <code>exec</code>.</p>
         </div>
 
         <div class="rule-card">
@@ -470,9 +473,9 @@
         <div class="rule-card">
           <span class="sev high">HIGH</span><div class="rid">PI-SQL</div>
           <h3>Injection → raw SQL</h3>
-          <p>Text-to-SQL executed non-parameterized. <code style="font-family:var(--mono);font-size:11px">execute(q, params)</code> stays silent.</p>
+          <p>Text-to-SQL executed non-parameterized: model-written SQL run verbatim. <code style="font-family:var(--mono);font-size:11px">execute(q, params)</code> stays silent.</p>
           <div class="sinks">cursor.execute · executemany · Model.raw<br>pool.query · db.query</div>
-          <div class="cve">CVE-2024-5565 · CVE-2024-5826</div>
+          <div class="cve">Vanna-style text-to-SQL design</div>
         </div>
         <div class="rule-card">
           <span class="sev high">HIGH</span><div class="rid">PI-FRAMEWORK-EXEC</div>
@@ -529,7 +532,7 @@
         <div class="prec-col flags">
           <header>Still flagged - real CVEs shipped through these</header>
           <ul>
-            <li><span class="mark">MED</span><span><b>Denylists.</b> LangChain PAL's <code>COMMAND_EXECUTION_FUNCTIONS</code> denylist was bypassed → CVE-2023-36258</span></li>
+            <li><span class="mark">MED</span><span><b>Denylists.</b> LangChain PAL's <code>COMMAND_EXECUTION_FUNCTIONS</code> denylist was bypassed → CVE-2023-44467</span></li>
             <li><span class="mark">MED</span><span><b>Confirmation gates.</b> "Are you sure?" is not a security boundary</span></li>
             <li><span class="mark">MED</span><span><b>Sanitizers in name only.</b> Vanna's <code>_sanitize_plotly_code</code> stripped <code>fig.show()</code> - and shipped CVE-2024-5565. Palisade verifies the body, not the name</span></li>
             <li><span class="mark">HIGH</span><span><b>Multi-hop paths.</b> Source in one file, LLM in a second, sink in a third - traced across the call graph</span></li>
@@ -553,17 +556,17 @@
         <div class="terminal-frame" style="margin:0;max-width:none">
           <div class="term-bar"><i></i><i></i><i class="o"></i><span class="title">vanna v0.5.5 · the release behind CVE-2024-5565</span></div>
           <div class="term-body">
-<span class="cmd">palisade-sec scan vanna-0.5.5 --assume-params-untrusted</span><span class="blank"></span><span class="med">MED</span>  src/vanna/base/base.py:1998  <span class="rule">[PI-FRAMEWORK-EXEC]</span>
-  <span class="arrow">↳</span> <span class="dim">source:</span> param:question - ask()           <span class="dim">(base.py:1594)</span>
-  <span class="arrow">↳</span> <span class="dim">llm:</span>    self.submit_prompt(message_log)
-  <span class="arrow">↳</span> <span class="dim">sink:</span>   exec(plotly_code, globals(), ldict)
-  <span class="hi">Unverified sanitizer:</span> _sanitize_plotly_code - <span class="dim">matches a sanitizer
-  name, but its body shows no allowlist/validation shape.</span><span class="blank"></span><span class="ok">✓</span> the CVE sink. <span class="dim">Zero other findings across the 45-file repo.</span>
+<span class="cmd">palisade-sec scan vanna-0.5.5 --all</span><span class="blank"></span><span class="med">MED</span>  src/vanna/base/base.py:1998  <span class="rule">[PI-FRAMEWORK-EXEC]</span>
+  <span class="arrow">↳</span> <span class="dim">source:</span> question = input("Enter a question: ")  <span class="dim">(base.py:1627)</span>
+  <span class="arrow">↳</span> <span class="dim">llm:</span>    plotly_code = self.submit_prompt(message_log, kwargs=kwargs)  <span class="dim">(base.py:706)</span>
+  <span class="arrow">↳</span> <span class="dim">sink:</span>   exec(plotly_code, globals(), ldict)  <span class="dim">(base.py:1998)</span>
+  <span class="hi">Unverified sanitizer:</span> self._sanitize_plotly_code <span class="dim">(base.py:708) - matches a sanitizer
+  name, but its body shows no allowlist/validation shape.</span><span class="blank"></span><span class="ok">✓</span> the CVE sink. <span class="dim">Found 1 med finding(s) in 45 file(s).</span>
           </div>
         </div>
         <div class="receipt-notes">
-          <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules + library mode land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> - the sink NVD lists for CVE-2024-5565 - and correctly call out the cosmetic sanitizer that failed in the wild.</p></div>
-          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 26 third-party repos, 17,343 files, scored in CI: precision 1.000, recall 0.667. Not one wrong flag, and the single miss is labelled as a miss rather than deleted.</p></div>
+          <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> - the <code style="font-family:var(--mono);font-size:11px">exec</code> sink behind CVE-2024-5565 - from an <code style="font-family:var(--mono);font-size:11px">input(...)</code> source, no library mode needed, and call out the cosmetic sanitizer the CVE went straight through. <code style="font-family:var(--mono);font-size:11px">--assume-params-untrusted</code> adds the public <code style="font-family:var(--mono);font-size:11px">ask()</code> parameter as a source and reports the same single finding.</p></div>
+          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 26 third-party repos, 17,352 files, scored weekly and on demand: precision 1.000, recall 0.667. Not one wrong flag, and the single miss is labelled as a miss rather than deleted.</p></div>
           <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="./docs/proof-scans/">Read the full proof-scan report →</a></p></div>
         </div>
       </div>
@@ -628,15 +631,15 @@
           <h3>The action boundary</h3>
           <p>Where a model reaches a real capability - exec, a shell, SQL, an outbound call. This is the loss-of-control surface as autonomy grows.</p>
           <div class="sinks">today · scan input→model→sink · PI-AGENT-HANDOFF<br>today · map agents + handoffs (openai · langgraph · crewai)<br>today · audit excessive agency</div>
-          <div class="cve">next — deeper cross-agent taint · autogen graphs · conditional-edge coverage</div>
+          <div class="cve">next - deeper cross-agent taint · autogen graphs · conditional-edge coverage</div>
         </div>
 
         <div class="rule-card">
           <span class="sev">PARTIAL</span><div class="rid">02 · EVALS & RED-TEAMING</div>
           <h3>Exercise it adversarially</h3>
           <p>Attack the system with inputs built from its own map, and measure what lands - on a pinned, reproducible harness rather than a vibe.</p>
-          <div class="sinks">today · red-team synthesis from the live map<br>today · gated red-team execution (HttpTarget + scorer)<br>today · pinned 26-repo precision gate in CI</div>
-          <div class="cve">next — calibrated per-check P/R on a full benchmark corpus</div>
+          <div class="sinks">today · red-team synthesis from the live map<br>today · gated red-team execution (HttpTarget + scorer)<br>today · fixture-manifest gate on every PR · pinned 26-repo corpus scored weekly and on demand</div>
+          <div class="cve">next - calibrated per-check P/R on a full benchmark corpus</div>
         </div>
 
         <div class="rule-card">
@@ -644,7 +647,7 @@
           <h3>Argue the residual risk</h3>
           <p>A structured, evidence-backed argument a decision-maker can accept - not a bare score. Every claim traces to a fact the engine can prove.</p>
           <div class="sinks">today · review + posture over verified facts<br>today · measured-not-asserted discipline</div>
-          <div class="cve">next — claims → evidence → residual-risk export for auditors</div>
+          <div class="cve">next - claims → evidence → residual-risk export for auditors</div>
         </div>
 
         <div class="rule-card">
@@ -652,7 +655,7 @@
           <h3>Make it enforceable</h3>
           <p>Turn safety practice into an organizational requirement a pipeline enforces, with an audit trail teams and regulators can read.</p>
           <div class="sinks">today · CI gates · exit-code contract<br>today · SARIF + GitHub code-scanning Action<br>today · stable JSON schema · disclosure policy</div>
-          <div class="cve">next — CWE / OWASP-LLM tags · signing / SBOM / provenance</div>
+          <div class="cve">next - CWE / OWASP-LLM tags · signing / SBOM / provenance</div>
         </div>
 
         <div class="rule-card">
@@ -660,15 +663,15 @@
           <h3>Keep a human in control</h3>
           <p>Keep AI-assisted work verifiable as models begin to exceed human review. Advisory by default; a person holds the gate on anything that acts.</p>
           <div class="sinks">today · grounded to ground truth<br>today · approval gates · unverified-can't-act<br>today · never executes your code</div>
-          <div class="cve">next — gate AI-authored diffs · re-verifiable evidence output</div>
+          <div class="cve">next - gate AI-authored diffs · re-verifiable evidence output</div>
         </div>
 
         <div class="rule-card">
           <span class="sev high">SHIPPED</span><div class="rid">06 · MEASURED GROUND TRUTH</div>
           <h3>Why the ambition stays honest</h3>
           <p>Every judgment is anchored to a deterministic finding the engine can prove. The floor under the whole roadmap is a real, measured detector.</p>
-          <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 17,343 files<br>today · zero false positives</div>
-          <div class="cve">honest — the judged layer has a preliminary seed-corpus calibration; full-benchmark calibration is pending, so it stays advisory. The core's precision stands alone</div>
+          <div class="sinks">today · LLM-aware taint core<br>today · precision 1.000 across 17,352 files<br>today · zero false positives</div>
+          <div class="cve">honest - judged-layer calibration is preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays advisory. The core's precision stands alone</div>
         </div>
 
       </div>
@@ -689,11 +692,11 @@
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Which parts are shipped, and is the judgment layer calibrated?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>The taint core - single-agent paths and multi-agent handoff detection - is shipped and gated in CI at precision 1.000, and SARIF output plus gated red-team execution ship alongside it. The judged layer (<code>audit</code>, <code>review</code>, posture) runs today with a <b>preliminary seed-corpus calibration</b> but no full-benchmark precision/recall yet, so it is advisory and can never gate CI or raise a critical posture on its own. Deeper cross-agent taint, governance tags and SBOM/signing, and the oversight-of-AI-code mode are on the public roadmap, marked <b>building</b>. We would rather show the frontier than blur it.</p></div></div>
+          <div class="faq-a"><div><p>The taint core - single-agent paths and multi-agent handoff detection - is shipped and measured at precision 1.000 on the pinned corpus (every PR is gated on a fixture manifest; the 26-repo corpus is scored weekly and on demand), and SARIF output plus gated red-team execution ship alongside it. The judged layer (<code>audit</code>, <code>review</code>, posture) runs today; its calibration is <b>preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result</b>, so it stays advisory and can never gate CI or raise a critical posture on its own. Deeper cross-agent taint, governance tags and SBOM/signing, and the oversight-of-AI-code mode are on the public roadmap, marked <b>building</b>. We would rather show the frontier than blur it.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Does my code ever leave my machine?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, it currently has a preliminary seed-corpus calibration and stays advisory, and the core never calls out.</p></div></div>
+          <div class="faq-a"><div><p>No. <code>scan</code> is pure static analysis: it parses source text and never executes, imports, or evals it - a live test in the suite proves scanned code cannot run. There are no network calls, no telemetry, no accounts, and no API key. The only writes are <code>.palisade/</code> and files you explicitly request. The optional judgment layer (<code>audit</code>, <code>review</code>) is the only part that reaches an endpoint, one you configure in <code>.env</code>; it is all MIT and free, its calibration is preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a benchmark result; the judged layer stays advisory, and the core never calls out.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">How is this different from Semgrep or Bandit?<span class="ic">+</span></button>
@@ -701,7 +704,7 @@
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">What's the false-positive story, honestly?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>Zero across a pinned benchmark corpus of 26 third-party repos and 17,343 files, measured in CI rather than claimed. The mechanism: findings require the full path, safe shapes (arg-list subprocess, parameterized SQL, verified sanitizers, constant prompts) are recognized, and every reported FP becomes a permanent must-stay-silent test. Misses are documented publicly in the proof-scan report.</p></div></div>
+          <div class="faq-a"><div><p>Zero across a pinned benchmark corpus of 26 third-party repos and 17,352 files, measured (weekly and on demand) rather than claimed. The mechanism: findings require the full path, safe shapes (arg-list subprocess, parameterized SQL, verified sanitizers, constant prompts) are recognized, and every reported FP becomes a permanent must-stay-silent test. Misses are documented publicly in the proof-scan report.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Does it work on JavaScript / TypeScript?<span class="ic">+</span></button>
@@ -709,7 +712,7 @@
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Can it scan libraries, not just apps?<span class="ic">+</span></button>
-          <div class="faq-a"><div><p>Library mode: <code>--assume-params-untrusted</code> treats the parameters of public functions as untrusted sources - a library's callers <em>are</em> the untrusted world. That's exactly how Palisade finds the real CVE-2024-5565 sink in vanna v0.5.5 with builtin rules and nothing else.</p></div></div>
+          <div class="faq-a"><div><p>Library mode: <code>--assume-params-untrusted</code> treats the parameters of public functions as untrusted sources - a library's callers <em>are</em> the untrusted world. It is an extra source mode, not what finds vanna: on v0.5.5, builtin rules report the CVE-2024-5565 sink (<code>base.py:1998</code>, MED, shown with <code>--all</code>) from an <code>input(...)</code> source without it, and library mode reports the same single finding, also traced from <code>ask()</code>'s parameter.</p></div></div>
         </div>
         <div class="faq-item">
           <button class="faq-q" type="button">Will a clean scan mean my app is secure?<span class="ic">+</span></button>
