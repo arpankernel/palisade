@@ -101,6 +101,7 @@ Actions example:
 - Wiring an **AI agent** to run Palisade? Start at [agents.md](agents.md).
 - Want more than taint paths? `palisade-sec map` inventories your AI surface
   (offline), and `palisade-sec audit` / `review` add an optional judgment layer
-  over an endpoint you set in `.env` (TypeSafe or any OpenAI-compatible). Setup
+  (install `palisade-sec[judge]`) over an endpoint you set in `.env` (TypeSafe
+  or any OpenAI-compatible). Setup
   and the per-command key table are in the
   [judgment layer guide](judgment-layer.md).

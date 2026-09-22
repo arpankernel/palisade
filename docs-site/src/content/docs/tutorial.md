@@ -60,9 +60,8 @@ def report():
 ```
 
 Each feature works. Each one is also a textbook prompt-injection
-vulnerability - the same three shapes behind real CVEs (Vanna.ai
-CVE-2024-5565, PandasAI CVE-2024-12366, Langflow CVE-2025-3248's problem
-class).
+vulnerability - the same shapes behind real CVEs (Vanna.ai CVE-2024-5565,
+PandasAI CVE-2024-12366, LangChain PAL CVE-2023-36258).
 
 ## 1. First scan
 

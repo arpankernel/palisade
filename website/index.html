@@ -411,9 +411,9 @@
         </div>
 
         <div class="rule-card">
-          <span class="sev high">IN THE WILD</span><div class="rid">NOT THEORETICAL</div>
+          <span class="sev high">REAL CVEs</span><div class="rid">NOT THEORETICAL</div>
           <h3>Real CVEs, this exact shape</h3>
-          <p>Langflow's injection → exec path (CVE-2025-3248) is on the CISA KEV list, exploited in the wild. PandasAI (CVE-2024-12366, CVSS 9.8) and Vanna (CVE-2024-5565) shipped the same pattern.</p>
+          <p>PandasAI (CVE-2024-12366, CVSS 9.8), Vanna.ai (CVE-2024-5565) and LangChain PAL (CVE-2023-36258) all shipped it: user text into a model, the model's answer into <code>exec</code>.</p>
         </div>
 
         <div class="rule-card">

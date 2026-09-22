@@ -161,8 +161,23 @@ def scan(
         if not json_out and not sarif:
             typer.echo(f"report written to {out}")
 
+    if ci and result.files_scanned == 0:
+        _fail_empty_ci()
     if ci and any(f.severity == "high" for f in findings):
         raise typer.Exit(1)
+
+
+def _fail_empty_ci() -> None:
+    """Exit 2 when a CI gate scanned nothing. Exit 0 would read as a pass for
+    a check that never ran (e.g. a JS/TS repo without the `[js]` extra), which
+    is the one outcome a security gate must never produce."""
+    typer.echo(
+        "error: nothing was scanned (0 files), so this CI gate checked nothing. "
+        "Point it at your source directory, and for JavaScript/TypeScript install "
+        "the `[js]` extra.",
+        err=True,
+    )
+    raise typer.Exit(2)
 
 
 @app.command()
@@ -204,6 +219,11 @@ def fix(
     console = Console(highlight=False)
     for w in result.warnings:
         console.print(f"[yellow]warning:[/yellow] {w}")
+    if not findings and result.files_scanned == 0:
+        console.print(
+            "[bold yellow]✗ Nothing was scanned[/bold yellow] (0 file(s)); no plan written."
+        )
+        return
     if not findings:
         console.print(
             f"[green]✓ No findings to fix.[/green] ({result.files_scanned} file(s) scanned)"
@@ -437,8 +457,12 @@ def review(
     backend = None
     try:
         backend = get_backend()
-    except JudgeError:
-        backend = None  # taint-only review; labelled in the report
+    except JudgeError as exc:
+        # Taint-only review, labelled as such in the report. Say why on
+        # stderr (so --json stays parseable): "which key" and "which extra"
+        # are different fixes, and a silent downgrade hides both.
+        backend = None
+        typer.echo(f"note: judged checks skipped - {exc}", err=True)
 
     result = run_review(target, backend, config_file=config)
 
@@ -453,6 +477,8 @@ def review(
         if not json_out:
             typer.echo(f"report written to {out}")
 
+    if ci and result.files_scanned == 0:
+        _fail_empty_ci()
     if ci:
         findings = result.taint_findings
         if baseline:

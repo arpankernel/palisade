@@ -29,6 +29,9 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
         "mean the application is secure.",
         "",
     ]
+    if not findings and files_scanned == 0:
+        lines += ["**Nothing was scanned** (0 files). This is not a clean result.", ""]
+        return "\n".join(lines)
     if not findings:
         lines += ["**No LLM injection paths found.**", ""]
         return "\n".join(lines)

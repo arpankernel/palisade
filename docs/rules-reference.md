@@ -10,7 +10,7 @@ page is the reference.
 
 | Rule | Severity | Sinks | Real-world precedent |
 |---|---|---|---|
-| `PI-EXEC` | high | `exec`, `eval`, `compile`, `PythonREPL.run`, `new Function`, `vm.runIn*` | PandasAI CVE-2024-12366, Langflow CVE-2025-3248 class, LangChain PAL CVE-2023-36258 |
+| `PI-EXEC` | high | `exec`, `eval`, `compile`, `PythonREPL.run`, `new Function`, `vm.runIn*` | PandasAI CVE-2024-12366, Vanna.ai CVE-2024-5565, LangChain PAL CVE-2023-36258 |
 | `PI-SHELL` | high | `os.system`, `os.popen`, `subprocess.*` **with `shell=True`**, `subprocess.getoutput`, `child_process.exec[Sync]` | Open Interpreter (by design) |
 | `PI-SQL` | high | `*.execute`/`executemany`/`executescript`, Django `*.raw`, JS `pool/db/conn/client.query` - **non-parameterized form only** | Vanna.ai CVE-2024-5565 / CVE-2024-5826 |
 | `PI-FRAMEWORK-EXEC` | high | exec-family **plus** `*.run_code`, `*.execute_code`, `*.execute_plan` | Vanna (`submit_prompt`), PandasAI (code pipelines) |

@@ -20,6 +20,17 @@ GENERIC_KEY_ENV = "PALISADE_JUDGE_API_KEY"
 
 _VALID = ("typesafe", "openai_compatible")
 
+# Shown when the judgment layer's optional dependencies are missing. The
+# offline core ships without them on purpose, so a plain `pip install
+# palisade-sec` (or `uvx palisade-sec`) must get this message, never an
+# ImportError traceback.
+MISSING_EXTRA = (
+    "the judgment layer needs the optional `judge` extra, which is not installed. "
+    "Install it with `pip install 'palisade-sec[judge]'` "
+    "(or run `uvx --from 'palisade-sec[judge]' palisade-sec ...`). "
+    "The offline core (scan, map, baseline, fix) needs neither the extra nor a key."
+)
+
 
 def _load_dotenv() -> None:
     """Load a local .env if python-dotenv is available. Optional: without it,
@@ -43,7 +54,14 @@ def get_backend() -> JudgeBackend:
     model = os.environ.get(MODEL_ENV, "").strip()
 
     if name == "typesafe":
-        from palisade_sec.judge.typesafe import DEFAULT_ENDPOINT, DEFAULT_MODEL, TypeSafeBackend
+        try:
+            from palisade_sec.judge.typesafe import (
+                DEFAULT_ENDPOINT,
+                DEFAULT_MODEL,
+                TypeSafeBackend,
+            )
+        except ImportError as exc:
+            raise JudgeError(MISSING_EXTRA) from exc
 
         key = os.environ.get(TYPESAFE_KEY_ENV, "").strip()
         if not key:
@@ -59,7 +77,10 @@ def get_backend() -> JudgeBackend:
         )
 
     # openai_compatible
-    from palisade_sec.judge.openai_compatible import OpenAICompatibleBackend
+    try:
+        from palisade_sec.judge.openai_compatible import OpenAICompatibleBackend
+    except ImportError as exc:
+        raise JudgeError(MISSING_EXTRA) from exc
 
     key = os.environ.get(GENERIC_KEY_ENV, "").strip()
     if not key:

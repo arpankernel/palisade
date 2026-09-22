@@ -41,7 +41,7 @@ HIGH  app.py:31  [PI-EXEC] Prompt injection reaching code execution
   No sanitizer on path.  Confidence: HIGH
   Attack: crafted input makes the model emit Python that executes on your server.
   Fix:    never exec model output; sandbox + strict allowlist (denylists are bypassable).
-  Refs:   CVE-2024-12366 (PandasAI); CVE-2025-3248 (Langflow, CISA KEV)
+  Refs:   CVE-2024-12366 (PandasAI); CVE-2024-5565 (Vanna.ai)
 ```
 
 </details>
@@ -63,10 +63,9 @@ Full docs are published at **[https://arpankernel.github.io/palisade/docs/](http
 
 ## Why
 
-This exact pattern is behind real, exploited CVEs: **Langflow**
-(CVE-2025-3248, on CISA KEV, exploited in the wild), **PandasAI**
-(CVE-2024-12366, CVSS 9.8), **Vanna.ai** (CVE-2024-5565), **LangChain**
-PAL/LLMMath chains (CVE-2023-36258, CVE-2023-29374). Almost nobody defends it
+This exact pattern is behind real CVEs: **PandasAI** (CVE-2024-12366,
+CVSS 9.8), **Vanna.ai** (CVE-2024-5565), and **LangChain** PAL/LLMMath chains
+(CVE-2023-36258, CVE-2023-29374). Almost nobody defends it
 at the code level: existing tools are runtime proxies (paid, in the traffic
 path) or guardrail libraries you have to know to wire in. Palisade is the
 missing piece - **free, static, LLM-dataflow-aware, and CI-native**, like
@@ -127,7 +126,7 @@ free-versus-paid (it is all MIT and free); it is **keyless-and-offline** versus
 | Layer | Commands | Network | Key |
 |---|---|---|---|
 | **Offline core** | `scan`, `map`, `baseline`, `fix` | none | none |
-| **Judgment layer** | `audit`, `review` | your endpoint | your key (`.env`) |
+| **Judgment layer** | `audit`, `review` | your endpoint | your key (`.env`) + the `[judge]` extra |
 
 - `map` inventories the AI surface of a codebase (LLM calls, prompts, tools,
   agents, retrieval, dangerous flags). Offline and keyless.
@@ -138,8 +137,9 @@ free-versus-paid (it is all MIT and free); it is **keyless-and-offline** versus
   with a **posture score** (a number and a band over *detected* findings, not a
   safety score).
 
-The judgment layer speaks any OpenAI-compatible endpoint, configured in `.env`
-(see [`.env.example`](.env.example)); **[TypeSafe](https://typesafe.ai)** is the
+The judgment layer is an optional install (`pip install 'palisade-sec[judge]'`,
+or `uvx --from 'palisade-sec[judge]' palisade-sec review .`) and speaks any
+OpenAI-compatible endpoint, configured in `.env` (see [`.env.example`](.env.example)); **[TypeSafe](https://typesafe.ai)** is the
 default and returns calibrated answers. A generic endpoint is supported as
 best-effort and never blocks CI on judgment alone. The exploitability and posture
 signals are **uncalibrated until scored on the corpus**; the deterministic

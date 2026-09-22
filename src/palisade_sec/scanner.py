@@ -198,6 +198,12 @@ class LoweredProject:
     files_scanned: int = 0
 
 
+NOTHING_SCANNED = (
+    "nothing was scanned: no supported source files were found under the target "
+    "(0 files). This is not a clean result."
+)
+
+
 @dataclass
 class ScanResult:
     findings: list[Finding] = field(default_factory=list)
@@ -290,6 +296,11 @@ def lower_project(target: Path, config_file: str | None = None) -> LoweredProjec
             out.suppressions[rel] = found
         out.modules.append(lowered)
         out.files_scanned += 1
+    if out.files_scanned == 0:
+        # A scan that read no files proves nothing. Say so in the structured
+        # output too (JSON `warnings`), not just the terminal, so no consumer
+        # can mistake "checked nothing" for "found nothing".
+        out.warnings.append(NOTHING_SCANNED)
     if js_skipped:
         out.notes.append(
             f"{js_skipped} JS/TS file(s) skipped - install the JS frontend with "
