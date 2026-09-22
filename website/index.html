@@ -566,7 +566,7 @@
         </div>
         <div class="receipt-notes">
           <div class="row"><span class="rl">HIT</span><h4>The exact CVE line, nothing else</h4><p>Builtin rules land on <code style="font-family:var(--mono);font-size:11px">base.py:1998</code> - the <code style="font-family:var(--mono);font-size:11px">exec</code> sink behind CVE-2024-5565 - from an <code style="font-family:var(--mono);font-size:11px">input(...)</code> source, no library mode needed, and call out the cosmetic sanitizer the CVE went straight through. <code style="font-family:var(--mono);font-size:11px">--assume-params-untrusted</code> adds the public <code style="font-family:var(--mono);font-size:11px">ask()</code> parameter as a source and reports the same single finding.</p></div>
-          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 26 third-party repos, 17,352 files, scored weekly and on demand: precision 1.000, recall 0.667. Not one wrong flag, and the single miss is labelled as a miss rather than deleted.</p></div>
+          <div class="row"><span class="rl">HELD</span><h4>Zero false positives at scale</h4><p>A pinned corpus of 26 third-party repos, 17,352 files, scored weekly and on demand: precision 1.000: not one wrong flag. Recall is 0.200: of 10 real paths we hand-verified in that corpus, it finds 2, and every miss stays labelled rather than deleted.</p></div>
           <div class="row"><span class="rl">HONEST</span><h4>Misses are documented, not hidden</h4><p>PandasAI's dynamic pipeline dispatch beats bounded static taint. We say so, and it defines the roadmap. <a href="./docs/proof-scans/">Read the full proof-scan report →</a></p></div>
         </div>
       </div>

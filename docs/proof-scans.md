@@ -168,8 +168,8 @@ scored by `scripts/precision.py`.
 | Repos | 26 |
 | Files scanned | 17,352 (re-measured on 0.5.1; 0.4.0 scanned 17,343) |
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall | **0.667** (tp=2, fn=1) |
-| F1 | **0.800** |
+| Recall | **0.200** (tp=2, fn=8; 10 hand-verified paths, 0.5.2) |
+| F1 | **0.333** |
 
 | Repo | Expected | Result |
 |------|----------|--------|
@@ -177,12 +177,25 @@ scored by `scripts/precision.py`.
 | vanna v0.7.9 | `base.py:2088` | found; the same shape survives into the later release |
 | PandasAI v2.4.2 | `code_execution.py:174` (CVE-2024-12366) | **missed** |
 | Langflow 1.2.0 | nothing | silent, correctly |
-| 22 clean repos | nothing | silent, zero false positives |
+| 5 audited repos (autogen, dspy, crewai, griptape, anthropic-sdk) | 7 hand-verified paths | **all missed** (4 sandboxed by default, 3 direct) |
+| 17 other clean repos | nothing | silent, zero false positives |
 
-**The miss is recorded, not hidden.** PandasAI's exec sits behind pipeline step
+**Misses are recorded, not hidden.** PandasAI's exec sits behind pipeline step
 objects dispatched dynamically at runtime, which bounded static taint cannot
-follow. Deleting that label would flatter recall to 1.000; keeping it holds the
-gap visible until the engine closes it.
+follow. A 2026-09-22 audit of the clean repos found 7 more real paths, every one
+verified at the pinned commit and labelled in `corpus/repos.yaml` with the
+exact sink code:
+
+| Repo | Path | Mitigation | Why it is missed |
+|---|---|---|---|
+| anthropic-sdk | bash agent tool writes model commands to a persistent `/bin/bash` | none | writing to a shell's stdin is not a modeled sink; registry-dispatched tools |
+| crewai-tools | SnowflakeSearchTool runs the tool-call query as raw SQL | none | tool-call arguments are not modeled as model output |
+| griptape | SqlTool passes the model's query to the SQL driver | prompt text only | tool boundary, polymorphic driver objects, 4+ hops |
+| dspy | ProgramOfThought and RLM execute model-written code | sandbox by default | dspy module calls are not recognized as LLM calls |
+| autogen | CodeExecutorAgent and PythonCodeExecutionTool run model code | Docker by default | `model_client.create` not recognized; abstract executor methods |
+
+Deleting those labels would flatter recall; keeping them holds each gap
+visible until the engine closes it.
 
 **Langflow is scored as clean, not as a miss.** Its CVE reaches exec with no LLM
 anywhere on the path, so it is plain code injection rather than prompt

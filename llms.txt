@@ -27,6 +27,12 @@ judgment layer - `audit`, the judged checks in `review`, and `redteam
 key in the environment or a `.env` in the current directory; without them
 `review` runs taint-only. `review --ci` gates only on deterministic taint
 findings; `audit --ci` is an explicit opt-in gate on BLOCK decisions.
+Each JSON finding carries `cwe` (e.g. CWE-94, CWE-1426, CWE-1427) and
+`owasp_llm` (e.g. LLM01:2025, LLM05:2025); `--sarif` emits SARIF 2.1.0 with
+GitHub CWE tags and `security-severity`. Integrations: the GitHub Action
+`uses: arpankernel/palisade@v0.5.2` (SARIF upload + gate) and the pre-commit
+hook `id: palisade-sec`. Measured on a pinned 26-repo corpus: precision 1.000
+(0 false positives), recall 0.200 on 10 hand-verified paths.
 
 ## Docs
 

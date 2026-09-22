@@ -96,16 +96,23 @@ asserted, against a pinned benchmark corpus of 26 third-party repos
 | Metric | Value |
 |---|---|
 | Precision | **1.000** (tp=2, fp=0) |
-| Recall | **0.667** (tp=2, fn=1) |
-| F1 | **0.800** |
+| Recall | **0.200** (tp=2, fn=8; 10 hand-verified paths) |
+| F1 | **0.333** |
 
 Zero false positives across 17,352 files of real third-party code. Two small
 repos (84 files) contain no untrusted input for taint to start from; they are
-reported but excluded from the precision claim. The one
-miss is PandasAI's CVE-2024-12366, whose exec sits behind dynamically
-dispatched pipeline steps that bounded static taint cannot follow. It is
-labelled as a miss on purpose rather than deleted, so recall stays honest
-and the gap stays visible. Full detail in [proof-scans.md](proof-scans.md).
+reported but excluded from the precision claim.
+
+Recall is measured against 10 real paths, each hand-verified at the pinned
+commit: the Vanna CVE in two releases (found), PandasAI's CVE-2024-12366
+(missed: dynamically dispatched pipeline steps), and 7 paths found by a
+2026-09-22 audit of the clean repos (all missed). Of the 8 misses, 4 run in a
+sandbox by default (autogen, dspy) and 3 reach raw SQL or a shell directly
+(crewai-tools, griptape, the Anthropic SDK's bash tool). Every miss stays
+labelled, so recall stays honest and the gaps stay visible. They point at
+three engine capabilities, now the top of Phase 2: tool-call arguments as
+model output, more LLM call shapes, and method calls on objects the engine
+cannot resolve. Full detail in [proof-scans.md](proof-scans.md).
 
 | Phase | Theme | Status |
 |---|---|---|
@@ -182,6 +189,20 @@ Directly serves the North Star metric: repos running Palisade in CI.
 **Constraint:** "It doesn't understand *my* framework / file type / Python
 version." Post-launch churn comes from coverage gaps; this phase also opens
 the community-rule flywheel - the moat.
+
+**First, the measured recall gaps** (recall is 0.200 on 10 hand-verified
+paths; each item below explains several of the 8 labelled misses):
+
+- **Tool-call arguments as model output.** Arguments to a registered agent
+  tool (`BaseTool._run`, autogen `BaseTool.run`, griptape activities,
+  decorator-registered tools) are written by the model; treat them as tainted.
+- **More LLM call shapes.** `model_client.create`/`create_stream`, dspy
+  Module calls and `dspy.Predict`/`ChainOfThought`, `prompt_driver.run`,
+  `messages.stream`.
+- **Method calls on objects.** Resolve `obj.method(x)` and
+  `self.attr.method(x)` through constructor and attribute types (abstract
+  executors, SQL drivers), and model code-execution sinks reached that way
+  (`execute_code_blocks`, `interpreter.execute`, writes to a shell's stdin).
 
 - Python syntax matrix (3.11–3.13+: `match`, walrus, type-params) in CI.
 - **Jupyter notebook support** (`.ipynb` cells → IR) - a large share of AI
