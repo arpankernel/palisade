@@ -37,6 +37,10 @@ class Finding:
     fix: str = ""
     references: list[str] = field(default_factory=list)
     count: int = 1
+    # Standards mapping, from the rule (see palisade_sec.standards).
+    cwe: list[str] = field(default_factory=list)
+    owasp_llm: list[str] = field(default_factory=list)
+    security_severity: float | None = None
 
     @property
     def file(self) -> str:
@@ -112,4 +116,6 @@ class Finding:
             "attack": self.attack.strip(),
             "fix": self.fix.strip(),
             "references": self.references,
+            "cwe": self.cwe,
+            "owasp_llm": self.owasp_llm,
         }

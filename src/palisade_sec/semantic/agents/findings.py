@@ -51,9 +51,16 @@ _FIX = (
     "each agent's tools to least privilege."
 )
 _REFS = [
-    "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+    "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+    "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/",
     "MITRE ATLAS: LLM agent tool misuse",
 ]
+# The entry agent acts on the attacker's behalf with another agent's
+# privileges: a confused deputy (CWE-441), driven by prompt injection
+# (CWE-1427), and the capability is excessive agency (OWASP LLM06).
+_CWE = ["CWE-441", "CWE-1427"]
+_OWASP = ["LLM01:2025", "LLM06:2025"]
+_SECURITY_SEVERITY = 8.1
 
 
 @dataclass
@@ -282,4 +289,7 @@ def _build_finding(graph: AgentGraph, site: _RunSite, dst: str, caps: list[str])
         attack=_ATTACK,
         fix=_FIX,
         references=_REFS,
+        cwe=list(_CWE),
+        owasp_llm=list(_OWASP),
+        security_severity=_SECURITY_SEVERITY,
     )

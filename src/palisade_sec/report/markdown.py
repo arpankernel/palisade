@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding
+from palisade_sec.standards import label
 
 _SEV_TITLE = {"high": "HIGH", "med": "MED (risky / partial defense)", "low": "LOW"}
 
@@ -83,6 +84,8 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
                 lines += [f"No sanitizer on path. Confidence: **{f.confidence}**.", ""]
             if f.fix.strip():
                 lines += [f"**Fix:** {f.fix.strip()}", ""]
+            if f.cwe or f.owasp_llm:
+                lines += [f"**Maps to:** {label(f.cwe, f.owasp_llm)}", ""]
             if f.references:
                 lines += ["**References:** " + "; ".join(f.references), ""]
     return "\n".join(line for line in lines if line is not None)

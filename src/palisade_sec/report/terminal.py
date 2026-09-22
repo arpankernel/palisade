@@ -12,6 +12,7 @@ from rich.markup import escape
 from rich.text import Text
 
 from palisade_sec.engine import Finding
+from palisade_sec.standards import label
 
 _SEV_STYLE = {"high": "bold red", "med": "bold yellow", "low": "bold cyan"}
 _SEV_LABEL = {"high": "HIGH", "med": "MED", "low": "LOW"}
@@ -81,6 +82,8 @@ def print_findings(
             console.print(f"  [bold]Attack:[/bold] {f.attack.strip()}")
         if f.fix.strip():
             console.print(f"  [bold]Fix:[/bold]    {f.fix.strip()}")
+        if f.cwe or f.owasp_llm:
+            console.print(f"  [dim]Maps:   {label(f.cwe, f.owasp_llm)}[/dim]")
         if f.references:
             console.print(f"  [dim]Refs:   {'; '.join(f.references)}[/dim]")
         if f.count > 1:

@@ -116,8 +116,14 @@ partial_defenses:
       - "approve"
       - "auto_run"
       - "human_review"
+# Standards mapping (see src/palisade_sec/standards.py). security_severity is
+# GitHub code scanning's 0-10 score: >=9 critical, 7-8.9 high, 4-6.9 medium.
+cwe: [CWE-78, CWE-1426, CWE-1427]
+owasp_llm: ["LLM01:2025", "LLM05:2025"]
+security_severity: 9.3
 references:
-  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+  - "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+  - "https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/"
   - "Open Interpreter: LLM -> shell by design, confirmation gate only"
 attack: >
   Crafted input makes the model emit a shell command (e.g. "run `curl … | sh`"),

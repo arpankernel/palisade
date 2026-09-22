@@ -111,8 +111,14 @@ partial_defenses:
       - "approve"
       - "auto_run"
       - "human_review"
+# Standards mapping (see src/palisade_sec/standards.py). security_severity is
+# GitHub code scanning's 0-10 score: >=9 critical, 7-8.9 high, 4-6.9 medium.
+cwe: [CWE-94, CWE-1426, CWE-1427]
+owasp_llm: ["LLM01:2025", "LLM05:2025"]
+security_severity: 9.3
 references:
-  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+  - "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
+  - "https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/"
   - "CVE-2024-12366 (PandasAI)"
   - "CVE-2024-5565 (Vanna.ai)"
   - "CVE-2023-36258 (LangChain PALChain)"
