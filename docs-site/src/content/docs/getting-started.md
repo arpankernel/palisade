@@ -95,13 +95,35 @@ palisade-sec scan . --ci --baseline .palisade/baseline.json
 
 `--ci` exits `1` only when a **new HIGH** finding appears (and `2` if it
 scanned 0 files, so a misconfigured gate can't pass silently). Fingerprints are
-line-number independent, so refactors don't churn the baseline. GitHub
-Actions example:
+line-number independent, so refactors don't churn the baseline.
+
+**GitHub Actions.** The Palisade action scans the repo (JS/TS included),
+uploads findings to the Security tab and PR annotations, and fails the job on
+a new HIGH finding:
 
 ```yaml
-- uses: astral-sh/setup-uv@v5
-- run: uvx palisade-sec scan . --ci --baseline .palisade/baseline.json
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - uses: actions/checkout@v4
+  - uses: arpankernel/palisade@v0.5.2
+    with:
+      baseline: .palisade/baseline.json
 ```
+
+**pre-commit:**
+
+```yaml
+repos:
+  - repo: https://github.com/arpankernel/palisade
+    rev: v0.5.2
+    hooks:
+      - id: palisade-sec
+```
+
+Anywhere else it's one command:
+`uvx palisade-sec scan . --ci --baseline .palisade/baseline.json`.
 
 ## Next steps
 

@@ -1,0 +1,129 @@
+name: Palisade LLM Security Scan
+description: >
+  Find prompt injection before it ships: statically trace untrusted input
+  through LLM calls into exec, shell, SQL and HTTP sinks. Offline, keyless,
+  never runs your code. Findings land in the GitHub Security tab.
+author: arpankernel
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  path:
+    description: Directory or file to scan, relative to the repository root.
+    default: "."
+  baseline:
+    description: >
+      Baseline file (from `palisade-sec baseline`). With it, only NEW findings
+      fail the job, so you can adopt Palisade on an existing codebase.
+    default: ""
+  library-mode:
+    description: >
+      Treat parameters of public functions as untrusted (for libraries, which
+      have no visible caller). "true" or "false".
+    default: "false"
+  fail-on-findings:
+    description: Fail the job on a new HIGH finding (`scan --ci`). "true" or "false".
+    default: "true"
+  sarif:
+    description: >
+      Upload findings to GitHub code scanning (the Security tab and PR
+      annotations). Needs `security-events: write` permission. "true" or "false".
+    default: "true"
+  version:
+    description: >
+      palisade-sec version to run, e.g. "0.5.2". Default: the version matching
+      the action tag you referenced (e.g. @v0.5.2), otherwise the latest.
+    default: ""
+  extras:
+    description: >
+      Optional extras to install, comma-separated. The default "js" scans
+      JavaScript/TypeScript too; set "" for Python-only.
+    default: "js"
+
+outputs:
+  exit-code:
+    description: palisade-sec's exit code (0 clean or nothing new, 1 new HIGH, 2 usage error, 3 internal error).
+    value: ${{ steps.scan.outputs.exit-code }}
+  sarif-file:
+    description: Path to the SARIF file written by the scan.
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+
+    # Inputs reach the shell only through env vars and are validated first:
+    # never interpolated into the script, so a hostile input or ref cannot
+    # inject commands (GitHub's script-injection guidance).
+    - id: scan
+      shell: bash
+      env:
+        IN_PATH: ${{ inputs.path }}
+        IN_BASELINE: ${{ inputs.baseline }}
+        IN_LIBRARY: ${{ inputs.library-mode }}
+        IN_FAIL: ${{ inputs.fail-on-findings }}
+        IN_VERSION: ${{ inputs.version }}
+        IN_EXTRAS: ${{ inputs.extras }}
+        ACTION_REF: ${{ github.action_ref }}
+      run: |
+        # GitHub runs `shell: bash` with -e. The scan's non-zero exit (a
+        # finding under --ci) must be captured, not abort the step before the
+        # exit code is recorded and the SARIF uploaded.
+        set +e -uo pipefail
+        for flag in IN_LIBRARY IN_FAIL; do
+          case "${!flag}" in true|false) ;; *) echo "::error::$flag must be true or false"; exit 2;; esac
+        done
+        version="$IN_VERSION"
+        if [ -z "$version" ] && [[ "$ACTION_REF" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+          version="${BASH_REMATCH[1]}"
+        fi
+        if [ -n "$version" ] && ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::version must look like 0.5.2, got '$version'"; exit 2
+        fi
+        if ! [[ "$IN_EXTRAS" =~ ^[a-z,]*$ ]]; then
+          echo "::error::extras must be a comma-separated list like 'js'"; exit 2
+        fi
+        spec="palisade-sec"
+        [ -n "$IN_EXTRAS" ] && spec="palisade-sec[$IN_EXTRAS]"
+        if [ -n "$version" ]; then
+          spec="$spec==$version"
+        else
+          echo "::warning::no palisade-sec version pinned; using the latest. Reference the action by a release tag (e.g. @v0.5.2) to pin it."
+        fi
+
+        common=(scan "$IN_PATH")
+        [ -n "$IN_BASELINE" ] && common+=(--baseline "$IN_BASELINE")
+        [ "$IN_LIBRARY" = "true" ] && common+=(--assume-params-untrusted)
+        gate=("${common[@]}" --sarif)
+        [ "$IN_FAIL" = "true" ] && gate+=(--ci)
+
+        sarif="$RUNNER_TEMP/palisade.sarif"
+        uvx --from "$spec" palisade-sec "${gate[@]}" > "$sarif"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        # Only a real SARIF document is uploaded: after a usage error the file
+        # is empty, and an upload failure would bury the actual error.
+        [ -s "$sarif" ] && echo "sarif-file=$sarif" >> "$GITHUB_OUTPUT"
+        # Readable findings in the job log (the SARIF is for GitHub).
+        uvx --from "$spec" palisade-sec "${common[@]}" || true
+        # Never stop here: the SARIF must upload even when findings fail the job.
+        exit 0
+
+    - if: always() && inputs.sarif == 'true' && steps.scan.outputs.sarif-file != ''
+      uses: github/codeql-action/upload-sarif@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif-file }}
+        category: palisade
+
+    - if: always()
+      shell: bash
+      env:
+        CODE: ${{ steps.scan.outputs.exit-code }}
+      run: |
+        case "$CODE" in
+          0) echo "palisade-sec: no new HIGH findings" ;;
+          1) echo "::error::palisade-sec found a new HIGH prompt-injection path (see the Security tab or the log above)"; exit 1 ;;
+          *) echo "::error::palisade-sec exited $CODE (usage or internal error, not a finding)"; exit "${CODE:-2}" ;;
+        esac

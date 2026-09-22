@@ -8,9 +8,10 @@ New rules require zero engine changes.
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PatternSpec(BaseModel):
@@ -61,8 +62,29 @@ class Rule(BaseModel):
     sanitizers: list[PatternSpec] = Field(default_factory=list)
     partial_defenses: list[PatternSpec] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
+    # Standards mapping (optional, so community rules without it still load).
+    cwe: list[str] = Field(default_factory=list)
+    owasp_llm: list[str] = Field(default_factory=list)
+    # GitHub code scanning's 0-10 score: >=9 critical, 7-8.9 high, 4-6.9 medium.
+    security_severity: float | None = Field(default=None, ge=0.0, le=10.0)
     attack: str = ""
     fix: str = ""
+
+    @field_validator("cwe")
+    @classmethod
+    def _cwe_ids(cls, v: list[str]) -> list[str]:
+        for c in v:
+            if not re.fullmatch(r"CWE-[1-9][0-9]{0,4}", c):
+                raise ValueError(f"cwe entries look like 'CWE-94', got {c!r}")
+        return v
+
+    @field_validator("owasp_llm")
+    @classmethod
+    def _owasp_ids(cls, v: list[str]) -> list[str]:
+        for c in v:
+            if not re.fullmatch(r"LLM(0[1-9]|10):2025", c):
+                raise ValueError(f"owasp_llm entries look like 'LLM01:2025', got {c!r}")
+        return v
 
 
 def match_strict(path: str, pattern: str) -> bool:

@@ -37,6 +37,27 @@ and is the model for future advisory rules (PII egress, agent loops).
 
 ## Multi-agent detection: `PI-AGENT-HANDOFF`
 
+### Standards mapping
+
+Every finding carries `cwe` and `owasp_llm` (in `--json`, SARIF and the
+reports). Each maps to CWE-1427 *Improper Neutralization of Input Used for
+LLM Prompting* (the prompt injection itself) and to OWASP LLM01:2025 *Prompt
+Injection*, plus what the model output does:
+
+| Rule | CWE | OWASP LLM Top 10 2025 | SARIF `security-severity` |
+|---|---|---|---|
+| `PI-EXEC`, `PI-FRAMEWORK-EXEC` | CWE-94 Code Injection, CWE-1426, CWE-1427 | LLM01, LLM05 Improper Output Handling | 9.3 (critical) |
+| `PI-SHELL` | CWE-78 OS Command Injection, CWE-1426, CWE-1427 | LLM01, LLM05 | 9.3 (critical) |
+| `PI-SQL` | CWE-89 SQL Injection, CWE-1426, CWE-1427 | LLM01, LLM05 | 8.8 (high) |
+| `PI-HTTP` | CWE-918 SSRF, CWE-1426, CWE-1427 | LLM01, LLM05 | 5.3 (medium, advisory) |
+| `PI-AGENT-HANDOFF` | CWE-441 Confused Deputy, CWE-1427 | LLM01, LLM06 Excessive Agency | 8.1 (high) |
+
+CWE-1426 is *Improper Validation of Generative AI Output*. In SARIF these
+become GitHub tags (`external/cwe/cwe-094`, `external/owasp-llm/llm01-2025`),
+so code scanning can filter and rank them. Custom rules may declare `cwe`,
+`owasp_llm` and `security_severity` too; all three are optional and
+validated.
+
 Beyond the five taint rules, `scan` emits one **graph-based** finding for
 multi-agent systems. It is not a YAML rule; it is computed deterministically
 from the agent graph (see [architecture](/palisade/docs/architecture/)).

@@ -139,10 +139,10 @@ def score_repos(manifest: Path, triage: bool) -> tuple[Metrics, float]:
             # is claimed to contain a reachable vulnerability. Either one
             # producing zero sources means the config or the frontend is
             # broken, and the recall label below would be unreachable.
-            if entry.get("library_mode") or entry.get("kind") == "cve":
+            if entry.get("library_mode") or entry.get("kind") == "cve" or _expected(entry):
                 print(
                     f"FAIL: {entry['name']} is declared "
-                    f"{'library_mode' if entry.get('library_mode') else 'kind: cve'} "
+                    f"{'library_mode' if entry.get('library_mode') else 'labelled'} "
                     "but minted no untrusted sources - its labels are unreachable.",
                     file=sys.stderr,
                 )

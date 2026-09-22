@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.5.2 - 2026-09-22
+
+Standards, supply chain and distribution, plus an honest recall number.
+
+### Added
+
+- **CWE and OWASP LLM Top 10 2025 mapping on every finding.** Each rule maps
+  to CWE-1427 (Improper Neutralization of Input Used for LLM Prompting), to
+  CWE-1426 (Improper Validation of Generative AI Output) where model output
+  reaches a sink, plus the sink's classic CWE (94, 78, 89, 918; 441 for agent
+  handoffs), and to OWASP LLM01:2025 plus LLM05:2025 (LLM06:2025 for
+  handoffs). JSON findings gain `cwe` and `owasp_llm`; the terminal and
+  markdown reports gain a "Maps:" line; references point at the OWASP 2025
+  category pages. Names and URLs verified against genai.owasp.org and
+  cwe.mitre.org (CWE 4.20). Custom rules may declare `cwe`, `owasp_llm` and
+  `security_severity`; all optional and validated.
+- **SARIF for GitHub code scanning:** CWE tags (`external/cwe/cwe-094`),
+  OWASP tags (`external/owasp-llm/llm01-2025`) and `security-severity`
+  (exec/shell 9.3 critical, SQL 8.8, handoff 8.1, HTTP 5.3 medium), so alerts
+  rank and filter properly in the Security tab.
+- **GitHub Action** (`uses: arpankernel/palisade@v0.5.2`): scans the repo
+  (JS/TS included), uploads SARIF to the Security tab, and fails the job on a
+  new HIGH finding. Inputs are passed through env vars and validated, never
+  interpolated into the script. Self-tested in CI on every PR.
+- **pre-commit hook** (`id: palisade-sec`).
+
+### Supply chain
+
+- Every GitHub Action in every workflow is pinned to a full commit SHA (tag
+  kept in a comment), including the PyPI publish step; Dependabot keeps the
+  pins current.
+- Releases attach a CycloneDX SBOM and a Sigstore-signed build-provenance
+  attestation (`gh attestation verify <file> --repo arpankernel/palisade`).
+  PyPI already stores PEP 740 attestations via Trusted Publishing.
+
+### Fixed
+
+- **The benchmark corpus is actually pinned.** `corpus/fetch.py` wrote
+  `repos.lock.json` but never read it, so every run re-cloned the latest
+  default branch of the 23 clean repos. It now checks out exactly the locked
+  commits (`--update` moves them deliberately), and a failed fetch fails the
+  run instead of scoring a partial corpus.
+
+### Measurement
+
+- **Recall is now measured on 10 hand-verified paths instead of 3: 0.200**
+  (tp=2, fn=8; precision still 1.000, 0 false positives). An audit of the
+  clean repos found 7 real paths Palisade misses (3 direct: raw SQL in
+  crewai-tools and griptape, the Anthropic SDK's bash tool; 4 sandboxed by
+  default in autogen and dspy). Each is labelled with its exact sink code,
+  and the label test now checks that code at the pinned commit. The misses
+  point at three engine gaps, now the top of the Phase 2 roadmap.
+- The precision harness guard also fails a labelled repo that mints no
+  untrusted sources.
+
 ## 0.5.1 - 2026-09-22
 
 A pre-launch hardening release. Three independent audits (fresh-install

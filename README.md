@@ -89,9 +89,14 @@ tractable end of reducing catastrophic risk from autonomous AI.
 | `PI-AGENT-HANDOFF` | input → agent → handoff (≥1 hop) → agent holding a dangerous-capability tool (OpenAI Agents SDK, LangGraph, CrewAI; gates `scan --ci`) | agentic prompt-injection class |
 
 **Measured, not asserted.** Against a pinned benchmark corpus of 26
-third-party repos (17,352 files): **precision 1.000, recall 0.667, F1 0.800**
-- zero false positives, with the one miss (PandasAI's dynamically dispatched
-pipeline) labelled as a miss rather than deleted. Two small repos (84 files)
+third-party repos (17,352 files): **precision 1.000** - zero false positives.
+**Recall 0.200**: of 10 real prompt-injection paths hand-verified in that
+corpus, Palisade finds 2 (the Vanna CVE, in two releases). The 8 misses stay
+labelled rather than deleted. Four run in a sandbox by default; three reach
+raw SQL or a shell directly. They come down to three engine gaps on the
+roadmap: tool-call arguments as model output, more LLM call shapes (dspy
+modules, `model_client.create`), and method calls on objects the engine
+cannot resolve. Two small repos (84 files)
 contain no untrusted input for taint to start from, so they are reported but
 excluded from the precision claim. Every PR is gated on a fast
 fixture manifest, and the pinned 26-repo corpus is re-scored weekly and on
@@ -234,17 +239,46 @@ Exit codes:
 | `2` | Usage or target error: bad path, missing explicit `--config`/`--rules`, a `--ci` run that scanned 0 files, judgment layer missing its `[judge]` extra or key, refused unsafe (symlinked) output path, `redteam --execute --ci` with errored attacks |
 | `3` | Internal error (a bug, not a finding) |
 
-GitHub Actions (for JS/TS repos, use `uvx --from "palisade-sec[js]" palisade-sec ...`):
+**GitHub Action.** One step scans the repo, uploads findings to the GitHub
+**Security** tab (and as PR annotations), and fails the job on a new HIGH
+finding. JavaScript/TypeScript is included by default.
 
 ```yaml
-- uses: astral-sh/setup-uv@v5
-- run: uvx palisade-sec scan . --ci --baseline .palisade/baseline.json
-# JS/TS: uvx --from "palisade-sec[js]" palisade-sec scan . --ci --baseline .palisade/baseline.json
+permissions:
+  contents: read
+  security-events: write   # for the Security tab upload
+steps:
+  - uses: actions/checkout@v4
+  - uses: arpankernel/palisade@v0.5.2
+    with:
+      baseline: .palisade/baseline.json   # optional: fail only on NEW findings
 ```
 
-To see findings in the GitHub **Security** tab, emit SARIF with `--sarif` and
-upload it; [`.github/workflows/code-scanning.yml`](https://github.com/arpankernel/palisade/blob/main/.github/workflows/code-scanning.yml)
-is the reference workflow.
+Inputs: `path`, `baseline`, `library-mode`, `fail-on-findings`, `sarif`,
+`version` (defaults to the tag you reference), `extras`. See
+[`action.yml`](https://github.com/arpankernel/palisade/blob/main/action.yml).
+
+**pre-commit.** Blocks a commit that adds a HIGH path:
+
+```yaml
+repos:
+  - repo: https://github.com/arpankernel/palisade
+    rev: v0.5.2
+    hooks:
+      - id: palisade-sec
+        # args: [--baseline, .palisade/baseline.json]
+```
+
+**Anything else.** It's one command:
+`uvx palisade-sec scan . --ci --baseline .palisade/baseline.json` (for
+JS/TS, `uvx --from "palisade-sec[js]" palisade-sec ...`). `--sarif` writes
+SARIF 2.1.0 for any code-scanning platform.
+
+**Standards.** Every finding maps to CWE (the sink's classic CWE plus the
+AI-specific CWE-1426 and CWE-1427) and the OWASP Top 10 for LLM Applications
+2025 (LLM01 Prompt Injection, LLM05 Improper Output Handling, LLM06 Excessive
+Agency). SARIF carries them as GitHub tags with a `security-severity` score,
+so alerts sort as critical/high/medium in the Security tab.
 
 ## Configuration
 

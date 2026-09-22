@@ -14,6 +14,7 @@ import posixpath
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding, TracePoint
+from palisade_sec.standards import label, owasp_url, sarif_cwe_tag, sarif_owasp_tag
 
 _LEVEL = {"high": "error", "med": "warning", "low": "note"}
 _INFO_URI = "https://github.com/arpankernel/palisade"
@@ -70,8 +71,22 @@ def to_sarif(
                 "shortDescription": {"text": f.title},
                 "defaultConfiguration": {"level": _LEVEL.get(f.severity, "warning")},
             }
-            if f.references:
-                rule["helpUri"] = f.references[0]
+            # Standards metadata GitHub code scanning reads: CWE tags in its
+            # `external/cwe/cwe-NNN` form, and security-severity, which ranks
+            # the alert critical/high/medium in the Security tab.
+            tags = ["security", *(sarif_cwe_tag(c) for c in f.cwe)]
+            tags += [sarif_owasp_tag(o) for o in f.owasp_llm]
+            props: dict = {"tags": tags, "precision": "high"}
+            if f.security_severity is not None:
+                props["security-severity"] = f"{f.security_severity:.1f}"
+            rule["properties"] = props
+            owasp = next((u for o in f.owasp_llm if (u := owasp_url(o))), None)
+            if owasp or f.references:
+                rule["helpUri"] = owasp or f.references[0]
+            if f.cwe or f.owasp_llm:
+                rule["fullDescription"] = {
+                    "text": f"{f.title}. Maps to {label(f.cwe, f.owasp_llm)}."
+                }
             rules[f.rule_id] = rule
     rule_index = {rid: i for i, rid in enumerate(rules)}
 

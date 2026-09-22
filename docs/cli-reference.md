@@ -284,7 +284,7 @@ parse defensively on any other value.
 ```jsonc
 {
   "schema_version": 1,
-  "tool": "palisade-sec 0.5.1",
+  "tool": "palisade-sec 0.5.2",
   "summary": {
     "files_scanned": 6,
     "high": 4, "med": 1, "low": 0,
@@ -316,7 +316,9 @@ parse defensively on any other value.
         // kind: "partial_defense" (denylist/confirmation gate)
         //     | "unverified_sanitizer" (sanitizer in name only)
       ],
-      "attack": "...", "fix": "...", "references": ["CVE-...", "..."]
+      "attack": "...", "fix": "...", "references": ["CVE-...", "..."],
+      "cwe": ["CWE-94", "CWE-1426", "CWE-1427"],
+      "owasp_llm": ["LLM01:2025", "LLM05:2025"]
     }
   ],
   "skipped":  ["broken.py: parse error, file skipped (...)"],
@@ -339,7 +341,7 @@ Notes for consumers:
 ```jsonc
 {
   "schema_version": 1,
-  "tool": "palisade-sec 0.5.1",
+  "tool": "palisade-sec 0.5.2",
   "findings": {
     "<fingerprint>": { "rule": "PI-EXEC", "file": "app.py", "severity": "high", "count": 1 }
   }

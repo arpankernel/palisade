@@ -1,0 +1,22 @@
+# pre-commit hook: https://pre-commit.com
+#
+#   repos:
+#     - repo: https://github.com/arpankernel/palisade
+#       rev: v0.5.2
+#       hooks:
+#         - id: palisade-sec
+#
+# Taint analysis follows data across files, so the hook scans the whole
+# project (pass_filenames: false) rather than only the staged files. It runs
+# when a Python/JS/TS file changes. For JavaScript/TypeScript, add
+#   additional_dependencies: [tree-sitter, tree-sitter-javascript, tree-sitter-typescript]
+# To adopt on an existing codebase, commit a baseline and use:
+#   args: [--baseline, .palisade/baseline.json]
+- id: palisade-sec
+  name: palisade-sec (prompt injection to dangerous sinks)
+  description: Fails the commit on a new HIGH prompt-injection-to-sink path.
+  entry: palisade-sec scan --ci
+  language: python
+  pass_filenames: false
+  require_serial: true
+  types_or: [python, javascript, jsx, ts, tsx]

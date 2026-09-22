@@ -421,6 +421,9 @@ class _RuleRun:
                 attack=self.rule.attack,
                 fix=self.rule.fix,
                 references=list(self.rule.references),
+                cwe=list(self.rule.cwe),
+                owasp_llm=list(self.rule.owasp_llm),
+                security_severity=self.rule.security_severity,
             )
         )
 

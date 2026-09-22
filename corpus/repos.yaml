@@ -25,7 +25,8 @@ repos:
     # sanitizer in name only and Palisade downgrades rather than silences.
     # Recall counts a hit at any severity, so this scores as a true positive.
     expect:
-      - {file: src/vanna/base/base.py, line: 1998, rule: PI-FRAMEWORK-EXEC, verdict: flag}
+      - {file: src/vanna/base/base.py, line: 1998, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "exec(plotly_code, globals(), ldict)"}
   - name: pandasai-cve
     url: https://github.com/sinaptik-ai/pandas-ai
     ref: v2.4.2
@@ -37,7 +38,8 @@ repos:
     # taint cannot follow. Deleting this label would flatter the recall
     # number; leaving it keeps the gap visible until the engine closes it.
     expect:
-      - {file: pandasai/pipelines/chat/code_execution.py, line: 174, rule: PI-EXEC, verdict: flag}
+      - {file: pandasai/pipelines/chat/code_execution.py, line: 174, rule: PI-EXEC, verdict: flag,
+         code: "exec(code, environment)"}
   - name: langflow-cve
     url: https://github.com/langflow-ai/langflow
     ref: "1.2.0"
@@ -60,19 +62,54 @@ repos:
     # as a false positive - the finding is correct, the release simply
     # still carries the pattern.
     expect:
-      - {file: src/vanna/base/base.py, line: 2088, rule: PI-FRAMEWORK-EXEC, verdict: flag}
+      - {file: src/vanna/base/base.py, line: 2088, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "exec(plotly_code, globals(), ldict)"}
   # NOTE: pandas-ai has no post-CVE 2.4.x tag (the line ends at the
   # vulnerable v2.4.2), so there is no patched counterpart to pin here.
 
   # ---- clean popular Python AI repos (anti-overfitting half) -------------
+  # `kind: audited` repos were hand-audited for real prompt-injection paths
+  # (2026-09-22) and carry recall labels for the ones Palisade MISSES today.
+  # DIRECT = no sandbox or validation on the path; MITIGATED = sandboxed by
+  # default. They stay in the precision half too: any HIGH elsewhere in them
+  # is still a false positive.
   - {name: openai-python,    url: https://github.com/openai/openai-python,          kind: clean}
-  - {name: anthropic-sdk,    url: https://github.com/anthropics/anthropic-sdk-python, kind: clean}
+  - name: anthropic-sdk
+    url: https://github.com/anthropics/anthropic-sdk-python
+    kind: audited
+    library_mode: true
+    expect:
+      # DIRECT: the agent toolset's bash tool writes model-chosen commands into a
+      # persistent /bin/bash (no sandbox, no approval). Missed: writing to a
+      # shell's stdin is not a modeled sink; tools dispatch via a registry.
+      - {file: src/anthropic/lib/tools/agent_toolset.py, line: 500, rule: PI-SHELL, verdict: flag,
+         code: "await stdin.send(wrapped.encode())"}
   - {name: llm-cli,          url: https://github.com/simonw/llm,                    kind: clean}
   - {name: instructor,       url: https://github.com/jxnl/instructor,               kind: clean}
   - {name: guardrails,       url: https://github.com/guardrails-ai/guardrails,      kind: clean}
-  - {name: dspy,             url: https://github.com/stanfordnlp/dspy,              kind: clean}
+  - name: dspy
+    url: https://github.com/stanfordnlp/dspy
+    kind: audited
+    library_mode: true
+    expect:
+      # MITIGATED (default interpreter is a Deno/Pyodide sandbox; LocalInterpreter
+      # is not): ProgramOfThought runs model-written code. Missed: a dspy Module
+      # __call__ is not a recognized LLM call.
+      - {file: dspy/predict/program_of_thought.py, line: 188, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "result = interpreter.execute(code)"}
+      # MITIGATED (same interpreter choice): RLM executes model-written code.
+      - {file: dspy/predict/rlm.py, line: 707, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "return repl.execute(code, variables=dict(input_args))"}
   - {name: outlines,         url: https://github.com/dottxt-ai/outlines,            kind: clean}
-  - {name: crewai,           url: https://github.com/crewAIInc/crewAI,              kind: clean}
+  - name: crewai
+    url: https://github.com/crewAIInc/crewAI
+    kind: audited
+    library_mode: true
+    expect:
+      # DIRECT: SnowflakeSearchTool runs the model's tool-call query as raw SQL,
+      # unvalidated. Missed: tool-call arguments are not modeled as LLM output.
+      - {file: lib/crewai-tools/src/crewai_tools/tools/snowflake_search_tool/snowflake_search_tool.py, line: 216, rule: PI-SQL, verdict: flag,
+         code: "cursor.execute(query, timeout=timeout)"}
   - {name: langgraph,        url: https://github.com/langchain-ai/langgraph,        kind: clean}
   - {name: pydantic-ai,      url: https://github.com/pydantic/pydantic-ai,          kind: clean}
   - {name: mem0,             url: https://github.com/mem0ai/mem0,                   kind: clean}
@@ -85,5 +122,27 @@ repos:
   - {name: txtai,            url: https://github.com/neuml/txtai,                   kind: clean}
   - {name: marvin,           url: https://github.com/PrefectHQ/marvin,              kind: clean}
   - {name: semantic-kernel,  url: https://github.com/microsoft/semantic-kernel,     kind: clean}
-  - {name: griptape,         url: https://github.com/griptape-ai/griptape,          kind: clean}
-  - {name: autogen,          url: https://github.com/microsoft/autogen,             kind: clean}
+  - name: griptape
+    url: https://github.com/griptape-ai/griptape
+    kind: audited
+    library_mode: true
+    expect:
+      # DIRECT: SqlTool passes the model's sql_query to the driver; the only guard
+      # is prompt text asking for SELECT. Missed: tool boundary, polymorphic
+      # driver attributes, prompt_driver.run not recognized, 4+ hops.
+      - {file: griptape/drivers/sql/sql_driver.py, line: 37, rule: PI-SQL, verdict: flag,
+         code: "results = con.execute(sqlalchemy.text(query))"}
+  - name: autogen
+    url: https://github.com/microsoft/autogen
+    kind: audited
+    library_mode: true
+    expect:
+      # MITIGATED (Docker executor by default, local fallback with a warning;
+      # approval optional): CodeExecutorAgent runs model-written code blocks.
+      # Missed: model_client.create not recognized; abstract executor method.
+      - {file: python/packages/autogen-agentchat/src/autogen_agentchat/agents/_code_executor_agent.py, line: 718, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "result = await self._code_executor.execute_code_blocks(code_blocks"}
+      # MITIGATED (executor-dependent): PythonCodeExecutionTool runs the model's
+      # tool-call code. Missed: tool-call arguments are not modeled as LLM output.
+      - {file: python/packages/autogen-ext/src/autogen_ext/tools/code_execution/_code_execution.py, line: 83, rule: PI-FRAMEWORK-EXEC, verdict: flag,
+         code: "result = await self._executor.execute_code_blocks("}

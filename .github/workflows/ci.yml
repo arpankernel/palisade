@@ -12,8 +12,8 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
@@ -47,11 +47,45 @@ jobs:
     name: Plain install (no extras)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: "3.12"
       - name: Build the wheel
         run: uv build --wheel
       - name: Smoke-test the CLI as a user installs it
         run: PYTHON="$(uv python find 3.12)" scripts/smoke_install.sh dist/*.whl
+
+  action-selftest:
+    # Runs this repo's own action.yml (uses: ./) the way a user's workflow
+    # would: a HIGH finding must fail the gate, the advisory mode must pass,
+    # and the SARIF must carry the findings.
+    name: GitHub Action (self-test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: gate
+        uses: ./
+        continue-on-error: true
+        with:
+          path: examples/support-bot
+          sarif: "false"
+          version: "0.5.1"
+      - id: advisory
+        uses: ./
+        with:
+          path: examples/support-bot
+          sarif: "false"
+          fail-on-findings: "false"
+          version: "0.5.1"
+      - name: Assert the gate failed and the advisory run reported
+        env:
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_CODE: ${{ steps.gate.outputs.exit-code }}
+          ADVISORY_CODE: ${{ steps.advisory.outputs.exit-code }}
+          SARIF: ${{ steps.advisory.outputs.sarif-file }}
+        run: |
+          test "$GATE_OUTCOME" = "failure"
+          test "$GATE_CODE" = "1"
+          test "$ADVISORY_CODE" = "0"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); n=len(d['runs'][0]['results']); assert n == 3, n; print('SARIF results:', n)" "$SARIF"
