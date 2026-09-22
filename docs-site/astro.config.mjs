@@ -32,6 +32,7 @@ export default defineConfig({
         { label: "Reference", items: [
           { label: "Architecture", slug: "architecture" },
           { label: "CLI reference", slug: "cli-reference" },
+          { label: "Judgment layer (optional)", slug: "judgment-layer" },
           { label: "Rules reference", slug: "rules-reference" },
         ]},
         { label: "Going further", items: [

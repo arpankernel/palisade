@@ -103,6 +103,7 @@ Actions example:
   (`--assume-params-untrusted`) in the [CLI reference](cli-reference.md).
 - Wiring an **AI agent** to run Palisade? Start at [agents.md](agents.md).
 - Want more than taint paths? `palisade-sec map` inventories your AI surface
-  (offline), and `palisade-sec audit` / `review` add a judgment layer over an
-  endpoint you set in `.env`. See the
-  [CLI reference](cli-reference.md#judgment-configuration).
+  (offline), and `palisade-sec audit` / `review` add an optional judgment layer
+  over an endpoint you set in `.env` (TypeSafe or any OpenAI-compatible). Setup
+  and the per-command key table are in the
+  [judgment layer guide](judgment-layer.md).
