@@ -1,0 +1,12 @@
+# Keeps the commit-pinned GitHub Actions current. Every `uses:` in
+# .github/workflows is pinned to a full commit SHA with the tag in a comment;
+# Dependabot updates both together, one reviewable PR a week.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

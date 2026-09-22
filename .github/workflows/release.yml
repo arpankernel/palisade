@@ -28,12 +28,16 @@ jobs:
   build:
     name: Build and verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # sign the build-provenance attestation (Sigstore)
+      attestations: write
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: "3.12"
 
@@ -100,7 +104,33 @@ jobs:
       - name: Every command works from a plain install (no extras)
         run: PYTHON="$(uv python find 3.12)" scripts/smoke_install.sh dist/*.whl
 
-      - uses: actions/upload-artifact@v4
+      # Supply-chain records, kept OUT of dist/ (everything in dist/ is
+      # uploaded to PyPI). The SBOM lists the exact resolved runtime
+      # dependencies; the attestation is a Sigstore-signed SLSA provenance
+      # statement for each artifact, verifiable with
+      # `gh attestation verify <file> --repo arpankernel/palisade`. PyPI
+      # also stores its own PEP 740 attestations via Trusted Publishing.
+      - name: Software bill of materials (CycloneDX)
+        run: |
+          mkdir -p sbom
+          uv export --format cyclonedx1.5 --no-dev --all-extras --no-hashes \
+            -o "sbom/palisade-sec-${{ steps.version.outputs.version }}.cdx.json"
+          uv run python -c "import json,sys; d=json.load(open(sys.argv[1])); \
+            assert d['bomFormat']=='CycloneDX', d; print(len(d.get('components', [])), 'components')" \
+            sbom/*.cdx.json
+
+      - name: Build provenance attestation
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: dist/*
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom/
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
           path: dist/
@@ -116,14 +146,14 @@ jobs:
     permissions:
       id-token: write # the OIDC token; this is what replaces the API token
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: dist
           path: dist/
 
       # Phase 4 hardening will pin this to a commit SHA; release/v1 is the
       # form PyPI's own docs recommend today.
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
 
   github-release:
     name: GitHub release
@@ -133,16 +163,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: dist
           path: dist/
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sbom
+          path: sbom/
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
+          gh release create "$GITHUB_REF_NAME" dist/* sbom/* \
             --title "$GITHUB_REF_NAME" \
             --notes "Published to PyPI: https://pypi.org/project/palisade-sec/${{ needs.build.outputs.version }}/
 
