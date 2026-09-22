@@ -68,7 +68,10 @@ runs:
         IN_EXTRAS: ${{ inputs.extras }}
         ACTION_REF: ${{ github.action_ref }}
       run: |
-        set -uo pipefail
+        # GitHub runs `shell: bash` with -e. The scan's non-zero exit (a
+        # finding under --ci) must be captured, not abort the step before the
+        # exit code is recorded and the SARIF uploaded.
+        set +e -uo pipefail
         for flag in IN_LIBRARY IN_FAIL; do
           case "${!flag}" in true|false) ;; *) echo "::error::$flag must be true or false"; exit 2;; esac
         done
