@@ -28,9 +28,10 @@ uvx --from "palisade-sec[js]" palisade-sec scan .
 pip install "palisade-sec[js]"
 ```
 
-Python files are scanned out of the box. `.js`/`.mjs`/`.cjs`/`.jsx`/`.ts`/`.tsx`
-are scanned when the `[js]` extra is installed - otherwise they're skipped
-with a note telling you how to enable them.
+Python files (including `.ipynb` Jupyter notebooks) are scanned out of the
+box. `.js`/`.mjs`/`.cjs`/`.jsx`/`.ts`/`.tsx` are scanned when the `[js]`
+extra is installed - otherwise they're skipped with a note telling you how
+to enable them.
 
 ## Your first scan
 

@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from palisade_sec import ir
 from palisade_sec.engine import Engine, Finding
 from palisade_sec.frontends.ast_python import ParseFailure, PythonFrontend
+from palisade_sec.frontends.notebook import NotebookFrontend
 from palisade_sec.rules import load_rules
 from palisade_sec.semantic.agents.findings import find_agent_handoff_findings
 from palisade_sec.suppress import (
@@ -44,6 +45,7 @@ class Frontend(Protocol):
 
 PY_EXTENSIONS = (".py", ".pyi")
 JS_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx")
+NB_EXTENSIONS = (".ipynb",)
 
 ALWAYS_EXCLUDE_DIRS = {
     ".venv",
@@ -60,6 +62,7 @@ ALWAYS_EXCLUDE_DIRS = {
     ".pytest_cache",
     ".tox",
     ".eggs",
+    ".ipynb_checkpoints",
 }
 
 
@@ -173,7 +176,7 @@ def collect_files(root: Path, cfg: ScanConfig) -> list[Path]:
             and not _ignored_by_cfg(f"{rel_dir}/{d}".lstrip("./"), cfg)
         ]
         for fname in sorted(filenames):
-            if not fname.endswith(PY_EXTENSIONS + JS_EXTENSIONS):
+            if not fname.endswith(PY_EXTENSIONS + JS_EXTENSIONS + NB_EXTENSIONS):
                 continue
             rel = f"{rel_dir}/{fname}".lstrip("./").lstrip("/")
             if rel_dir == ".":
@@ -230,8 +233,11 @@ class ScanResult:
 
 
 def _make_frontends() -> tuple[dict[str, Frontend], bool]:
-    """Python is always available; JS/TS needs the optional [js] extra."""
+    """Python and notebooks are always available (the notebook frontend is
+    Python's, reassembled - no extra dependency); JS/TS needs the optional
+    [js] extra."""
     frontends: dict[str, Frontend] = {ext: PythonFrontend() for ext in PY_EXTENSIONS}
+    frontends.update({ext: NotebookFrontend() for ext in NB_EXTENSIONS})
     js_unavailable = False
     try:
         from palisade_sec.frontends.tree_sitter_js import AVAILABLE, JavaScriptFrontend

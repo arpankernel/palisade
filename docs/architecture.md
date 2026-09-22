@@ -6,9 +6,10 @@ this way.
 ## The spine
 
 ```
-                ┌────────────── language frontends (pluggable) ──────────────┐
-  source ────▶  │  Python (stdlib ast)      JS/TS (tree-sitter, [js] extra)  │
-                └───────────────────────────┬─────────────────────────────────┘
+                ┌──────── language frontends (pluggable) ─────────────────┐
+  source ────▶  │  Python (stdlib ast)  ·  Jupyter (reassembled Python)   │
+                │  JS/TS (tree-sitter, [js] extra)                       │
+                └───────────────────────────┬───────────────────────────┘
                                             ▼
                      Normalized Taint IR - language-neutral nodes:
                      assignments, calls (dotted paths), string joins,
@@ -29,7 +30,10 @@ Three load-bearing decisions:
 1. **Frontend/IR split.** A frontend's only job is lowering source into the
    IR. The engine never sees a Python `ast` node or a tree-sitter node. This
    is proven, not aspirational: the JS/TS frontend landed with **zero engine
-   changes**, and the same YAML rules match both languages.
+   changes**, the same YAML rules match both languages, and the notebook
+   frontend adds a whole new file format by reassembling `.ipynb` cells into
+   Python source and delegating to the Python frontend - zero engine changes
+   again.
 2. **Rules are data.** Sources, LLM signatures, sinks, sanitizers, and
    partial defenses are dotted-path patterns in YAML, validated by a
    pydantic schema. New framework coverage is a rule PR, never an engine PR.
@@ -41,7 +45,7 @@ Three load-bearing decisions:
 
 ```
 src/palisade_sec/
-├── frontends/          # ast_python.py · tree_sitter_js.py  (source → IR)
+├── frontends/          # ast_python.py · notebook.py · tree_sitter_js.py
 ├── ir/                 # the normalized taint IR (model.py)
 ├── engine/             # analyzer.py (taint), findings.py, taint.py
 ├── rules/              # 5 builtin YAML rules + pydantic schema + loader

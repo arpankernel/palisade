@@ -75,7 +75,7 @@ def test_hostile_corpus_never_executes_and_never_crashes(tripwire):
         assert not os.path.exists(m), "scanned code was executed (marker written)"
     # malformed files are skipped with a warning, never fatal
     skipped = " ".join(res.skipped)
-    for name in ("broken.py", "deep_parens.py", "nullbyte.py", "huge.py"):
+    for name in ("broken.py", "deep_parens.py", "nullbyte.py", "huge.py", "deep_nested.ipynb"):
         assert name in skipped, f"{name} should be skipped with a warning: {res.skipped}"
     # and the genuinely vulnerable file in the corpus is still analyzed
     assert any(f.rule_id == "PI-SHELL" for f in res.findings)
