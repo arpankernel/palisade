@@ -45,7 +45,6 @@ def _question_json(q: Question) -> dict:
 
 class TypeSafeBackend:
     name = "typesafe"
-    verified = True
 
     def __init__(
         self,
@@ -57,6 +56,10 @@ class TypeSafeBackend:
         self._api_key = api_key
         self.endpoint = endpoint.rstrip("/")
         self.model = model
+        # "Calibrated" is a property of the real TypeSafe service, not of this
+        # adapter. Any other endpoint speaking the same protocol is unverified,
+        # so it gets the unverified posture cap and can never BLOCK on its own.
+        self.verified = self.endpoint == DEFAULT_ENDPOINT.rstrip("/")
         self._client = client or httpx.Client()
 
     def ask(self, state: object, questions: list[Question]) -> JudgeResult:

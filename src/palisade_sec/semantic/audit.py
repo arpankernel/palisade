@@ -220,6 +220,10 @@ class AuditReport:
     findings: list[SemanticFinding]
     tools_seen: int
     files_scanned: int
+    # (warnings, notes, skipped) from lowering the project.
+    diagnostics: tuple[list[str], list[str], list[str]] = field(
+        default_factory=lambda: ([], [], [])
+    )
 
 
 def run_audit(
@@ -237,7 +241,12 @@ def run_audit(
     findings = audit_excessive_agency(low.modules, backend, policy)
     findings += audit_taint_exploitability(scan.findings, backend, policy)
     tools_seen = len(harvest_tools(low.modules))
-    return AuditReport(findings=findings, tools_seen=tools_seen, files_scanned=low.files_scanned)
+    return AuditReport(
+        findings=findings,
+        tools_seen=tools_seen,
+        files_scanned=low.files_scanned,
+        diagnostics=(list(low.warnings), list(low.notes), list(low.skipped)),
+    )
 
 
 _DECISION_STYLE = {"block": "bold red", "review": "yellow", "pass": "green"}

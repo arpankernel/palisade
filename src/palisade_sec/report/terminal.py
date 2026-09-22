@@ -93,6 +93,14 @@ def print_findings(
         )
     for n in notes:
         console.print(f"[dim]note: {escape(n)}[/dim]")
+    if skipped:
+        # Listed at the top already; repeated beside the verdict because a
+        # file that failed to parse was NOT checked, and a stray syntax error
+        # must not quietly hide every finding in that file.
+        console.print(
+            f"[bold yellow]{len(skipped)} file(s) were skipped and NOT checked[/bold yellow] "
+            "(see `skipped:` above)."
+        )
     if not findings and files_scanned == 0:
         # Never a green tick for an empty scan: a security gate that checked
         # nothing must not look like one that passed.

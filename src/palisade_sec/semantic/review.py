@@ -94,6 +94,11 @@ class ReviewReport:
     # The audit findings from the SAME single judgment pass that produced the
     # risk items, so audit and review never disagree within one run.
     semantic_findings: list[SemanticFinding] = field(default_factory=list)
+    # (warnings, notes, skipped) from lowering the project, so the CLI can say
+    # what the review did NOT check.
+    diagnostics: tuple[list[str], list[str], list[str]] = field(
+        default_factory=lambda: ([], [], [])
+    )
 
     def breakdown(self) -> dict[str, int]:
         counts = Counter(i.tier for i in self.items)
@@ -171,6 +176,7 @@ def run_review(
         backend_name=backend.name if backend is not None else None,
         backend_verified=backend.verified if backend is not None else True,
         semantic_findings=agency + exploitability,
+        diagnostics=(list(low.warnings), list(low.notes), list(low.skipped)),
     )
 
 
