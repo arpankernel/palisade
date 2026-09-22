@@ -224,9 +224,12 @@ class FuncDef:
     loc: Loc
     class_name: str | None = None
     is_test: bool = False
-    # True when the body contains a membership test (`x in y`) - one signal
-    # that a sanitizer-named function really validates (see engine docs).
-    has_membership_test: bool = False
+    # True when the body tests the input FOR membership in a collection that is
+    # not itself the input: an allowlist (`code in ALLOWED`,
+    # `ALLOWED.includes(code)`). Searching the input for bad strings
+    # (`"import" in code`, `code.includes("os.")`) is a denylist and does NOT
+    # set this - denylists are bypassable and must never silence a finding.
+    has_allowlist_membership: bool = False
     # Dotted paths of decorators (alias-resolved), e.g. "app.post" - used to
     # recognize web-framework entry points whose params are untrusted.
     decorators: list[str] = field(default_factory=list)

@@ -234,7 +234,10 @@ PREAMBLE = """
 """
 
 
-def test_raise_in_except_counts_as_validation(tmp_path):
+def test_parse_check_is_not_validation(tmp_path):
+    """`ast.parse` succeeding proves the model's output is valid Python, and
+    every malicious payload is valid Python. 0.5.0 counted the raise in the
+    except branch as validation and silenced this; it must downgrade instead."""
     res = _scan(
         tmp_path,
         app=PREAMBLE
@@ -254,7 +257,9 @@ def test_raise_in_except_counts_as_validation(tmp_path):
             exec(validate_snippet(resp.choices[0].message.content))
         """,
     )
-    assert res.findings == []
+    (f,) = res.findings
+    assert f.severity == "med" and f.risky
+    assert [p.kind for p in f.partial_defenses] == ["unverified_sanitizer"]
 
 
 def test_regex_fullmatch_counts_as_validation(tmp_path):

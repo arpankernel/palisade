@@ -179,9 +179,8 @@ class _Lowerer:
                         )
             else:
                 body.extend(self.lower_stmt(child))
-        has_membership = any(
-            isinstance(sub, ast.Compare)
-            and any(isinstance(op, (ast.In, ast.NotIn)) for op in sub.ops)
+        has_allowlist = any(
+            _is_allowlist_compare(sub, params) or _is_allowlist_isinstance(sub, params)
             for sub in ast.walk(node)
         )
         decorators = [
@@ -197,7 +196,7 @@ class _Lowerer:
                 body=body,
                 loc=self.loc(node),
                 class_name=class_name,
-                has_membership_test=has_membership,
+                has_allowlist_membership=has_allowlist,
                 decorators=decorators,
             )
         )
@@ -477,3 +476,49 @@ class _Lowerer:
             kwargs=kwargs,
             star_args=star_args,
         )
+
+
+def _is_allowlist_compare(node: ast.AST, params: list[str]) -> bool:
+    """`x in COLLECTION` / `x not in COLLECTION` where the input is the element
+    being looked up - an allowlist. False for a denylist search of the input
+    (`"import" in code`, `bad in code`) and for substring tests against a
+    string constant (`code in "abc"`)."""
+    if not (
+        isinstance(node, ast.Compare)
+        and len(node.ops) == 1
+        and isinstance(node.ops[0], (ast.In, ast.NotIn))
+    ):
+        return False
+    container = node.comparators[0]
+    if isinstance(node.left, ast.Constant) or isinstance(container, ast.Constant):
+        return False
+    return not (isinstance(container, ast.Name) and container.id in params)
+
+
+_BUILTIN_TYPES = frozenset(
+    {"str", "bytes", "int", "float", "bool", "dict", "list", "tuple", "set", "object"}
+)
+
+
+def _is_allowlist_isinstance(node: ast.AST, params: list[str]) -> bool:
+    """`isinstance(node, ALLOWED_NODE_TYPES)` over a parsed structure - the
+    strict AST-allowlist pattern recommended for vetting model-written code.
+    A type check of the raw input (`isinstance(code, str)`) is not validation
+    and does not count."""
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "isinstance"
+        and len(node.args) == 2
+    ):
+        return False
+    subject, types = node.args
+    if isinstance(subject, ast.Name) and subject.id in params:
+        return False
+    if isinstance(types, ast.Name):
+        return types.id not in _BUILTIN_TYPES
+    if isinstance(types, ast.Attribute):
+        return True
+    if isinstance(types, ast.Tuple):
+        return not all(isinstance(e, ast.Name) and e.id in _BUILTIN_TYPES for e in types.elts)
+    return False
