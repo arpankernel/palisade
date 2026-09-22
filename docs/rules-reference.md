@@ -6,17 +6,20 @@ Rules are YAML data validated by a pydantic schema
 guide, see [`rules/README.md`](../src/palisade_sec/rules/README.md); this
 page is the reference.
 
-## The five builtin rules
+## The six builtin rules
+
+Five are YAML taint rules (the table below). The sixth, `PI-AGENT-HANDOFF`,
+is graph-based; see [Multi-agent detection](#multi-agent-detection-pi-agent-handoff).
 
 | Rule | Severity | Sinks | Real-world precedent |
 |---|---|---|---|
 | `PI-EXEC` | high | `exec`, `eval`, `compile`, `PythonREPL.run`, `new Function`, `vm.runIn*` | PandasAI CVE-2024-12366, Vanna.ai CVE-2024-5565, LangChain PAL CVE-2023-36258 |
 | `PI-SHELL` | high | `os.system`, `os.popen`, `subprocess.*` **with `shell=True`**, `subprocess.getoutput`, `child_process.exec[Sync]` | Open Interpreter (by design) |
-| `PI-SQL` | high | `*.execute`/`executemany`/`executescript`, Django `*.raw`, JS `pool/db/conn/client.query` - **non-parameterized form only** | Vanna.ai CVE-2024-5565 / CVE-2024-5826 |
+| `PI-SQL` | high | `*.execute`/`executemany`/`executescript`, Django `*.raw`, JS `pool/db/conn/client.query` - **non-parameterized form only** | Vanna-style text-to-SQL design (model-written SQL executed verbatim) |
 | `PI-FRAMEWORK-EXEC` | high | exec-family **plus** `*.run_code`, `*.execute_code`, `*.execute_plan` | Vanna (`submit_prompt`), PandasAI (code pipelines) |
 | `PI-HTTP` | **med (advisory)** | `requests.*`, `httpx.*`, `urlopen` - URL argument only | SSRF / exfiltration, OWASP LLM Top-10 |
 
-All five share the source set (Flask `request.*`, FastAPI/route decorators,
+All five taint rules share the source set (Flask `request.*`, FastAPI/route decorators,
 Express `req.*`, `input()`, `sys.argv`, `process.argv`) and the LLM
 signature set (OpenAI/Anthropic/litellm/ollama/Gemini SDK paths + LangChain
 `chain.run`-style receiver names). `PI-FRAMEWORK-EXEC` additionally treats
@@ -45,7 +48,8 @@ dangerous agent (no handoff) stays silent. Confidence scales with handoff depth
 (1 hop HIGH, 2 MEDIUM, 3+ LOW). Frameworks recognized today: OpenAI Agents SDK
 (`Agent(tools=, handoffs=)`), LangGraph (`add_node`/`add_edge`), and CrewAI
 (`Crew(agents=, process=)`). Untrustedness is tracked intra-procedurally in v1;
-agents are scoped per module.
+agents are scoped per module. Unlike `PI-HTTP`, it is not advisory: a new
+`PI-AGENT-HANDOFF` finding fails `scan --ci` like any HIGH taint finding.
 
 ## Rule schema
 
@@ -112,11 +116,13 @@ Defense categories (`sanitizers`, `partial_defenses`) match as
 - **`trusted: true`** - known validation frameworks. Name match fully
   suppresses.
 - **Untrusted (default)** - name heuristics. A match suppresses only when
-  the call resolves to a project-local function whose body shows a real
-  validation shape: a membership test, a guard branch that raises/returns,
-  a raise anywhere (except handlers included), a strict-matcher call
-  (`re.fullmatch`, `uuid.UUID`, …), or one level of delegation to such a
-  body. A **sanitizer in name only** (cosmetic `.replace()` - Vanna's
+  the call resolves to a project-local function whose body shows an
+  allowlist shape: the input looked up in a fixed allowed collection, an
+  AST node-type allowlist over the parsed input (`isinstance(node,
+  ALLOWED_NODES)`), an enum-literal guard, a strict-matcher call (`re.fullmatch`, `uuid.UUID`,
+  …), or one level of delegation to such a body. A bare raise, a length
+  check, or a denylist search of the input is not enough (0.5.0 counted
+  those; 0.5.1 does not). A **sanitizer in name only** (cosmetic `.replace()` - Vanna's
   `_sanitize_plotly_code`, CVE-2024-5565) downgrades the finding to
   **MED "unverified sanitizer"** instead of silencing it.
 - Unresolvable third-party calls keep the benefit of the doubt; promote the
@@ -130,8 +136,10 @@ literal-enum membership guards (`if x in ("a", "b")`, JS
 
 Denylists, blocklists, confirmation gates, `auto_run` flags. They **never
 suppress** - the finding survives at MED "risky" with the defense named in
-the output. This is philosophy, backed by CVEs: LangChain PAL's denylist and
-Open Interpreter's confirmation gate were both walked through in the wild.
+the output. This is philosophy, backed by a disclosed CVE: LangChain PAL's
+denylist was bypassed (CVE-2023-44467, bypassing the CVE-2023-36258 fix), and
+Open Interpreter puts only a confirmation gate between model output and a
+shell, by design.
 
 ## Overlap and dedup
 

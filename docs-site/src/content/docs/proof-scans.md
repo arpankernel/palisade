@@ -169,7 +169,7 @@ scored by `scripts/precision.py`.
 | Metric | Value |
 |--------|-------|
 | Repos | 26 |
-| Files scanned | 17,343 |
+| Files scanned | 17,352 (re-measured on 0.5.1; 0.4.0 scanned 17,343) |
 | Precision | **1.000** (tp=2, fp=0) |
 | Recall | **0.667** (tp=2, fn=1) |
 | F1 | **0.800** |

@@ -44,7 +44,7 @@ src/palisade_sec/
 └── cli.py         # Typer CLI
 examples/vulnerable-app/   # acceptance fixtures - tests pin exact findings
 examples/support-bot/      # docs/tutorial.md sample app
-tests/                     # ~112 tests; FP tests are the highest-value ones
+tests/                     # the suite; FP tests are the highest-value ones
 tests/fixtures/hostile/    # adversarial corpus for the self-security suite
 tests/fixtures/regressions/ # false-positive cases that must stay silent, forever
 corpus/                    # Phase-0 benchmark: fixture manifest + pinned repos
@@ -93,11 +93,20 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
    fixture is incomplete.
 6. **Stable interfaces:** the `--json` schema (`schema_version: 1` - bump it
    for breaking changes and document in `docs/cli-reference.md`), exit codes
-   (0/1/2), and baseline fingerprint semantics (line-shift resilient).
+   (0/1/2/3, documented there too), and baseline fingerprint semantics
+   (line-shift resilient).
    Terminal output is NOT an interface; anything printed through rich must
    escape dynamic text (`rich.markup.escape`).
 7. **Determinism.** Findings, JSON, and baseline files are sorted; no
    wall-clock or randomness in scan results.
+8. **Self-defense is a hard gate.** The audit-hook suite in
+   `tests/test_self_security.py` must stay green: no exec/import of target
+   code, no subprocess, no sockets during a scan; symlinks escaping the scan
+   root are skipped; oversized/deeply-nested/malformed files are skipped with
+   a warning, never crash; output files are never written through a
+   symlink (`safe_io.py`). Resource caps (`max_file_bytes`,
+   `max_scan_seconds`) and 200-char snippet redaction are part of the
+   contract - see `SECURITY.md` and `HARDENING-AUDIT.md`.
 9. **Precision only ratchets upward.** Every reported false positive
    becomes a permanent fixture in `tests/fixtures/regressions/`. Never
    silence one by weakening an assertion, and never delete a regression
@@ -106,14 +115,6 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
 10. **Suppressions stay loud.** `# palisade: ignore[RULE]` must keep being
    counted, attributable and stale-checked. A silent suppression mechanism
    is how a vulnerability quietly returns.
-
-8. **Self-defense is a hard gate.** The audit-hook suite in
-   `tests/test_self_security.py` must stay green: no exec/import of target
-   code, no subprocess, no sockets during a scan; symlinks escaping the scan
-   root are skipped; oversized/deeply-nested/malformed files are skipped with
-   a warning, never crash. Resource caps (`max_file_bytes`,
-   `max_scan_seconds`) and 200-char snippet redaction are part of the
-   contract - see `SECURITY.md` and `HARDENING-AUDIT.md`.
 
 ## Conventions
 
@@ -124,8 +125,11 @@ both - marketing at `/`, docs at `/docs/` - and publishes to GitHub Pages.
 - Docs claims must be real: tutorial/README outputs are captured from actual
   runs - if you change output formats, re-run the commands and update
   `docs/` plus `scripts/make_demo.py`'s SVG.
-- Releases: tag `vX.Y.Z`, GitHub release, `uv build && uv publish`
-  (maintainer's PyPI token - never commit or echo it).
+- Releases are tag-triggered via PyPI Trusted Publishing
+  (`.github/workflows/release.yml`): bump the version in both places, then
+  `git tag vX.Y.Z && git push --tags`. The workflow runs the gates, checks
+  the tag matches `pyproject.toml`, builds and publishes over OIDC. There is
+  no PyPI token; never add one.
 
 ## Where to add things
 

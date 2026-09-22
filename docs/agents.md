@@ -9,7 +9,11 @@ to be pasted into an agent's context or fetched via [`llms.txt`](../llms.txt).
 `palisade-sec` statically detects prompt-injection vulnerabilities:
 **untrusted input → LLM call → dangerous sink** (exec/eval, shell, raw SQL,
 URL fetch) in Python and JavaScript/TypeScript. Pure static analysis: it
-never executes scanned code, makes no network calls, and needs no API key.
+never executes scanned code, and the offline core (`scan`, `map`, `baseline`,
+`fix`, `redteam` synthesis) makes no network calls and needs no API key. The
+optional judgment layer (`audit`, `review`'s judged checks, `redteam
+--execute`) needs the `palisade-sec[judge]` extra and an endpoint the user
+configures; do not invoke it unless the user has set one up.
 A finding requires the complete path - it is safe to treat every HIGH
 finding as real and actionable.
 
@@ -43,9 +47,15 @@ one JSON document to stdout (warnings inside the document, not on stderr).
 1. **Always parse `--json`. Never parse terminal output** - it is styled,
    wrapped, and not a stable interface. Check `schema_version == 1`; on any
    other value, stop and report incompatibility instead of guessing.
-2. **Exit codes:** `0` success (findings may still exist - read the JSON),
-   `1` only with `--ci` and a new HIGH, `2` usage error (bad path). Do not
-   infer findings from exit codes except under `--ci`.
+2. **Exit codes:** `0` success (findings may still exist - read the JSON);
+   `1` only with `--ci` and a new HIGH (or, for `audit --ci`, a BLOCK
+   decision; for `redteam --execute --ci`, a landed attack); `2` usage or
+   target error (bad path, missing explicit `--config`/`--rules`, a `--ci`
+   run that scanned 0 files, missing `[judge]` extra or key, a refused
+   symlinked output path, errored attacks under `redteam --execute --ci`);
+   `3` internal error (a Palisade bug, not a finding - report it, do not
+   treat it as a pass). Do not infer findings from exit codes except under
+   `--ci`.
 3. **Choose the mode by target shape:** app/service → plain scan; library or
    SDK (entry points are public functions) → add
    `--assume-params-untrusted`; JS/TS present → use the `[js]` extra
@@ -84,7 +94,7 @@ one JSON document to stdout (warnings inside the document, not on stderr).
   "schema_version": 1,
   "summary": {"files_scanned": N, "high": N, "med": N, "low": N, "baseline_suppressed": N},
   "findings": [{
-    "rule": "PI-EXEC | PI-SHELL | PI-SQL | PI-FRAMEWORK-EXEC | PI-HTTP | <custom>",
+    "rule": "PI-EXEC | PI-SHELL | PI-SQL | PI-FRAMEWORK-EXEC | PI-HTTP | PI-AGENT-HANDOFF | <custom>",
     "severity": "high|med|low",
     "confidence": "HIGH|MEDIUM|LOW",       // path directness, not certainty of exploitability
     "risky_partial_defense": true|false,   // true ⇒ downgraded, defense named below
@@ -110,7 +120,9 @@ one JSON document to stdout (warnings inside the document, not on stderr).
 ```text
 1. Detect languages → pick plain vs [js] invocation; detect library vs app
    → decide on --assume-params-untrusted (ask the user if ambiguous).
-2. scan --json → if summary.high == 0 and no risky MEDs: report clean, stop.
+2. scan --json → if summary.files_scanned == 0: report that nothing was
+   scanned (not clean), stop. If summary.high == 0 and no risky MEDs:
+   report clean, stop.
 3. For each finding (HIGH first): read trace, open the sink file, apply the
    matching guardrail template from `palisade-sec fix`, add its regression
    test to the project's test suite.

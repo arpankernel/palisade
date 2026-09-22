@@ -6,7 +6,8 @@ Five minutes from zero to your first finding.
 
 The offline core (`scan`, `map`, `baseline`, `fix`) needs no API key, no
 account, and makes no network calls. Python ≥ 3.11. (The optional judgment
-layer, `audit` and `review`, calls an endpoint you configure - see
+layer, `audit`, `review`'s judged checks and `redteam --execute`, needs the
+`[judge]` extra and calls an endpoint you configure - see
 [Next steps](#next-steps).)
 
 ```bash
@@ -34,23 +35,29 @@ with a note telling you how to enable them.
 palisade-sec scan path/to/project
 ```
 
-- **No findings** → a friendly success line, exit code `0`.
+- **No findings** → a friendly success line, exit code `0`. (If no supported
+  files were found, it says "Nothing was scanned" instead - never a green
+  tick.)
 - **Findings** → each is printed with a full data-flow trace. Exit code is
   still `0` unless you pass `--ci`.
 
 ## Reading a finding
 
 ```
-HIGH app.py:34  [PI-SQL] Prompt injection reaching raw SQL
-  ↳ source: question = request.json["question"]  (app.py:24)
-  ↳ llm:    resp = client.chat.completions.create(  (app.py:25)
-  ↳ sink:   cur.execute(sql)  (app.py:34)
+HIGH app.py:33  [PI-SQL] Prompt injection reaching raw SQL
+  ↳ source: question = request.json["question"]  (app.py:23)
+  ↳ llm:    resp = client.chat.completions.create(  (app.py:24)
+  ↳ sink:   cur.execute(sql)  (app.py:33)
   No sanitizer on path.  Confidence: HIGH
   Attack: Crafted input steers the text-to-SQL model into emitting UNION-based
           exfiltration or destructive statements (DROP/DELETE), executed verbatim.
   Fix:    Execute model-generated SQL only through a read-only connection ...
-  Refs:   https://owasp.org/...; CVE-2024-5565 (Vanna.ai); CVE-2024-5826 (Vanna.ai)
+  Refs:   https://owasp.org/www-project-top-10-for-large-language-model-applications/; ...
 ```
+
+(That is the first finding from `palisade-sec scan examples/support-bot`,
+wrapped and trimmed.) The precedent for `PI-SQL` is the Vanna-style
+text-to-SQL design: model-written SQL executed verbatim.
 
 Every finding answers four questions:
 
@@ -83,7 +90,8 @@ git add .palisade/baseline.json
 palisade-sec scan . --ci --baseline .palisade/baseline.json
 ```
 
-`--ci` exits `1` only when a **new HIGH** finding appears. Fingerprints are
+`--ci` exits `1` only when a **new HIGH** finding appears (and `2` if it
+scanned 0 files, so a misconfigured gate can't pass silently). Fingerprints are
 line-number independent, so refactors don't churn the baseline. GitHub
 Actions example:
 

@@ -1,6 +1,6 @@
 # Roadmap: production progression, Phases 0–6
 
-How Palisade goes from a working v0.4.x to applied agentic-safety
+How Palisade goes from a working v0.5.x to applied agentic-safety
 infrastructure a team puts in front of every PR. This sequences the work and
 argues **why this order** - then reports current status honestly against it.
 
@@ -14,7 +14,7 @@ runs on. Each existing capability maps onto a pillar of that agenda:
 | Palisade capability | Agenda pillar it instantiates |
 |---|---|
 | `scan` / `map` - the action-boundary surface (input → model → exec/shell/SQL/payments/secrets) | **Agentic safety** - the model→high-impact-action interface, which is the loss-of-control surface as autonomy scales |
-| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded, calibrated harness for a verifiable failure class |
+| `redteam` synthesis + gated execution + scoring, on a pinned corpus | **Evals** - a grounded harness for a verifiable failure class |
 | `review` + posture score, grounded in verified static facts | **Safety cases** - a structured, evidence-backed argument about a system's safety posture |
 | advisory + approval gates (proposes all; human approves mutating/prod; never executes customer code) | **Oversight** - a human at the high-impact boundary, machine doing the labor |
 | SARIF, CI gates, CWE/OWASP-LLM mapping, disclosure/provenance | **Governance** - makes safety practice enforceable as an org requirement |
@@ -41,16 +41,16 @@ keyless-and-offline versus bring-your-own-endpoint.
 - **Multi-agent detection** - the agent graph in `map` (agents, tools,
   capabilities, handoffs) across OpenAI Agents SDK, LangGraph, and CrewAI, plus
   the deterministic `PI-AGENT-HANDOFF` finding in `scan` (untrusted input -> agent
-  run -> handoff -> a dangerous-capability agent). Calibrated on labelled fixtures
+  run -> handoff -> a dangerous-capability agent). Measured on labelled fixtures
   and gated in CI.
 - Red-team **synthesis and gated execution** - a Map-driven adversarial attack
   suite (advisory, offline) that can be fired at a user-provided target with
   `--approve`, scored by the judgment backend.
 - **Judgment calibration harness** (`scripts/calibrate.py` + a labelled corpus).
-  Measured on the seed corpus (see `corpus/judgment/RESULTS.md`): `exploitable`
-  and `irreversible` at precision/recall 1.00, `severity`/`harm` within +/-1
-  tier. `gated` is measured but below bar (the model over-predicts gating) and is
-  marked known-weak - reported, not trusted to downgrade a finding.
+  Preliminary: measured on a 10-case seed corpus (n=4 to 6 per signal), not a
+  benchmark result; the judged layer stays advisory (see
+  `corpus/judgment/RESULTS.md`). `gated` is marked known-weak on that seed (the
+  model over-predicts gating) - reported, not trusted to downgrade a finding.
 - **SARIF output + GitHub code-scanning Action** - `scan --sarif` emits SARIF
   2.1.0 (severity mapped, line-shift-resilient fingerprints); a five-line
   workflow uploads findings to the Security tab, dogfooded on our own `src`.
@@ -83,13 +83,15 @@ open-source *security* tool, three facts fix the order:
 Through-line: **Measure → Distribute → Cover → Scale → Certify → Expand →
 Remediate.** Trust before reach before depth.
 
-## Where we are (v0.4.0-dev)
+## Where we are (v0.5.1)
 
-**Phase 0 is complete.** The engine, five rules, both frontends, library
-mode, the baseline/CI flow and a template-based `fix` are shipped and
-published, pinned by 185 tests. Quality is now measured rather than
+**Phase 0 is complete.** The engine, six rules (five taint rules plus
+`PI-AGENT-HANDOFF`), both frontends, library mode, the baseline/CI flow and a
+template-based `fix` are shipped and pinned by the test suite. 0.5.0, with the
+judgment tier (`audit`, `review`, `redteam --execute`), is on PyPI; 0.5.1 is
+the next release. Quality is now measured rather than
 asserted, against a pinned benchmark corpus of 26 third-party repos
-(17,343 files Palisade actually scans):
+(17,352 files Palisade actually scans, 0.5.1):
 
 | Metric | Value |
 |---|---|
@@ -97,7 +99,9 @@ asserted, against a pinned benchmark corpus of 26 third-party repos
 | Recall | **0.667** (tp=2, fn=1) |
 | F1 | **0.800** |
 
-Zero false positives across 17,343 files of real third-party code. The one
+Zero false positives across 17,352 files of real third-party code. Two small
+repos (84 files) contain no untrusted input for taint to start from; they are
+reported but excluded from the precision claim. The one
 miss is PandasAI's CVE-2024-12366, whose exec sits behind dynamically
 dispatched pipeline steps that bounded static taint cannot follow. It is
 labelled as a miss on purpose rather than deleted, so recall stays honest
@@ -106,7 +110,7 @@ and the gap stays visible. Full detail in [proof-scans.md](proof-scans.md).
 | Phase | Theme | Status |
 |---|---|---|
 | 0 | Measure | **Done.** P/R published and gated in CI; corpus pinned with recorded SHAs; FP regression harness live; inline suppressions shipped; self-security enforced over an adversarial corpus |
-| 1 | Distribute | **In progress** - SARIF output + a code-scanning GitHub Action shipped (dogfooded on our own src); pre-commit, a Marketplace action, and the PyPI release of the new tier remain. The public-launch gate lives here |
+| 1 | Distribute | **In progress** - SARIF output + a code-scanning GitHub Action shipped (dogfooded on our own src); pre-commit and a Marketplace action remain. The public-launch gate lives here |
 | 2 | Cover | Partial - notebooks, framework breadth, rule-test framework for community PRs |
 | 3 | Scale | Open - incremental scanning, caching, perf gates |
 | 4 | Certify | Started - SECURITY.md and release discipline shipped; signing, SBOM, provenance remain |
@@ -130,9 +134,9 @@ without silently breaking it."
   should-be-silent`.
 - Precision/Recall/F1 harness in CI that **fails the build if precision
   drops** below threshold (~90% to start). The published number is a
-  byproduct; the regression gate is the point. *(Done: scores both the fast
-  fixture corpus on every push and the pinned 26-repo third-party corpus
-  weekly. The harness now also fails when it measures nothing, after an
+  byproduct; the regression gate is the point. *(Done: every PR is gated on
+  the fast fixture corpus, and the pinned 26-repo third-party corpus is scored
+  weekly and on demand. The harness now also fails when it measures nothing, after an
   unlabelled run reported precision=1.000 on tp=0 fp=0 fn=0.)*
 - FP regression harness: every reported false positive becomes a permanent
   must-stay-silent fixture. *(Already practiced informally - the test suite
@@ -197,7 +201,8 @@ merged. **Trap:** coverage sprawl buying recall with false positives.
 
 **Constraint:** "Too slow or noisy for a large repo / busy CI." Only bites
 once Phases 1–2 produce adopters with big repos - optimizing earlier is
-premature (current baseline: ~1,600 files in ~36 s).
+premature (current baseline: 1,576 files of Langflow in ~9 s on an Apple M3
+Pro).
 
 - Incremental / diff-aware scanning (changed files + their taint
   neighborhood) - correctness tested against full scans.
