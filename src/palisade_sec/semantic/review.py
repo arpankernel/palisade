@@ -22,6 +22,7 @@ from rich.markup import escape
 
 from palisade_sec.engine import Finding
 from palisade_sec.judge.base import JudgeBackend
+from palisade_sec.report.markdown import md_code
 from palisade_sec.semantic.audit import (
     SemanticFinding,
     audit_excessive_agency,
@@ -319,7 +320,7 @@ def to_markdown(report: ReviewReport, target: str) -> str:
     for item in sorted(report.items, key=lambda x: -x.risk):
         lines.append(
             f"| {item.tier} | {item.risk:.2f} | {item.kind} | {item.title} | "
-            f"`{item.file}:{item.line}` | {'yes' if item.judged else 'static'} |"
+            f"`{md_code(item.file)}:{item.line}` | {'yes' if item.judged else 'static'} |"
         )
     lines += [
         "",

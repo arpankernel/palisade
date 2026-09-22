@@ -20,6 +20,7 @@ from palisade_sec.baseline import (
     write_baseline,
 )
 from palisade_sec.report import print_findings, to_json, to_markdown
+from palisade_sec.safe_io import UnsafeOutputPath, write_output
 from palisade_sec.scanner import run_scan
 
 app = typer.Typer(
@@ -157,7 +158,7 @@ def scan(
 
     if report:
         out = Path("palisade-report.md")
-        out.write_text(to_markdown(findings, result.files_scanned, str(target)), encoding="utf-8")
+        _write(out, to_markdown(findings, result.files_scanned, str(target)))
         if not json_out and not sarif:
             typer.echo(f"report written to {out}")
 
@@ -165,6 +166,16 @@ def scan(
         _fail_empty_ci()
     if ci and any(f.severity == "high" for f in findings):
         raise typer.Exit(1)
+
+
+def _write(path: Path, text: str) -> None:
+    """Write a report/plan, refusing symlinks a scanned repo may have planted
+    at the output path (exit 2 with the reason, never a traceback)."""
+    try:
+        write_output(path, text)
+    except UnsafeOutputPath as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
 
 
 def _fail_empty_ci() -> None:
@@ -230,7 +241,7 @@ def fix(
         )
         return
     out = Path(output)
-    out.write_text(build_fix_plan(findings, result.files_scanned, str(target)), encoding="utf-8")
+    _write(out, build_fix_plan(findings, result.files_scanned, str(target)))
     console.print(
         f"remediation plan for {len(findings)} finding(s) written to {out} - "
         "each guardrail ships with a regression test; adapt the allowlists, "
@@ -473,7 +484,7 @@ def review(
 
     if report_out:
         out = Path("palisade-review.md")
-        out.write_text(to_markdown(result, str(target)), encoding="utf-8")
+        _write(out, to_markdown(result, str(target)))
         if not json_out:
             typer.echo(f"report written to {out}")
 
@@ -507,7 +518,11 @@ def baseline(
     result = run_scan(target, config_file=config, rules_dir=rules)
     root = target if target.is_dir() else target.parent
     out = Path(output) if output else root / DEFAULT_BASELINE
-    write_baseline(result.findings, out)
+    try:
+        write_baseline(result.findings, out)
+    except UnsafeOutputPath as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
     console = Console(highlight=False)
     for w in result.warnings:
         console.print(f"[yellow]warning:[/yellow] {w}")

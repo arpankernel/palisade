@@ -13,7 +13,30 @@ Expressions carry a `path` where a dotted name is known (e.g. the call target
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+
+# C0/C1 control characters (tab kept) and Unicode bidi overrides. Scanned code
+# is untrusted, and snippets and file paths are echoed straight to the
+# analyst's terminal and into shared reports. A raw ESC in a string literal
+# would otherwise let a scanned repo clear lines, recolour or rewrite
+# Palisade's own output (e.g. paint a fake "no findings"), and a newline in a
+# filename would break report structure; bidi overrides ("Trojan Source",
+# CVE-2021-42574) would make the shown code differ from the real code.
+_UNSAFE_CHARS = re.compile(r"[\x00-\x08\x0a-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+
+
+def neutralize(text: str) -> str:
+    """Replace control and bidi characters with a visible escape (`\\x1b`,
+    `\\u202e`) so they are shown, never interpreted."""
+    if not _UNSAFE_CHARS.search(text):
+        return text
+    return _UNSAFE_CHARS.sub(
+        lambda m: (
+            f"\\x{ord(m.group()):02x}" if ord(m.group()) < 0x100 else f"\\u{ord(m.group()):04x}"
+        ),
+        text,
+    )
 
 
 @dataclass(frozen=True)
@@ -24,6 +47,12 @@ class Loc:
     line: int
     col: int = 0
     snippet: str = ""
+
+    def __post_init__(self) -> None:
+        # Every frontend builds its locations here, so this is the one place
+        # untrusted text is made safe to print (terminal, markdown, SARIF).
+        object.__setattr__(self, "file", neutralize(self.file))
+        object.__setattr__(self, "snippet", neutralize(self.snippet))
 
 
 # --------------------------------------------------------------------------

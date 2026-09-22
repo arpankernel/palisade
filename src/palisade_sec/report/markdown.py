@@ -43,7 +43,7 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
         lines += [f"## {_SEV_TITLE[sev]}", ""]
         for f in group:
             lines += [
-                f"### [{f.rule_id}] {f.title} - `{f.file}:{f.line}`",
+                f"### [{f.rule_id}] {f.title} - `{md_code(f.file)}:{f.line}`",
                 "",
                 f.attack.strip() and f"**Attack:** {f.attack.strip()}" or "",
                 "",
@@ -51,23 +51,28 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
                 "",
                 "| Step | Location | Code |",
                 "|------|----------|------|",
-                f"| source | `{f.source.file}:{f.source.line}` | `{_code(f.source.snippet)}` |",
-                f"| llm | `{f.llm.file}:{f.llm.line}` | `{_code(f.llm.snippet)}` |",
-                f"| sink | `{f.sink.file}:{f.sink.line}` | `{_code(f.sink.snippet)}` |",
+                _flow_row("source", f.source),
+                _flow_row("llm", f.llm),
+                _flow_row("sink", f.sink),
                 "",
             ]
             if f.partial_defenses:
                 gates = [p for p in f.partial_defenses if p.kind != "unverified_sanitizer"]
                 unverified = [p for p in f.partial_defenses if p.kind == "unverified_sanitizer"]
                 if gates:
-                    what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in gates)
+                    what = ", ".join(
+                        f"`{md_code(p.pattern)}` at `{md_code(p.file)}:{p.line}`" for p in gates
+                    )
                     lines += [
                         f"**Partial defense only:** {what}. Denylists and confirmation "
                         "gates have been bypassed in real CVEs - this path is still risky.",
                         "",
                     ]
                 if unverified:
-                    what = ", ".join(f"`{p.pattern}` at `{p.file}:{p.line}`" for p in unverified)
+                    what = ", ".join(
+                        f"`{md_code(p.pattern)}` at `{md_code(p.file)}:{p.line}`"
+                        for p in unverified
+                    )
                     lines += [
                         f"**Unverified sanitizer:** {what}. It matches a sanitizer name, "
                         "but its body shows no allowlist/validation shape - this path "
@@ -83,5 +88,20 @@ def to_markdown(findings: list[Finding], files_scanned: int, target: str) -> str
     return "\n".join(line for line in lines if line is not None)
 
 
-def _code(s: str) -> str:
+def md_code(s: str) -> str:
+    """Make untrusted text (a scanned file path or source snippet) safe inside a
+    markdown code span or table cell: no backtick can close the span and no
+    pipe can open a new cell. Newlines and control characters are already
+    neutralized when the IR location is built (ir.model.neutralize)."""
     return s.replace("|", "\\|").replace("`", "'")
+
+
+_code = md_code
+
+
+def _flow_row(step: str, tp) -> str:
+    return f"| {step} | `{md_code(tp.file)}:{tp.line}` | `{md_code(tp.snippet)}` |"
+
+
+def _defense(p) -> str:
+    return f"`{md_code(p.pattern)}` at `{md_code(p.file)}:{p.line}`"

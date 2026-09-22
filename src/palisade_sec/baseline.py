@@ -14,6 +14,7 @@ from typing import Any
 
 from palisade_sec import __version__
 from palisade_sec.engine import Finding
+from palisade_sec.safe_io import write_output
 
 DEFAULT_BASELINE = ".palisade/baseline.json"
 SCHEMA_VERSION = 1
@@ -37,8 +38,9 @@ def write_baseline(findings: list[Finding], path: Path) -> None:
         "tool": f"palisade-sec {__version__}",
         "findings": {fp: entries[fp] for fp in sorted(entries)},
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # Symlink-safe: `.palisade` or the file itself may be a link planted by
+    # the scanned repository.
+    write_output(path, json.dumps(doc, indent=2, sort_keys=True) + "\n")
 
 
 @dataclass
