@@ -4,16 +4,22 @@
 > that continuously finds, tests, and helps fix the ways your AI systems can be
 > made to misbehave, and turns safety from a review step into infrastructure.
 
-- **Status:** v0.5.2 shipped, live on PyPI as `palisade-sec`. The offline static
+- **Status:** v0.6.1 shipped, live on PyPI as `palisade-sec`. The offline static
   core, the judgment layer (`audit`/`review` + posture), red-team synthesis and
   gated execution, multi-agent handoff detection, SARIF + CWE/OWASP-2025 mapping,
-  a GitHub Action and pre-commit hook, and SBOM/provenance are all shipped. The
-  guardrail/safety-case generators and the runtime tier are the remaining v1/v3
-  gaps.
+  a GitHub Action and pre-commit hook, and SBOM/provenance are all shipped. 0.6.0
+  made it a complete CLI product: GitHub, Slack and an LLM provider are connected
+  from the terminal (`connect github|slack|llm`, `connections`, `disconnect`),
+  `pr` opens a draft pull request holding the fix plan through the GitHub API, and
+  `notify --slack` posts a scan summary - with no dashboard, no account, and no
+  service of ours in the middle. The guardrail/safety-case generators and the
+  runtime tier are the remaining v1/v3 gaps.
 - **Owner:** Arpan (founder). **Companion specs:** `typesafe-integration.md`
-  (technical design), `ai-safety-engineer-role.md` (the role this product fills),
-  `roadmap.md` (phase status), `judgment-layer.md` (the bring-your-own-endpoint setup).
-- **Last updated:** 2026-09-29.
+  (technical design, reconciled against the code at 0.6.0),
+  `ai-safety-engineer-role.md` (the role this product fills), `roadmap.md` (phase
+  status), `judgment-layer.md` (the bring-your-own-endpoint setup), `connect.md`
+  (the connected surfaces and exactly what each one sends).
+- **Last updated:** 2026-09-30.
 
 ---
 
@@ -127,8 +133,15 @@ whether to plug in a judgment endpoint (their key, their choice of provider).
 | Layer | Surface | Network | Key |
 | --- | --- | --- | --- |
 | **Offline core** | `scan`, `map`, `baseline`, `fix` (deterministic), advisory `redteam` synthesis, SARIF, GitHub Action, pre-commit | none | none |
-| **Judgment layer** | `audit`, `review` + posture, red-team execution (`--execute`); (upcoming) guardrail/safety-case generation | your endpoint | your key (`.env`) |
+| **Judgment layer** | `audit`, `review` + posture, red-team execution (`--execute`); (upcoming) guardrail/safety-case generation | your endpoint | your key, via `connect llm` (OS keychain), the environment, or `.env` |
+| **Connected surfaces** | `pr` (draft PR of the fix plan), `notify --slack`; never automatic, one explicit command each | api.github.com / your webhook | your token, via `connect github`/`connect slack` or the environment |
 | **Runtime (upcoming)** | Self-hosted monitoring / guardrail SDK, incident loop | user's infra | user's config |
+
+The offline core stays offline: a test asserts the scanner does not even import
+the connected code or any HTTP machinery, and it fails under mutation. Stored
+credentials go to the OS keychain (`pip install 'palisade-sec[keyring]'`) or a
+`0600` file Palisade refuses to read if the permissions loosen; the environment
+always wins, so CI is unaffected by what a developer connected locally.
 
 Adoption path: developer installs the free linter → team configures an endpoint
 in `.env` to turn on judgment + review → platform team self-hosts runtime. No
@@ -161,10 +174,12 @@ generators and full-benchmark per-check calibration.
 
 ### v2 — Depth & distribution
 SARIF + GitHub code-scanning ✅, GitHub Action + pre-commit ✅, supply-chain
-(pinned actions, SBOM, provenance) ✅. Remaining: the full 9-check library,
-PR-comment agent, org policy profiles (fintech/healthcare/default), LLM-assisted
-`fix --apply`, notebook (`.ipynb`) support, deeper multi-agent recall, more
-framework coverage.
+(pinned actions, SBOM, provenance) ✅, and the CLI product surface ✅ (0.6.0:
+`connect github|slack|llm`, `connections`, `disconnect`, `pr`, `notify --slack`,
+plus a native Anthropic adapter for the judged tier). Remaining: the full 9-check
+library, PR-comment agent, org policy profiles (fintech/healthcare/default),
+LLM-assisted `fix --apply`, notebook (`.ipynb`) support, deeper multi-agent
+recall, more framework coverage.
 
 ### v3 — Runtime & the agent
 Opt-in self-hosted runtime SDK (monitoring, circuit-breaking, incident capture);
@@ -188,8 +203,12 @@ check is data, not engine code. Requires an endpoint; explicit about egress.
 scorer); emit an evidence report. *Synthesis + gated execution done.*
 
 **DECIDE / policy** — Unified `risk = likelihood × impact` across static + active
-findings, surfaced as the `review` posture score. *Risk model + posture done;
-per-org policy profiles (`.palisade/policy.yaml`) next.*
+findings, surfaced as the `review` posture score. *Risk model + posture done.
+Per-org policy is next and is further off than it looks: `semantic/policy.py`
+holds the thresholds and defaults and `audit`/`review` route through them, but
+there is no reader for `.palisade/policy.yaml` yet, so changing a threshold means
+editing Python. Until that lands the policy is ours, not the customer's - which
+is the one gap that undercuts the "engineer you hire" framing.*
 
 **GUARD** — For each confirmed risk, generate an installable guardrail (allowlist
 wrapper, confirmation gate, output validator, host allowlist) + a regression
@@ -260,9 +279,18 @@ Remaining open:
   publish full-benchmark per-check precision (the `gated` signal is known-weak).
 - Guardrail generation: deterministic templates first, LLM-assisted later — order?
 - Runtime SDK language for the infra layer (JD suggests Go/Rust) — defer to v3.
-- Near-term in-flight PRs to fold in: notebook (`.ipynb`) support, deeper
-  multi-agent recall (container entry points + conditional edges), and gate/FP
-  hardening.
+- Near-term in-flight PRs to fold in (all from @Sagexd08, triaged 2026-09-30):
+  notebook (`.ipynb`) support - wanted, pending two fixes (inline suppressions
+  are inert inside cells; SARIF line numbers point into the JSON); and deeper
+  multi-agent recall - the container entry-point half is close to mergeable, the
+  `add_conditional_edges` half is held because the IR flattens dict keys and
+  values into one list, which mints a HIGH false positive on a non-identity
+  `path_map`. The gate/FP hardening PRs turned out to be already shipped in
+  0.5.1 and are closed.
+- **Recall is the honest gap, not breadth.** Precision is 1.000 with zero false
+  positives; recall is 0.200 (2 of 10 hand-verified paths in the pinned corpus).
+  The three named engine gaps in `roadmap.md`, plus the agent-graph entry-point
+  gap found in triage, outrank new check types.
 
 ## 14. Out of scope (for now)
 
