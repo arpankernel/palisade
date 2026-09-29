@@ -52,7 +52,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+    - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
     # Inputs reach the shell only through env vars and are validated first:
     # never interpolated into the script, so a hostile input or ref cannot
@@ -112,7 +112,7 @@ runs:
         exit 0
 
     - if: always() && inputs.sarif == 'true' && steps.scan.outputs.sarif-file != ''
-      uses: github/codeql-action/upload-sarif@3ea06614dafe36dec890db3446326e0d40ce53d4 # v3
+      uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
       with:
         sarif_file: ${{ steps.scan.outputs.sarif-file }}
         category: palisade

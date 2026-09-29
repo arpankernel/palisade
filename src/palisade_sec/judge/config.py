@@ -16,9 +16,10 @@ BACKEND_ENV = "PALISADE_JUDGE_BACKEND"
 ENDPOINT_ENV = "PALISADE_JUDGE_ENDPOINT"
 MODEL_ENV = "PALISADE_JUDGE_MODEL"
 TYPESAFE_KEY_ENV = "TYPESAFE_API_KEY"
+ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
 GENERIC_KEY_ENV = "PALISADE_JUDGE_API_KEY"
 
-_VALID = ("typesafe", "openai_compatible")
+_VALID = ("typesafe", "anthropic", "openai_compatible")
 
 # Shown when the judgment layer's optional dependencies are missing. The
 # offline core ships without them on purpose, so a plain `pip install
@@ -53,7 +54,14 @@ def _resolve_env() -> tuple[dict[str, str], set[str]]:
     to put it; 0.5.0 searched from the installed package's folder instead, so
     a `.env` was silently ignored for every pip/uvx install.
     """
-    names = (BACKEND_ENV, ENDPOINT_ENV, MODEL_ENV, TYPESAFE_KEY_ENV, GENERIC_KEY_ENV)
+    names = (
+        BACKEND_ENV,
+        ENDPOINT_ENV,
+        MODEL_ENV,
+        TYPESAFE_KEY_ENV,
+        ANTHROPIC_KEY_ENV,
+        GENERIC_KEY_ENV,
+    )
     dotenv = _dotenv_values()
     env: dict[str, str] = {}
     from_file: set[str] = set()
@@ -63,7 +71,38 @@ def _resolve_env() -> tuple[dict[str, str], set[str]]:
         elif dotenv.get(n, "").strip():
             env[n] = dotenv[n]
             from_file.add(n)
+    # Last: whatever `palisade-sec connect llm` stored. The environment and a
+    # local .env both win over it, so CI is never surprised by a developer's
+    # machine-local credential.
+    for n, value in _stored_judge_settings().items():
+        env.setdefault(n, value)
     return env, from_file
+
+
+def _stored_judge_settings() -> dict[str, str]:
+    """Judge settings saved by `palisade-sec connect llm`, if any."""
+    try:
+        from palisade_sec.connect import store
+    except ImportError:  # pragma: no cover - the package always ships it
+        return {}
+    out: dict[str, str] = {}
+    provider = store.get_credential(store.LLM_PROVIDER)
+    key = store.get_credential(store.LLM_KEY)
+    endpoint = store.get_credential(store.LLM_ENDPOINT)
+    model = store.get_credential(store.LLM_MODEL)
+    if provider:
+        out[BACKEND_ENV] = provider.value
+    if endpoint:
+        out[ENDPOINT_ENV] = endpoint.value
+    if model:
+        out[MODEL_ENV] = model.value
+    if key:
+        name = {
+            "typesafe": TYPESAFE_KEY_ENV,
+            "anthropic": ANTHROPIC_KEY_ENV,
+        }.get((provider.value if provider else "typesafe"), GENERIC_KEY_ENV)
+        out[name] = key.value
+    return out
 
 
 def _refuse_split_origin(
@@ -112,15 +151,41 @@ def get_backend() -> JudgeBackend:
         key = env.get(TYPESAFE_KEY_ENV, "").strip()
         if not key:
             raise JudgeError(
-                f"{TYPESAFE_KEY_ENV} is not set. Configure it in .env; the judgment "
-                "layer sends IR-verified snippets to the endpoint. The offline core "
-                "(scan, map, baseline, fix) needs no key."
+                f"{TYPESAFE_KEY_ENV} is not set. Run `palisade-sec connect llm "
+                "--provider typesafe`, or set it in the environment or a .env. The "
+                "judgment layer sends IR-verified snippets to the endpoint; the offline "
+                "core (scan, map, baseline, fix) needs no key."
             )
         _refuse_split_origin(from_file, TYPESAFE_KEY_ENV, endpoint, DEFAULT_ENDPOINT)
         return TypeSafeBackend(
             api_key=key,
             endpoint=endpoint or DEFAULT_ENDPOINT,
             model=model or DEFAULT_MODEL,
+        )
+
+    if name == "anthropic":
+        try:
+            from palisade_sec.judge.anthropic import (
+                DEFAULT_ENDPOINT as A_ENDPOINT,
+            )
+            from palisade_sec.judge.anthropic import (
+                DEFAULT_MODEL as A_MODEL,
+            )
+            from palisade_sec.judge.anthropic import (
+                AnthropicBackend,
+            )
+        except ImportError as exc:
+            raise JudgeError(MISSING_EXTRA) from exc
+        key = env.get(ANTHROPIC_KEY_ENV, "").strip()
+        if not key:
+            raise JudgeError(
+                f"{ANTHROPIC_KEY_ENV} is not set. Run `palisade-sec connect llm`, or set it "
+                "in the environment or a .env. The offline core (scan, map, baseline, fix) "
+                "needs no key."
+            )
+        _refuse_split_origin(from_file, ANTHROPIC_KEY_ENV, endpoint or A_ENDPOINT, A_ENDPOINT)
+        return AnthropicBackend(
+            api_key=key, endpoint=endpoint or A_ENDPOINT, model=model or A_MODEL
         )
 
     # openai_compatible
@@ -131,7 +196,11 @@ def get_backend() -> JudgeBackend:
 
     key = env.get(GENERIC_KEY_ENV, "").strip()
     if not key:
-        raise JudgeError(f"{GENERIC_KEY_ENV} is not set (required for {name}).")
+        raise JudgeError(
+            f"{GENERIC_KEY_ENV} is not set (required for {name}). Run "
+            "`palisade-sec connect llm --provider openai_compatible --endpoint ...`, "
+            "or set it in the environment or a .env."
+        )
     if not endpoint:
         raise JudgeError(f"{ENDPOINT_ENV} is required for {name} (no default).")
     if not model:
