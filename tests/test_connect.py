@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -32,6 +33,17 @@ from palisade_sec.connect.http import HttpError
 runner = CliRunner()
 
 TOKEN = "ghp_exampletokenvalue1234567890"
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _flat(output: str) -> str:
+    """CLI output as plain words: rich adds colour in CI and wraps errors into
+    a box, so tests compare meaning, not presentation."""
+    text = _ANSI.sub("", output)
+    for ch in "\u2502\u2503\u250a\u254e":  # box verticals
+        text = text.replace(ch, " ")
+    return " ".join(text.split())
 
 
 @pytest.fixture
@@ -174,9 +186,7 @@ def test_connect_github_rejects_a_token_without_repo_scope(isolated_store, monke
     )
     result = runner.invoke(app, ["connect", "github", "--token", TOKEN, "--no-gh"])
     assert result.exit_code != 0
-    # rich wraps the error into a box: drop the borders before comparing
-    flat = " ".join(result.output.replace("\u2502", " ").split())
-    assert "needs `repo`" in flat, flat
+    assert "needs `repo`" in _flat(result.output), result.output
     assert store.get_credential(store.GITHUB_TOKEN) is None, "a rejected token must not be stored"
 
 
