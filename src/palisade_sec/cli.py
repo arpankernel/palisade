@@ -666,6 +666,112 @@ def notify(
     typer.echo(f"posted to Slack ({len(findings)} finding(s), source {hook.source})")
 
 
+@app.command("pr")
+def pr_cmd(
+    path: str = typer.Argument(".", help="File or directory to scan."),
+    repo: str | None = typer.Option(None, "--repo", help="owner/name (default: the git remote)."),
+    base: str | None = typer.Option(None, "--base", help="Base branch (default: the repo's)."),
+    branch: str | None = typer.Option(None, "--branch", help="Head branch name."),
+    plan_path: str = typer.Option(
+        "palisade-fixes.md", "--plan-path", help="Where the plan lands in the PR."
+    ),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="Only include findings that are NEW vs this baseline."
+    ),
+    draft: bool = typer.Option(True, "--draft/--no-draft", help="Open as a draft."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would happen, change nothing."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+    rules: str | None = typer.Option(None, "--rules", help="Extra rules directory."),
+) -> None:
+    """Open a draft pull request with the remediation plan for what was found.
+
+    Uses the token from `palisade-sec connect github` (or GITHUB_TOKEN, or
+    the `gh` CLI). Re-running updates the same pull request.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.connect import github as gh_mod
+    from palisade_sec.connect import pr as pr_mod
+    from palisade_sec.fix import build_fix_plan
+
+    target = _target(path, config, rules)
+    console = Console(highlight=False)
+
+    result = run_scan(target, config_file=config, rules_dir=rules)
+    _diagnostics(result.warnings, result.notes, result.skipped)
+    findings = [f for f in result.findings if f.severity == "high" or f.risky]
+    if baseline:
+        diff = diff_against_baseline(findings, Path(baseline))
+        for w in diff.warnings:
+            typer.echo(f"warning: {w}", err=True)
+        findings = diff.new
+    if not findings:
+        console.print(
+            f"[green]✓[/green] nothing to open a pull request for "
+            f"({result.files_scanned} file(s) scanned)"
+        )
+        return
+
+    try:
+        where = pr_mod.parse_slug(repo) if repo else pr_mod.target_from_remote(str(target))
+    except pr_mod.PrError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+    head = branch or pr_mod.branch_for(findings)
+    plan = build_fix_plan(findings, result.files_scanned, str(target))
+    body = pr_mod.pr_body(findings, result.files_scanned, plan_path)
+
+    if dry_run:
+        console.print(
+            f"[bold]dry run[/bold]\n  repo:   {where.slug}\n  branch: {head}\n"
+            f"  file:   {plan_path} ({len(plan.splitlines())} lines)\n"
+            f"  draft:  {draft}\n  findings: {len(findings)}"
+        )
+        return
+
+    token = gh_mod.resolve_token()
+    if not token:
+        typer.echo(
+            "error: GitHub is not connected. Run `palisade-sec connect github`, or set "
+            "GITHUB_TOKEN.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    try:
+        api = pr_mod.GitHubRepo(token.value, where)
+        info = api.info()
+        base_branch = base or str(info.get("default_branch") or "main")
+        base_sha = api.head_sha(base_branch)
+        if not base_sha:
+            typer.echo(f"error: base branch {base_branch!r} not found", err=True)
+            raise typer.Exit(2)
+        if api.head_sha(head) is None:
+            api.create_branch(head, base_sha)
+        api.put_file(
+            plan_path, head, plan, f"palisade: remediation plan for {len(findings)} finding(s)"
+        )
+        existing = api.existing_pr(head)
+        if existing:
+            console.print(f"[green]✓[/green] updated {existing.get('html_url')}")
+            return
+        created = api.open_pr(
+            head=head,
+            base=base_branch,
+            title=f"Palisade: {len(findings)} prompt-injection finding(s) to fix",
+            body=body,
+            draft=draft,
+        )
+    except pr_mod.PrError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    console.print(f"[green]✓[/green] opened {created.get('html_url')} (token via {token.source})")
+
+
 @app.command()
 def connections() -> None:
     """Show which surfaces are connected (values redacted)."""

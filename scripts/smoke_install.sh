@@ -17,6 +17,12 @@ trap 'rm -rf "$WORK"' EXIT
 "${PYTHON:-python3}" -m venv "$WORK/venv" || { echo "FAIL  could not create venv"; exit 1; }
 "$WORK/venv/bin/pip" install --quiet "$WHEEL" || { echo "FAIL  could not install $WHEEL"; exit 1; }
 P="$WORK/venv/bin/palisade-sec"
+# A plain install must behave the same for everyone: no keychain, no
+# inherited credentials, no logged-in gh CLI leaking into the checks.
+export XDG_CONFIG_HOME="$WORK/config" PALISADE_NO_KEYRING=1
+unset GITHUB_TOKEN GH_TOKEN PALISADE_GITHUB_TOKEN PALISADE_SLACK_WEBHOOK
+export PATH="$WORK/nogh:$PATH"; mkdir -p "$WORK/nogh"
+printf '#!/bin/sh\nexit 1\n' > "$WORK/nogh/gh"; chmod +x "$WORK/nogh/gh"
 APP="examples/vulnerable-app"
 FAIL=0
 
@@ -65,5 +71,9 @@ check 2 "scan --ci on JS without [js]"   -- scan "$WORK/jsonly" --ci
 check 2 "review --ci on an empty dir"    -- review "$WORK/empty" --ci
 check 2 "missing explicit --config"      -- scan "$APP" --config "$WORK/nope.toml"
 check 2 "redteam --variants out of range" -- redteam "$APP" --variants 99
+check 0 "connections (nothing connected)" -- connections
+check 2 "notify without a channel"       -- notify "$APP"
+check 2 "pr without a token"             -- pr "$APP" --repo owner/name
+check 0 "notify --slack --dry-run"       -- notify "$APP" --slack --dry-run
 
 exit "$FAIL"

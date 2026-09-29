@@ -382,3 +382,173 @@ def test_keychain_failure_falls_back_to_the_file(fake_keyring, monkeypatch):
     where = store.set_credential(store.GITHUB_TOKEN, TOKEN)
     assert where == str(store.credentials_file())
     assert store.get_credential(store.GITHUB_TOKEN).value == TOKEN
+
+
+# ---------------------------------------------------------------------------
+# palisade-sec pr
+# ---------------------------------------------------------------------------
+
+VULN_APP = (
+    "from flask import request\n"
+    "from openai import OpenAI\n"
+    "client = OpenAI()\n"
+    "import os\n"
+    "def h():\n"
+    "    q = request.json['q']\n"
+    "    r = client.chat.completions.create(messages=[{'role':'user','content':q}])\n"
+    "    os.system(r.choices[0].message.content)\n"
+)
+
+
+class _FakeGitHub:
+    """Records the API calls `pr` makes, so the flow can be asserted."""
+
+    def __init__(self, *, branch_exists=False, open_pr=None):
+        self.calls: list[tuple[str, str]] = []
+        self.written: dict[str, str] = {}
+        self.branch_exists = branch_exists
+        self.open_pr = open_pr
+        self.created_branch: str | None = None
+
+    def __call__(self, url, *, method="GET", body=None, headers=None, timeout=30.0):
+        import base64 as _b64
+
+        path = url.split("api.github.com")[-1]
+        self.calls.append((method, path))
+        if path.endswith("/palisade") and method == "GET":
+            return {"default_branch": "main"}, {}
+        if "/git/ref/heads/main" in path:
+            return {"object": {"sha": "basesha"}}, {}
+        if "/git/ref/heads/palisade/" in path:
+            if self.branch_exists:
+                return {"object": {"sha": "headsha"}}, {}
+            raise HttpError(404, "Not Found")
+        if "/git/refs" in path and method == "POST":
+            self.created_branch = body["ref"]
+            return {}, {}
+        if "/contents/" in path and method == "GET":
+            raise HttpError(404, "Not Found")
+        if "/contents/" in path and method == "PUT":
+            self.written[path.split("/contents/")[1]] = _b64.b64decode(body["content"]).decode()
+            return {"commit": {"sha": "c1"}}, {}
+        if "/pulls?" in path:
+            return ({"data": [self.open_pr]} if self.open_pr else {"data": []}), {}
+        if path.endswith("/pulls") and method == "POST":
+            self.draft = body["draft"]
+            self.title = body["title"]
+            self.body = body["body"]
+            return {"html_url": "https://github.com/arpankernel/palisade/pull/99"}, {}
+        raise AssertionError(f"unexpected call {method} {path}")
+
+
+@pytest.fixture
+def repo_with_finding(tmp_path):
+    (tmp_path / "app.py").write_text(VULN_APP)
+    return tmp_path
+
+
+def _patch_api(monkeypatch, fake):
+    from palisade_sec.connect import pr as pr_mod
+
+    original = pr_mod.GitHubRepo.__init__
+
+    def init(self, token, target, request=None):
+        original(self, token, target, request=fake)
+
+    monkeypatch.setattr(pr_mod.GitHubRepo, "__init__", init)
+
+
+def test_pr_opens_a_draft_with_the_plan(isolated_store, repo_with_finding, monkeypatch):
+    store.set_credential(store.GITHUB_TOKEN, TOKEN)
+    fake = _FakeGitHub()
+    _patch_api(monkeypatch, fake)
+    result = runner.invoke(app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade"])
+    assert result.exit_code == 0, result.output
+    assert "pull/99" in result.output
+    assert fake.created_branch.startswith("refs/heads/palisade/fix-")
+    assert fake.draft is True, "an unreviewed plan must open as a draft"
+    plan = fake.written["palisade-fixes.md"]
+    assert "PI-SHELL" in plan and "def test_" in plan, "the plan carries guardrail + test"
+    assert "plan, not a patch" in fake.body
+
+
+def test_pr_is_idempotent(isolated_store, repo_with_finding, monkeypatch):
+    """Re-running must update the existing PR, never open a second one."""
+    store.set_credential(store.GITHUB_TOKEN, TOKEN)
+    existing = {"html_url": "https://github.com/arpankernel/palisade/pull/42"}
+    fake = _FakeGitHub(branch_exists=True, open_pr=existing)
+    _patch_api(monkeypatch, fake)
+    result = runner.invoke(app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade"])
+    assert result.exit_code == 0, result.output
+    assert "pull/42" in result.output
+    assert not any(m == "POST" and p.endswith("/pulls") for m, p in fake.calls)
+    assert fake.created_branch is None, "the branch already existed"
+
+
+def test_pr_branch_name_is_stable_for_the_same_findings(repo_with_finding):
+    from palisade_sec.connect import pr as pr_mod
+    from palisade_sec.scanner import run_scan
+
+    first = pr_mod.branch_for(run_scan(repo_with_finding).findings)
+    second = pr_mod.branch_for(run_scan(repo_with_finding).findings)
+    assert first == second and first.startswith("palisade/fix-")
+
+
+def test_pr_without_a_token_changes_nothing(isolated_store, repo_with_finding, monkeypatch):
+    fake = _FakeGitHub()
+    _patch_api(monkeypatch, fake)
+    result = runner.invoke(app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade"])
+    assert result.exit_code == 2
+    assert "connect github" in result.output
+    assert fake.calls == [], "nothing may be sent to GitHub without a token"
+
+
+def test_pr_on_a_clean_project_opens_nothing(isolated_store, tmp_path, monkeypatch):
+    store.set_credential(store.GITHUB_TOKEN, TOKEN)
+    fake = _FakeGitHub()
+    _patch_api(monkeypatch, fake)
+    (tmp_path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+    result = runner.invoke(app, ["pr", str(tmp_path), "--repo", "arpankernel/palisade"])
+    assert result.exit_code == 0
+    assert "nothing to open" in result.output
+    assert fake.calls == []
+
+
+def test_pr_dry_run_contacts_nobody(isolated_store, repo_with_finding, monkeypatch):
+    store.set_credential(store.GITHUB_TOKEN, TOKEN)
+    fake = _FakeGitHub()
+    _patch_api(monkeypatch, fake)
+    result = runner.invoke(
+        app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade", "--dry-run"]
+    )
+    assert result.exit_code == 0
+    assert "dry run" in result.output
+    assert fake.calls == []
+
+
+@pytest.mark.parametrize(
+    ("url", "slug"),
+    [
+        ("https://github.com/arpankernel/palisade.git", "arpankernel/palisade"),
+        ("git@github.com:arpankernel/palisade.git", "arpankernel/palisade"),
+        ("ssh://git@github.com/arpankernel/palisade", "arpankernel/palisade"),
+    ],
+)
+def test_remote_url_parsing(url, slug, tmp_path):
+    from palisade_sec.connect import pr as pr_mod
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin", url], check=True)
+    assert pr_mod.target_from_remote(str(tmp_path)).slug == slug
+
+
+def test_a_403_says_what_permission_is_missing(monkeypatch):
+    from palisade_sec.connect import pr as pr_mod
+
+    def deny(url, **kw):
+        raise HttpError(403, "HTTP 403: Resource not accessible")
+
+    api = pr_mod.GitHubRepo("t", pr_mod.Target("o", "r"), request=deny)
+    with pytest.raises(pr_mod.PrError) as exc:
+        api.create_branch("b", "sha")
+    assert "Contents: write" in str(exc.value)

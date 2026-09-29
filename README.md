@@ -217,6 +217,30 @@ If the library routes LLM calls through its own wrapper method, add the
 wrapper to a custom rule's `llm_signatures` (e.g. `"*.submit_prompt"`) - see
 the rules guide.
 
+## Set it up from the terminal
+
+No dashboard and no account. Connect what you want, when you want it; the
+credentials stay on your machine (OS keychain with `pip install
+'palisade-sec[keyring]'`, otherwise a `0600` file).
+
+```bash
+palisade-sec connect github     # then: palisade-sec pr .   (draft PR with the fix plan)
+palisade-sec connect slack      # then: palisade-sec notify . --slack
+palisade-sec connect llm        # optional judgment layer (audit, review)
+palisade-sec connections        # what is connected, redacted
+```
+
+`connect github` reuses the [GitHub CLI](https://cli.github.com)'s login
+when you have one. `palisade-sec pr` opens a **draft** pull request holding
+the guardrail-and-test plan, on a branch named after the findings, so
+re-running updates that same PR. It is a plan, not a patch: Palisade does
+not edit your source.
+
+The offline core (`scan`, `map`, `baseline`, `fix`) uses none of this and
+still makes no network calls at all - a test fails if the scanner even
+imports the code that could. Full guide:
+[docs/connect.md](https://github.com/arpankernel/palisade/blob/main/docs/connect.md).
+
 ## CI
 
 Gate pull requests on **new** findings only - adopt Palisade on an imperfect

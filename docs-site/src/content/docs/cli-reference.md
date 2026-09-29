@@ -197,6 +197,36 @@ from `.env` (deterministic tool-invocation checks plus a model for behavioral
 judgment), so `--execute` needs the `[judge]` extra and a configured backend.
 Run it only against systems you own and are authorized to test.
 
+## `palisade-sec connect github|slack|llm`
+
+Set Palisade up from the terminal; credentials go to your OS keychain (with
+the `keyring` extra) or a `0600` file. Full guide: [connect](/palisade/docs/connect/).
+
+| Command | Notes |
+|---|---|
+| `connect github [--token T] [--no-gh]` | Reuses the `gh` CLI's token when logged in, else the OAuth device flow. Verified before storing. |
+| `connect slack [--webhook URL] [--no-test]` | Incoming webhook; posts a test message first. |
+| `connect llm --provider typesafe\|anthropic\|openai_compatible [--key K] [--endpoint U] [--model M] [--no-verify]` | For `audit` / `review` only. |
+| `connections` | What is connected, from where, redacted. |
+| `disconnect github\|slack\|llm` | Remove stored credentials. |
+
+The environment always wins over stored values, so CI is unchanged.
+
+## `palisade-sec pr [PATH]`
+
+Opens a **draft** pull request containing the `fix` plan. Options: `--repo
+owner/name` (default: the git remote), `--base`, `--branch`, `--plan-path`,
+`--baseline`, `--no-draft`, `--dry-run`. The branch name is derived from the
+findings, so re-running updates the same pull request. Exits `0` when there
+is nothing to open one for, `2` when GitHub is not connected.
+
+## `palisade-sec notify [PATH] --slack`
+
+Scans and posts a Block Kit summary to the connected webhook. Options:
+`--baseline` (post only new findings), `--link URL` (button target),
+`--dry-run` (print the message instead of sending it). Nothing is posted
+without this command.
+
 ## Judgment configuration
 
 `audit`, `review`, and `redteam --execute` read their backend from environment

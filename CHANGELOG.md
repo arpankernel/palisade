@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.6.0 - 2026-09-29
+
+Palisade becomes a complete CLI product: GitHub, Slack and an LLM provider
+are connected from the terminal, with no dashboard, no account and no
+service of ours in the middle.
+
+### Added
+
+- **`connect github` / `connect slack` / `connect llm`**, plus
+  `connections` (what is connected, from where, redacted) and
+  `disconnect`. Every credential is verified before it is stored, so
+  "connected" means "checked": GitHub against `/user` (a token that cannot
+  open pull requests is rejected), Slack by posting a real test message,
+  an LLM key by one cheap call.
+  - GitHub reuses the `gh` CLI's token when it is logged in, otherwise
+    runs the OAuth device flow, or takes `--token`.
+  - Slack uses an incoming webhook, stored and redacted like a token.
+  - LLM supports `typesafe`, `anthropic` and `openai_compatible`.
+- **`palisade-sec pr`** opens a **draft** pull request containing the
+  remediation plan (a guardrail and a regression test per finding),
+  entirely through the GitHub API: no local branch, no `git push`, no
+  credential handed to a subprocess. The branch name is derived from the
+  findings, so re-running updates the same pull request. It is a plan, not
+  a patch, and the PR says so.
+- **`palisade-sec notify --slack`** posts a Block Kit summary of a scan,
+  with `--baseline` for new findings only and `--dry-run` to print the
+  message instead of sending it. Nothing is ever posted automatically.
+- **Native Anthropic (Claude) adapter** for the judgment layer, with the
+  same strict-JSON contract and schema validation as the generic adapter.
+  Like every bring-your-own backend it is `verified=False` and can never
+  BLOCK on judgment alone.
+- **Credential storage:** the OS keychain via the new optional `[keyring]`
+  extra, otherwise `~/.config/palisade/credentials.toml`, created `0600`
+  with `O_NOFOLLOW` inside a `0700` directory and refused outright if
+  another user can read it. The environment always wins over stored
+  values, so CI behaviour is unchanged.
+- New guide: `docs/connect.md`, including a table of exactly what each
+  command sends and to whom.
+
+### Unchanged on purpose
+
+The offline core (`scan`, `map`, `baseline`, `fix`) uses none of this: no
+key, no network, no telemetry. A test asserts the scanner does not even
+import the connected code or any HTTP machinery, and it fails under
+mutation. The connected commands use only stdlib HTTP, so the base install
+gains no dependency.
+
 ## 0.5.2 - 2026-09-22
 
 Standards, supply chain and distribution, plus an honest recall number.
