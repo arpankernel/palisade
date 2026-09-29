@@ -4,11 +4,16 @@
 > that continuously finds, tests, and helps fix the ways your AI systems can be
 > made to misbehave, and turns safety from a review step into infrastructure.
 
-- **Status:** v0.4 shipped (OSS static core, live on PyPI as `palisade-sec`);
-  semantic + active tiers in progress on `feat/typesafe-semantic-audit`.
+- **Status:** v0.5.2 shipped, live on PyPI as `palisade-sec`. The offline static
+  core, the judgment layer (`audit`/`review` + posture), red-team synthesis and
+  gated execution, multi-agent handoff detection, SARIF + CWE/OWASP-2025 mapping,
+  a GitHub Action and pre-commit hook, and SBOM/provenance are all shipped. The
+  guardrail/safety-case generators and the runtime tier are the remaining v1/v3
+  gaps.
 - **Owner:** Arpan (founder). **Companion specs:** `typesafe-integration.md`
-  (technical design), `ai-safety-engineer-role.md` (the role this product fills).
-- **Last updated:** 2026-09-19.
+  (technical design), `ai-safety-engineer-role.md` (the role this product fills),
+  `roadmap.md` (phase status), `judgment-layer.md` (the bring-your-own-endpoint setup).
+- **Last updated:** 2026-09-29.
 
 ---
 
@@ -94,14 +99,14 @@ Mapped to the six things a safety engineer does:
 
 | Verb | Capability | Sense | Status |
 | --- | --- | --- | --- |
-| **SEE** | AI System Map: LLM calls, prompts, tools, agents, retrieval, dangerous flags | static | ✅ `map` |
-| **JUDGE** | Semantic checks (excessive agency, fake sanitizer, secrets-in-prompt, unsafe defaults, insecure output…) + 5 taint rules | static | 🚧 1 semantic + 5 taint |
-| **PROBE** | Map-driven red-team + behavioral evals (jailbreak, tool-use safety) | active | 🚧 synth ✅, exec gated |
-| **DECIDE** | Unified risk model + editable per-org policy | static+active | 🚧 scaffold |
-| **GUARD/FIX** | Guardrail generator, safety-case generator, remediation + regression tests | active+runtime | ✅ taint `fix`; ⬜ rest |
-| **ENFORCE** | CI gate, baseline, posture report, PR comments, SARIF | all | 🚧 gates; ⬜ posture |
+| **SEE** | AI System Map: LLM calls, prompts, tools, agents, retrieval, dangerous flags | static | ✅ `map` (incl. multi-agent graph: OpenAI Agents SDK, LangGraph, CrewAI) |
+| **JUDGE** | Semantic checks + 5 taint rules + the deterministic `PI-AGENT-HANDOFF` finding | static | ✅ 2 semantic (excessive agency, taint exploitability) + 5 taint + agent-handoff; ⬜ fake-sanitizer/secrets-in-prompt/unsafe-defaults/insecure-output |
+| **PROBE** | Map-driven red-team + behavioral evals (jailbreak, tool-use safety) | active | ✅ synthesis + gated execution (`--execute`/`--approve`, `HttpTarget`, judge-backed scorer) |
+| **DECIDE** | Unified risk model (`likelihood × impact`) + editable per-org policy | static+active | ✅ risk model + posture; 🚧 per-org policy profiles |
+| **GUARD/FIX** | Guardrail generator, safety-case generator, remediation + regression tests | active+runtime | ✅ deterministic taint `fix`; ⬜ guardrail + safety-case generators |
+| **ENFORCE** | CI gate, baseline, posture report, PR comments, SARIF, GitHub Action, pre-commit | all | ✅ gates + posture + SARIF (CWE/OWASP-2025 tags) + Action + pre-commit; ⬜ PR-comment agent |
 | **WATCH** | Opt-in self-hosted runtime SDK: monitoring, circuit-breaking, incident capture | runtime | ⬜ |
-| **PROVE** | Per-check calibration on the benchmark corpus, adversarial verification | all | ✅ core; ⬜ semantic |
+| **PROVE** | Per-check calibration on the benchmark corpus, adversarial verification | all | ✅ core precision 1.000, CI-gated; 🟡 judged layer on a seed corpus (full-benchmark calibration pending) |
 
 ## 6. Where TypeSafe fits
 
@@ -121,8 +126,8 @@ whether to plug in a judgment endpoint (their key, their choice of provider).
 
 | Layer | Surface | Network | Key |
 | --- | --- | --- | --- |
-| **Offline core** | `scan`, `map`, `baseline`, `fix` (deterministic), advisory `redteam` synthesis | none | none |
-| **Judgment layer** | `audit`, `review`, and (upcoming) red-team execution + guardrail/safety-case generation | your endpoint | your key (`.env`) |
+| **Offline core** | `scan`, `map`, `baseline`, `fix` (deterministic), advisory `redteam` synthesis, SARIF, GitHub Action, pre-commit | none | none |
+| **Judgment layer** | `audit`, `review` + posture, red-team execution (`--execute`); (upcoming) guardrail/safety-case generation | your endpoint | your key (`.env`) |
 | **Runtime (upcoming)** | Self-hosted monitoring / guardrail SDK, incident loop | user's infra | user's config |
 
 Adoption path: developer installs the free linter → team configures an endpoint
@@ -132,25 +137,34 @@ endpoint."
 
 ## 8. Scope & roadmap
 
-### v1 — "Complete AI Safety Engineer" (current target)
+### v1 — "Complete AI Safety Engineer" (mostly shipped)
 Credibly does the whole job, pre-production.
-- **SEE:** `map` ✅
-- **JUDGE:** excessive agency ✅ + fake-sanitizer, secrets-in-prompt, unsafe-defaults, insecure-output (as declarative data) ⬜
-- **PROBE:** `redteam` synthesis ✅ + execution adapters (`HttpTarget`) + live TypeSafe scorer ⬜
+- **SEE:** `map`, incl. the multi-agent graph ✅
+- **JUDGE:** excessive agency ✅, taint exploitability ✅, deterministic
+  `PI-AGENT-HANDOFF` ✅ + fake-sanitizer, secrets-in-prompt, unsafe-defaults,
+  insecure-output (as declarative data) ⬜
+- **PROBE:** `redteam` synthesis ✅ + execution adapters (`HttpTarget`) + live
+  judge-backed scorer ✅
 - **DECIDE + ENFORCE:** `palisade review` = one prioritized report merging taint +
-  semantic + red-team, with a posture score ⬜
+  semantic + red-team, with a posture score ✅; SARIF + CWE/OWASP-2025 + Action +
+  pre-commit ✅
 - **GUARD:** guardrail generator for the top findings + safety-case draft ⬜
-- **PROVE:** per-check calibration on the 26-repo corpus, wired into CI ⬜
+  (the last open v1 gap)
+- **PROVE:** core precision 1.000 CI-gated ✅; per-check calibration of the judged
+  layer on the full 26-repo corpus 🟡 (seed corpus done, full benchmark pending)
 
 **v1 exit criteria:** on a real target agent, Palisade produces (1) a full AI
-System Map, (2) a red-team run with landed/blocked evidence, (3) generated
-guardrails + tests, (4) a safety case, (5) a CI gate — with published precision
-per check.
+System Map ✅, (2) a red-team run with landed/blocked evidence ✅, (3) generated
+guardrails + tests ⬜, (4) a safety case ⬜, (5) a CI gate ✅ — with published
+precision per check 🟡. Remaining to close v1: the guardrail + safety-case
+generators and full-benchmark per-check calibration.
 
 ### v2 — Depth & distribution
-Full 9-check library, SARIF + GitHub code-scanning, PR-comment agent, org policy
-profiles (fintech/healthcare/default), LLM-assisted `fix --apply`, more framework
-coverage.
+SARIF + GitHub code-scanning ✅, GitHub Action + pre-commit ✅, supply-chain
+(pinned actions, SBOM, provenance) ✅. Remaining: the full 9-check library,
+PR-comment agent, org policy profiles (fintech/healthcare/default), LLM-assisted
+`fix --apply`, notebook (`.ipynb`) support, deeper multi-agent recall, more
+framework coverage.
 
 ### v3 — Runtime & the agent
 Opt-in self-hosted runtime SDK (monitoring, circuit-breaking, incident capture);
@@ -165,23 +179,28 @@ config flag. Offline, deterministic, terminal + JSON. *Done.*
 
 **JUDGE / `audit`** — Run semantic checks over Map artifacts; each check =
 {artifact, batched questions, decision policy}. Route pass/review/block. Adding a
-check is data, not engine code. Requires key; explicit about egress.
+check is data, not engine code. Requires an endpoint; explicit about egress.
+*Excessive agency + taint exploitability done; the further check library is next.*
 
 **PROBE / `redteam`** — Synthesize a targeted attack suite from the Map
 (advisory, offline). Execute against a user-provided `Target` only with
-`approved=True`; score landed attacks (deterministic tool-invocation + TypeSafe
-judgment); emit an evidence report. *Synthesis + gated runner done.*
+`--approve`; score landed attacks (deterministic tool-invocation + judge-backed
+scorer); emit an evidence report. *Synthesis + gated execution done.*
 
-**DECIDE / policy** — `.palisade/policy.yaml` with per-check thresholds and org
-profiles. Unified `risk = likelihood × impact` across static + active findings.
+**DECIDE / policy** — Unified `risk = likelihood × impact` across static + active
+findings, surfaced as the `review` posture score. *Risk model + posture done;
+per-org policy profiles (`.palisade/policy.yaml`) next.*
 
 **GUARD** — For each confirmed risk, generate an installable guardrail (allowlist
 wrapper, confirmation gate, output validator, host allowlist) + a regression
 test. Assemble a **safety case**: system description (Map) + tests (evals) +
-red-team results + guardrails + residual risks.
+red-team results + guardrails + residual risks. *Deterministic taint `fix`
+done; the guardrail + safety-case generators are the main open v1 work.*
 
 **ENFORCE** — `--ci` gates on new high-severity findings only (baseline-diffed);
-`palisade review` prints/exports one posture report; SARIF + PR inline comments.
+`palisade review` prints/exports one posture report; SARIF (with CWE/OWASP-2025
+tags and `security-severity`), a GitHub Action, and a pre-commit hook. *Done;
+the PR-comment agent is next.*
 
 **WATCH (v3)** — Self-hosted SDK wraps LLM/tool calls: policy filtering,
 circuit-breaking on runaway/high-cost loops, anomaly flags, incident traces that
@@ -230,10 +249,20 @@ Tied to the JD's "what success looks like":
 
 ## 13. Open decisions
 
-- First v1 gap to close next: red-team **execution adapters + live scorer**, or
-  the **static JUDGE check library**, or **`palisade review` + posture**?
+Resolved since the first draft: `review` + posture, red-team execution + scorer,
+SARIF/Action/pre-commit, and multi-agent handoff detection all shipped (0.5.x).
+Remaining open:
+
+- Last v1 gap ordering: the **guardrail generator** vs the **safety-case
+  generator** vs the **further static JUDGE check library** (fake-sanitizer,
+  secrets-in-prompt, unsafe-defaults, insecure-output) — which first?
+- Calibration: grow the judgment corpus from the seed set to real repos and
+  publish full-benchmark per-check precision (the `gated` signal is known-weak).
 - Guardrail generation: deterministic templates first, LLM-assisted later — order?
 - Runtime SDK language for the infra layer (JD suggests Go/Rust) — defer to v3.
+- Near-term in-flight PRs to fold in: notebook (`.ipynb`) support, deeper
+  multi-agent recall (container entry points + conditional edges), and gate/FP
+  hardening.
 
 ## 14. Out of scope (for now)
 
