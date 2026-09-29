@@ -5,8 +5,9 @@ Exit codes:
   1 - --ci found something: a NEW HIGH finding (scan/review), a BLOCK
       decision (audit), or an attack that landed (redteam --execute)
   2 - usage / target / setup errors, including a --ci run that scanned
-      nothing, a missing [judge] extra or key, a refused output path, and
-      red-team attacks that got no response under --ci
+      nothing, a missing [judge] extra or key, a refused output path,
+      red-team attacks that got no response under --ci, and any connected
+      surface refusing to connect (bad webhook, expired token, wrong scope)
   3 - internal error: a bug in palisade-sec, never a finding
 """
 
@@ -25,10 +26,16 @@ from palisade_sec.baseline import (
     diff_against_baseline,
     write_baseline,
 )
+from palisade_sec.connect.cli import connect_app
+from palisade_sec.connect.errors import ConnectError
 from palisade_sec.report import print_findings, to_json, to_markdown
 from palisade_sec.safe_io import UnsafeOutputPath, write_output
 from palisade_sec.scanner import run_scan
 from palisade_sec.semantic.redteam import MAX_VARIANTS
+
+_NO_GITHUB = (
+    "error: GitHub is not connected. Run `palisade-sec connect github`, or set GITHUB_TOKEN."
+)
 
 app = typer.Typer(
     name="palisade-sec",
@@ -45,6 +52,9 @@ app = typer.Typer(
 )
 
 
+app.add_typer(connect_app)
+
+
 def run() -> None:
     """Console entry point. Maps an unexpected exception to exit 3, so a CI
     job can tell "palisade-sec crashed" apart from exit 1, "found a HIGH".
@@ -53,6 +63,14 @@ def run() -> None:
         app()
     except KeyboardInterrupt:
         sys.exit(130)
+    except ConnectError as exc:
+        # A mistyped webhook or an expired token is the user's situation to
+        # fix, not a bug: exit 2 with the sentence that says what to do,
+        # rather than exit 3 and "please report this".
+        if os.environ.get("PALISADE_DEBUG"):
+            raise
+        typer.echo(f"error: {exc}", err=True)
+        sys.exit(2)
     except Exception as exc:  # noqa: BLE001 - the last-resort boundary
         if os.environ.get("PALISADE_DEBUG"):
             raise
@@ -598,6 +616,200 @@ def review(
 
 
 @app.command()
+def notify(
+    path: str = typer.Argument(".", help="File or directory to scan."),
+    slack: bool = typer.Option(False, "--slack", help="Post the result to the connected Slack."),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="Report only findings that are NEW vs this baseline."
+    ),
+    link: str | None = typer.Option(None, "--link", help="URL for the message's button."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Print the message instead of sending it."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+    rules: str | None = typer.Option(None, "--rules", help="Extra rules directory."),
+) -> None:
+    """Scan and post the result to a connected channel.
+
+    Nothing is sent unless you ask: this command is the only one that posts,
+    and `--dry-run` shows exactly what would go out.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.connect import slack as slack_mod
+
+    target = _target(path, config, rules)
+    if not slack:
+        typer.echo("error: choose a channel, e.g. --slack", err=True)
+        raise typer.Exit(2)
+
+    result = run_scan(target, config_file=config, rules_dir=rules)
+    _diagnostics(result.warnings, result.notes, result.skipped)
+    findings = result.findings
+    if baseline:
+        diff = diff_against_baseline(findings, Path(baseline))
+        for w in diff.warnings:
+            typer.echo(f"warning: {w}", err=True)
+        findings = diff.new
+
+    text, blocks = slack_mod.build_blocks(
+        project=target.resolve().name,
+        high=sum(1 for f in findings if f.severity == "high"),
+        med=sum(1 for f in findings if f.severity == "med"),
+        findings=findings,
+        files_scanned=result.files_scanned,
+        link=link,
+        new_only=bool(baseline),
+    )
+    if dry_run:
+        import json as _json
+
+        typer.echo(_json.dumps({"text": text, "blocks": blocks}, indent=2))
+        return
+
+    hook = slack_mod.resolve_webhook()
+    if not hook:
+        typer.echo(
+            "error: Slack is not connected. Run `palisade-sec connect slack`, or set "
+            "PALISADE_SLACK_WEBHOOK.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    slack_mod.post(hook.value, text, blocks)
+    typer.echo(f"posted to Slack ({len(findings)} finding(s), source {hook.source})")
+
+
+@app.command("pr")
+def pr_cmd(
+    path: str = typer.Argument(".", help="File or directory to scan."),
+    repo: str | None = typer.Option(None, "--repo", help="owner/name (default: the git remote)."),
+    base: str | None = typer.Option(None, "--base", help="Base branch (default: the repo's)."),
+    branch: str | None = typer.Option(None, "--branch", help="Head branch name."),
+    plan_path: str = typer.Option(
+        "palisade-fixes.md", "--plan-path", help="Where the plan lands in the PR."
+    ),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="Only include findings that are NEW vs this baseline."
+    ),
+    draft: bool = typer.Option(True, "--draft/--no-draft", help="Open as a draft."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would happen, change nothing."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+    rules: str | None = typer.Option(None, "--rules", help="Extra rules directory."),
+) -> None:
+    """Open a draft pull request with the remediation plan for what was found.
+
+    Uses the token from `palisade-sec connect github` (or GITHUB_TOKEN, or
+    the `gh` CLI). Re-running updates the same pull request.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.connect import github as gh_mod
+    from palisade_sec.connect import pr as pr_mod
+    from palisade_sec.fix import build_fix_plan
+
+    target = _target(path, config, rules)
+    console = Console(highlight=False)
+
+    result = run_scan(target, config_file=config, rules_dir=rules)
+    _diagnostics(result.warnings, result.notes, result.skipped)
+    findings = [f for f in result.findings if f.severity == "high" or f.risky]
+    if baseline:
+        diff = diff_against_baseline(findings, Path(baseline))
+        for w in diff.warnings:
+            typer.echo(f"warning: {w}", err=True)
+        findings = diff.new
+    if not findings:
+        console.print(
+            f"[green]✓[/green] nothing to open a pull request for "
+            f"({result.files_scanned} file(s) scanned)"
+        )
+        return
+
+    try:
+        where = pr_mod.parse_slug(repo) if repo else pr_mod.target_from_remote(str(target))
+    except pr_mod.PrError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+    head = branch or pr_mod.branch_for(findings)
+    plan = build_fix_plan(findings, result.files_scanned, str(target))
+    body = pr_mod.pr_body(findings, result.files_scanned, plan_path)
+
+    # Resolving the token is local (env, keychain, file, `gh auth token`), so
+    # the dry run can report it without making a request and stay offline.
+    token = gh_mod.resolve_token()
+
+    if dry_run:
+        console.print(
+            f"[bold]dry run[/bold]\n  repo:   {where.slug}\n  branch: {head}\n"
+            f"  file:   {plan_path} ({len(plan.splitlines())} lines)\n"
+            f"  draft:  {draft}\n  findings: {len(findings)}\n"
+            f"  github: {f'connected (via {token.source})' if token else 'NOT CONNECTED'}"
+        )
+        if not token:
+            # Otherwise a dry run is a green pre-flight for a real run that
+            # cannot even start, which is the opposite of its job.
+            typer.echo(_NO_GITHUB, err=True)
+            raise typer.Exit(2)
+        return
+
+    if not token:
+        typer.echo(_NO_GITHUB, err=True)
+        raise typer.Exit(2)
+
+    try:
+        api = pr_mod.GitHubRepo(token.value, where)
+        info = api.info()
+        base_branch = base or str(info.get("default_branch") or "main")
+        base_sha = api.head_sha(base_branch)
+        if not base_sha:
+            typer.echo(f"error: base branch {base_branch!r} not found", err=True)
+            raise typer.Exit(2)
+        if api.head_sha(head) is None:
+            api.create_branch(head, base_sha)
+        api.put_file(
+            plan_path, head, plan, f"palisade: remediation plan for {len(findings)} finding(s)"
+        )
+        existing = api.existing_pr(head)
+        if existing:
+            console.print(f"[green]✓[/green] updated {existing.get('html_url')}")
+            return
+        created = api.open_pr(
+            head=head,
+            base=base_branch,
+            title=f"Palisade: {len(findings)} prompt-injection finding(s) to fix",
+            body=body,
+            draft=draft,
+        )
+    except pr_mod.PrError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    console.print(f"[green]✓[/green] opened {created.get('html_url')} (token via {token.source})")
+
+
+@app.command()
+def connections() -> None:
+    """Show which surfaces are connected (values redacted)."""
+    from palisade_sec.connect.cli import connections_cmd
+
+    connections_cmd()
+
+
+@app.command()
+def disconnect(
+    surface: str = typer.Argument(..., help="github, slack or llm"),
+) -> None:
+    """Remove a stored credential."""
+    from palisade_sec.connect.cli import disconnect_cmd
+
+    disconnect_cmd(surface)
+
+
+@app.command()
 def baseline(
     path: str = typer.Argument(".", help="File or directory to scan."),
     output: str | None = typer.Option(
@@ -619,9 +831,12 @@ def baseline(
     except UnsafeOutputPath as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
+    # `_diagnostics`, like every other command: it goes to stderr, it also
+    # reports what was skipped, and - the reason this was a bug - it does not
+    # feed the text through rich's markup parser, which ate the `[js]` out of
+    # "pip install 'palisade-sec[js]'" and printed a command installing nothing.
+    _diagnostics(result.warnings, result.notes, result.skipped)
     console = Console(highlight=False)
-    for w in result.warnings:
-        console.print(f"[yellow]warning:[/yellow] {w}")
     console.print(
         f"baseline written to {out} "
         f"({len(result.findings)} finding(s) fingerprinted, "
@@ -630,4 +845,6 @@ def baseline(
 
 
 if __name__ == "__main__":
-    app()
+    # `run()`, not `app()`: `python -m palisade_sec.cli` must behave exactly
+    # like the installed console script, exit codes and all.
+    run()
