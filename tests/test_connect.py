@@ -536,6 +536,35 @@ def test_pr_dry_run_contacts_nobody(isolated_store, repo_with_finding, monkeypat
     assert fake.calls == []
 
 
+def test_pr_dry_run_says_where_the_token_came_from(isolated_store, repo_with_finding, monkeypatch):
+    """Resolution order is the thing people get wrong ("why is it using my
+    old token?"), so the dry run names the source it would use."""
+    store.set_credential(store.GITHUB_TOKEN, TOKEN)
+    _patch_api(monkeypatch, _FakeGitHub())
+    result = runner.invoke(
+        app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade", "--dry-run"]
+    )
+    assert "github: connected (via file)" in _flat(result.output)
+
+
+def test_pr_dry_run_fails_when_github_is_not_connected(
+    isolated_store, repo_with_finding, monkeypatch
+):
+    """A dry run is a pre-flight. Reporting success for a real run that
+    cannot even start makes it worse than useless, so it exits 2 - while
+    still contacting nobody, because resolving a token is all local."""
+    fake = _FakeGitHub()
+    _patch_api(monkeypatch, fake)
+    result = runner.invoke(
+        app, ["pr", str(repo_with_finding), "--repo", "arpankernel/palisade", "--dry-run"]
+    )
+    flat = _flat(result.output)
+    assert result.exit_code == 2
+    assert "NOT CONNECTED" in flat
+    assert "connect github" in flat
+    assert fake.calls == [], "a dry run must not reach GitHub, even to report a failure"
+
+
 @pytest.mark.parametrize(
     ("url", "slug"),
     [

@@ -39,6 +39,39 @@ service of ours in the middle.
 - New guide: `docs/connect.md`, including a table of exactly what each
   command sends and to whom.
 
+### Fixed
+
+Found by exercising the new commands by hand before release, each one on
+the path a first-time user actually takes.
+
+- **A surface refusing to connect is no longer reported as a crash.** A
+  mistyped webhook, an expired token, or the un-registered OAuth App all
+  reached the last-resort handler and printed "internal error … this is a
+  bug in palisade-sec … please report it", exit 3 — including the exact
+  first-run message that tells you to use `gh auth login`. They now exit
+  2 with their own sentence. Every exception in the `connect` package
+  shares a `ConnectError` base, and a test walks the package so a new
+  surface cannot reintroduce this.
+- **`palisade-sec baseline` printed an install command that installs
+  nothing.** It rendered scanner warnings through rich, which reads the
+  `[js]` in `pip install 'palisade-sec[js]'` as a style tag and deletes
+  it; `scan` printed the same warning correctly. Same bug in the
+  `connect llm` hint for `[judge]`. A user following either one gets a
+  command that succeeds, changes nothing, and leaves no error to search
+  for. `baseline` now reports diagnostics like every other command (to
+  stderr, including skipped files).
+- **`pr --dry-run` no longer reports success when the real run cannot
+  start.** It returned before looking for a credential, so it was a green
+  pre-flight for a command that would immediately fail. It now names the
+  token's source (`connected (via gh)`) and exits 2 when there is none,
+  still without contacting GitHub.
+- `python -m palisade_sec.cli` called `app()` directly, bypassing the
+  error handling of the installed console script. It now calls `run()`.
+- **"Set a key" errors now name `palisade-sec connect llm`.** Only the
+  new Anthropic branch mentioned it; the default (`typesafe`) and the
+  OpenAI-compatible branch still told you to edit a `.env`, so a
+  first-time `audit` pointed away from the command 0.6.0 adds.
+
 ### Unchanged on purpose
 
 The offline core (`scan`, `map`, `baseline`, `fix`) uses none of this: no

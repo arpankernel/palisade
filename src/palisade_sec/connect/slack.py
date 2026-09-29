@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 
+from palisade_sec.connect.errors import ConnectError
 from palisade_sec.connect.http import HttpError, post_text
 from palisade_sec.connect.store import SLACK_WEBHOOK, Resolved, get_credential
 
@@ -21,7 +22,7 @@ WEBHOOK_RE = re.compile(r"^https://hooks\.slack\.com/(services|workflows)/[A-Za-
 _SEV_EMOJI = {"high": ":red_circle:", "med": ":large_orange_circle:", "low": ":white_circle:"}
 
 
-class SlackError(RuntimeError):
+class SlackError(ConnectError):
     """A Slack problem, stated without echoing the webhook URL."""
 
 

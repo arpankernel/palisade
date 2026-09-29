@@ -260,7 +260,7 @@ Exit codes:
 |---|---|
 | `0` | Success, or nothing new |
 | `1` | `--ci` found a new HIGH finding (`scan`, `review`); an attack landed (`redteam --execute --ci`); a BLOCK decision (`audit --ci`) |
-| `2` | Usage or target error: bad path, missing explicit `--config`/`--rules`, a `--ci` run that scanned 0 files, judgment layer missing its `[judge]` extra or key, refused unsafe (symlinked) output path, `redteam --execute --ci` with errored attacks |
+| `2` | Usage, target or setup error: bad path, missing explicit `--config`/`--rules`, a `--ci` run that scanned 0 files, judgment layer missing its `[judge]` extra or key, refused unsafe (symlinked) output path, `redteam --execute --ci` with errored attacks, a connected surface refusing to connect |
 | `3` | Internal error (a bug, not a finding) |
 
 **GitHub Action.** One step scans the repo, uploads findings to the GitHub

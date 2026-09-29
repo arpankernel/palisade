@@ -151,9 +151,10 @@ def get_backend() -> JudgeBackend:
         key = env.get(TYPESAFE_KEY_ENV, "").strip()
         if not key:
             raise JudgeError(
-                f"{TYPESAFE_KEY_ENV} is not set. Configure it in .env; the judgment "
-                "layer sends IR-verified snippets to the endpoint. The offline core "
-                "(scan, map, baseline, fix) needs no key."
+                f"{TYPESAFE_KEY_ENV} is not set. Run `palisade-sec connect llm "
+                "--provider typesafe`, or set it in the environment or a .env. The "
+                "judgment layer sends IR-verified snippets to the endpoint; the offline "
+                "core (scan, map, baseline, fix) needs no key."
             )
         _refuse_split_origin(from_file, TYPESAFE_KEY_ENV, endpoint, DEFAULT_ENDPOINT)
         return TypeSafeBackend(
@@ -195,7 +196,11 @@ def get_backend() -> JudgeBackend:
 
     key = env.get(GENERIC_KEY_ENV, "").strip()
     if not key:
-        raise JudgeError(f"{GENERIC_KEY_ENV} is not set (required for {name}).")
+        raise JudgeError(
+            f"{GENERIC_KEY_ENV} is not set (required for {name}). Run "
+            "`palisade-sec connect llm --provider openai_compatible --endpoint ...`, "
+            "or set it in the environment or a .env."
+        )
     if not endpoint:
         raise JudgeError(f"{ENDPOINT_ENV} is required for {name} (no default).")
     if not model:

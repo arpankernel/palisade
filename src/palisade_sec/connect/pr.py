@@ -19,13 +19,14 @@ import re
 import subprocess
 from dataclasses import dataclass
 
+from palisade_sec.connect.errors import ConnectError
 from palisade_sec.connect.http import HttpError, request_json
 
 API = "https://api.github.com"
 DEFAULT_PATH = "palisade-fixes.md"
 
 
-class PrError(RuntimeError):
+class PrError(ConnectError):
     """A pull-request problem, phrased as what to do next."""
 
 

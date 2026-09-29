@@ -26,7 +26,7 @@ keyless-and-offline versus bring-your-own-endpoint. Full setup in the
 |---|---|
 | `0` | Success, or nothing new. Includes "findings exist but `--ci` not set" and "all findings baselined under `--ci`". |
 | `1` | A gate tripped: `scan --ci` / `review --ci` found a **new HIGH** finding, `redteam --execute --ci` saw an attack land, or `audit --ci` produced a **BLOCK** decision. |
-| `2` | Usage or target error: the path does not exist, an explicit `--config`/`--rules` is missing, a `--ci` run scanned **0 files**, the judgment layer is missing its `[judge]` extra or key, an output path is a symlink (refused), or `redteam --execute --ci` had attacks that errored. |
+| `2` | Usage, target or setup error: the path does not exist, an explicit `--config`/`--rules` is missing, a `--ci` run scanned **0 files**, the judgment layer is missing its `[judge]` extra or key, an output path is a symlink (refused), `redteam --execute --ci` had attacks that errored, or a connected surface refused to connect (bad webhook, expired token, missing scope, `pr` with no GitHub token). |
 | `3` | Internal error - a bug in Palisade, not a finding. Please report it. |
 
 A scan that read 0 files never prints a green tick: it warns "Nothing was

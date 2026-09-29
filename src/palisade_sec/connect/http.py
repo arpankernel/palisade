@@ -14,12 +14,13 @@ import urllib.request
 from typing import Any
 
 from palisade_sec import __version__
+from palisade_sec.connect.errors import ConnectError
 
 USER_AGENT = f"palisade-sec/{__version__}"
 TIMEOUT = 30.0
 
 
-class HttpError(RuntimeError):
+class HttpError(ConnectError):
     """A failed request. Carries the status and a short body excerpt only."""
 
     def __init__(self, status: int, message: str) -> None:

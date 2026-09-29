@@ -133,10 +133,15 @@ def connect_llm(
         set_credential(LLM_ENDPOINT, endpoint)
     if model:
         set_credential(LLM_MODEL, model)
+    console.print(f"[green]✓[/green] {provider} connected -> stored in {where}")
+    # markup=False: rich reads `[judge]` as a style tag and drops it, which
+    # turned this into `pip install 'palisade-sec'` - a command that succeeds
+    # and installs nothing, leaving the user stuck with no error to search for.
     console.print(
-        f"[green]✓[/green] {provider} connected -> stored in {where}\n"
-        "[dim]used by `audit` and `review`; install the extra with "
-        "`pip install 'palisade-sec[judge]'` if you have not already[/dim]"
+        "used by `audit` and `review`; install the extra with "
+        "`pip install 'palisade-sec[judge]'` if you have not already",
+        markup=False,
+        style="dim",
     )
 
 

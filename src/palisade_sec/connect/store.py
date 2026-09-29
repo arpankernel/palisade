@@ -22,6 +22,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from palisade_sec.connect.errors import ConnectError
+
 SERVICE = "palisade-sec"
 
 # Stored keys. The env var, when set, always takes precedence.
@@ -44,7 +46,7 @@ ENV_OVERRIDE: dict[str, tuple[str, ...]] = {
 _SECRET_KEYS = frozenset({GITHUB_TOKEN, SLACK_WEBHOOK, LLM_KEY})
 
 
-class CredentialError(RuntimeError):
+class CredentialError(ConnectError):
     """Storage is unusable or unsafe. Never carries the secret itself."""
 
 

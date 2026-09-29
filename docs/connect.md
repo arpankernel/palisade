@@ -58,6 +58,10 @@ palisade-sec pr . --dry-run             # show what it would do
 palisade-sec pr . --baseline .palisade/baseline.json   # only new findings
 ```
 
+`--dry-run` contacts nobody, but it is a real pre-flight: it names the
+token it would use and where that token came from, and exits 2 if there
+is none, rather than reporting success for a run that cannot start.
+
 It scans, generates the same plan as `palisade-sec fix` (a guardrail and a
 regression test per finding), and opens a **draft** pull request
 containing it. The branch name is derived from the findings, so re-running

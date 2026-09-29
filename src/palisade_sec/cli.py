@@ -5,8 +5,9 @@ Exit codes:
   1 - --ci found something: a NEW HIGH finding (scan/review), a BLOCK
       decision (audit), or an attack that landed (redteam --execute)
   2 - usage / target / setup errors, including a --ci run that scanned
-      nothing, a missing [judge] extra or key, a refused output path, and
-      red-team attacks that got no response under --ci
+      nothing, a missing [judge] extra or key, a refused output path,
+      red-team attacks that got no response under --ci, and any connected
+      surface refusing to connect (bad webhook, expired token, wrong scope)
   3 - internal error: a bug in palisade-sec, never a finding
 """
 
@@ -26,10 +27,15 @@ from palisade_sec.baseline import (
     write_baseline,
 )
 from palisade_sec.connect.cli import connect_app
+from palisade_sec.connect.errors import ConnectError
 from palisade_sec.report import print_findings, to_json, to_markdown
 from palisade_sec.safe_io import UnsafeOutputPath, write_output
 from palisade_sec.scanner import run_scan
 from palisade_sec.semantic.redteam import MAX_VARIANTS
+
+_NO_GITHUB = (
+    "error: GitHub is not connected. Run `palisade-sec connect github`, or set GITHUB_TOKEN."
+)
 
 app = typer.Typer(
     name="palisade-sec",
@@ -57,6 +63,14 @@ def run() -> None:
         app()
     except KeyboardInterrupt:
         sys.exit(130)
+    except ConnectError as exc:
+        # A mistyped webhook or an expired token is the user's situation to
+        # fix, not a bug: exit 2 with the sentence that says what to do,
+        # rather than exit 3 and "please report this".
+        if os.environ.get("PALISADE_DEBUG"):
+            raise
+        typer.echo(f"error: {exc}", err=True)
+        sys.exit(2)
     except Exception as exc:  # noqa: BLE001 - the last-resort boundary
         if os.environ.get("PALISADE_DEBUG"):
             raise
@@ -725,21 +739,26 @@ def pr_cmd(
     plan = build_fix_plan(findings, result.files_scanned, str(target))
     body = pr_mod.pr_body(findings, result.files_scanned, plan_path)
 
+    # Resolving the token is local (env, keychain, file, `gh auth token`), so
+    # the dry run can report it without making a request and stay offline.
+    token = gh_mod.resolve_token()
+
     if dry_run:
         console.print(
             f"[bold]dry run[/bold]\n  repo:   {where.slug}\n  branch: {head}\n"
             f"  file:   {plan_path} ({len(plan.splitlines())} lines)\n"
-            f"  draft:  {draft}\n  findings: {len(findings)}"
+            f"  draft:  {draft}\n  findings: {len(findings)}\n"
+            f"  github: {f'connected (via {token.source})' if token else 'NOT CONNECTED'}"
         )
+        if not token:
+            # Otherwise a dry run is a green pre-flight for a real run that
+            # cannot even start, which is the opposite of its job.
+            typer.echo(_NO_GITHUB, err=True)
+            raise typer.Exit(2)
         return
 
-    token = gh_mod.resolve_token()
     if not token:
-        typer.echo(
-            "error: GitHub is not connected. Run `palisade-sec connect github`, or set "
-            "GITHUB_TOKEN.",
-            err=True,
-        )
+        typer.echo(_NO_GITHUB, err=True)
         raise typer.Exit(2)
 
     try:
@@ -812,9 +831,12 @@ def baseline(
     except UnsafeOutputPath as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
+    # `_diagnostics`, like every other command: it goes to stderr, it also
+    # reports what was skipped, and - the reason this was a bug - it does not
+    # feed the text through rich's markup parser, which ate the `[js]` out of
+    # "pip install 'palisade-sec[js]'" and printed a command installing nothing.
+    _diagnostics(result.warnings, result.notes, result.skipped)
     console = Console(highlight=False)
-    for w in result.warnings:
-        console.print(f"[yellow]warning:[/yellow] {w}")
     console.print(
         f"baseline written to {out} "
         f"({len(result.findings)} finding(s) fingerprinted, "
@@ -823,4 +845,6 @@ def baseline(
 
 
 if __name__ == "__main__":
-    app()
+    # `run()`, not `app()`: `python -m palisade_sec.cli` must behave exactly
+    # like the installed console script, exit codes and all.
+    run()

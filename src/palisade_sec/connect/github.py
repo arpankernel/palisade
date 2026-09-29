@@ -19,6 +19,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 
+from palisade_sec.connect.errors import ConnectError
 from palisade_sec.connect.http import HttpError, post_form, request_json
 from palisade_sec.connect.store import GITHUB_TOKEN, Resolved, get_credential
 
@@ -34,7 +35,7 @@ CLIENT_ID = os.environ.get("PALISADE_GITHUB_CLIENT_ID", "").strip()
 SCOPES = "repo"
 
 
-class GitHubError(RuntimeError):
+class GitHubError(ConnectError):
     """A GitHub problem stated in terms of what the user should do next."""
 
 
