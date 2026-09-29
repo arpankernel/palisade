@@ -46,6 +46,11 @@ judge = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
 ]
+# `palisade-sec connect` stores credentials in the OS keychain when this is
+# installed; without it, it falls back to a 0600 file. Nothing else needs it.
+keyring = [
+    "keyring>=25.0",
+]
 # Alias kept so `palisade-sec[semantic]` from earlier docs still resolves.
 semantic = [
     "httpx>=0.27",

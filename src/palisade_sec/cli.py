@@ -25,6 +25,7 @@ from palisade_sec.baseline import (
     diff_against_baseline,
     write_baseline,
 )
+from palisade_sec.connect.cli import connect_app
 from palisade_sec.report import print_findings, to_json, to_markdown
 from palisade_sec.safe_io import UnsafeOutputPath, write_output
 from palisade_sec.scanner import run_scan
@@ -43,6 +44,9 @@ app = typer.Typer(
     no_args_is_help=True,
     pretty_exceptions_enable=False,
 )
+
+
+app.add_typer(connect_app)
 
 
 def run() -> None:
@@ -595,6 +599,89 @@ def review(
             findings = diff.new
         if any(f.severity == "high" for f in findings):
             raise typer.Exit(1)
+
+
+@app.command()
+def notify(
+    path: str = typer.Argument(".", help="File or directory to scan."),
+    slack: bool = typer.Option(False, "--slack", help="Post the result to the connected Slack."),
+    baseline: str | None = typer.Option(
+        None, "--baseline", help="Report only findings that are NEW vs this baseline."
+    ),
+    link: str | None = typer.Option(None, "--link", help="URL for the message's button."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Print the message instead of sending it."
+    ),
+    config: str | None = typer.Option(
+        None, "--config", help="Config file (.palisade.toml format)."
+    ),
+    rules: str | None = typer.Option(None, "--rules", help="Extra rules directory."),
+) -> None:
+    """Scan and post the result to a connected channel.
+
+    Nothing is sent unless you ask: this command is the only one that posts,
+    and `--dry-run` shows exactly what would go out.
+    """
+    from palisade_sec.baseline import diff_against_baseline
+    from palisade_sec.connect import slack as slack_mod
+
+    target = _target(path, config, rules)
+    if not slack:
+        typer.echo("error: choose a channel, e.g. --slack", err=True)
+        raise typer.Exit(2)
+
+    result = run_scan(target, config_file=config, rules_dir=rules)
+    _diagnostics(result.warnings, result.notes, result.skipped)
+    findings = result.findings
+    if baseline:
+        diff = diff_against_baseline(findings, Path(baseline))
+        for w in diff.warnings:
+            typer.echo(f"warning: {w}", err=True)
+        findings = diff.new
+
+    text, blocks = slack_mod.build_blocks(
+        project=target.resolve().name,
+        high=sum(1 for f in findings if f.severity == "high"),
+        med=sum(1 for f in findings if f.severity == "med"),
+        findings=findings,
+        files_scanned=result.files_scanned,
+        link=link,
+        new_only=bool(baseline),
+    )
+    if dry_run:
+        import json as _json
+
+        typer.echo(_json.dumps({"text": text, "blocks": blocks}, indent=2))
+        return
+
+    hook = slack_mod.resolve_webhook()
+    if not hook:
+        typer.echo(
+            "error: Slack is not connected. Run `palisade-sec connect slack`, or set "
+            "PALISADE_SLACK_WEBHOOK.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    slack_mod.post(hook.value, text, blocks)
+    typer.echo(f"posted to Slack ({len(findings)} finding(s), source {hook.source})")
+
+
+@app.command()
+def connections() -> None:
+    """Show which surfaces are connected (values redacted)."""
+    from palisade_sec.connect.cli import connections_cmd
+
+    connections_cmd()
+
+
+@app.command()
+def disconnect(
+    surface: str = typer.Argument(..., help="github, slack or llm"),
+) -> None:
+    """Remove a stored credential."""
+    from palisade_sec.connect.cli import disconnect_cmd
+
+    disconnect_cmd(surface)
 
 
 @app.command()
