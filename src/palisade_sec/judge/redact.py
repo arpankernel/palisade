@@ -54,6 +54,22 @@ _PATTERNS: tuple[tuple[re.Pattern[str], int], ...] = (
     (re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b"), 0),
     # A JWT carries its own claims and is a bearer token in practice.
     (re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"), 0),
+    # Webhook URLs, where the whole URL is the credential. These have no vendor
+    # token prefix and often sit in source under a name the assignment pattern
+    # below does not recognise ("SLACK", "ALERTS", "NOTIFY"), so they need a
+    # rule of their own. Found by checking the patterns against a real webhook
+    # shape rather than against the list that built them.
+    (re.compile(r"https://hooks\.slack\.com/services/[A-Za-z0-9_\-]+(?:/[A-Za-z0-9_\-]+)+"), 0),
+    (
+        re.compile(
+            r"https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_\-]{20,}"
+        ),
+        0,
+    ),
+    (
+        re.compile(r"https://[A-Za-z0-9.\-]*\.webhook\.office\.com/webhookb2/[A-Za-z0-9@/\-]{20,}"),
+        0,
+    ),
     # Credentials inside a URL: mask the password, keep the shape so the judge
     # can still tell a connection string from a plain path.
     (re.compile(r"(?P<pre>[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s/:@]+:)(?P<secret>[^\s/@]+)(?=@)"), 2),
@@ -64,7 +80,8 @@ _PATTERNS: tuple[tuple[re.Pattern[str], int], ...] = (
             r"""(?ix)
             \b(?:api[_\-]?key|apikey|secret|secret[_\-]?key|password|passwd|pwd
                |token|auth[_\-]?token|access[_\-]?key|private[_\-]?key
-               |client[_\-]?secret|connection[_\-]?string)\b
+               |client[_\-]?secret|connection[_\-]?string|webhook|webhook[_\-]?url
+               |dsn|credential|credentials)\b
             \s*[:=]\s*
             (?P<q>['"])(?P<secret>[^'"]{8,})(?P=q)
             """

@@ -43,12 +43,48 @@ def test_a_private_key_block_is_masked_whole() -> None:
 
 
 def test_a_url_password_is_masked_but_the_shape_survives() -> None:
-    text, count = redact_text('DSN = "postgresql://admin:hunter2horse@db.internal/app"')
+    """Under a name the keyword list does not claim, only the password goes.
+    The judge still has to be able to tell this was a connection string."""
+    text, count = redact_text('conn = "postgresql://admin:hunter2horse@db.internal/app"')
     assert count >= 1
     assert "hunter2horse" not in text
-    # The judge still has to be able to tell this was a connection string.
     assert "postgresql://" in text
     assert "db.internal" in text
+
+
+def test_a_value_named_as_a_credential_is_masked_whole() -> None:
+    """A DSN names a host, a user and a database as well as a password. When
+    the source itself calls the value a credential, the shape is not worth the
+    rest of it."""
+    text, _ = redact_text('DSN = "postgresql://admin:hunter2horse@db.internal/app"')
+    assert "hunter2horse" not in text
+    assert "db.internal" not in text
+    assert "DSN" in text
+
+
+def test_a_webhook_url_is_masked() -> None:
+    """The whole URL is the credential, and these usually sit in source under a
+    name the assignment pattern does not recognise. Found by checking the
+    patterns against a real webhook shape rather than against the list that
+    built them, which had no webhook rule at all."""
+    hooks = [
+        "https://hooks.slack.com/services/T0AAAAAAAAA/B0BBBBBBBBB/" + "x" * 24,
+        "https://discord.com/api/webhooks/123456789012345678/" + "y" * 40,
+        "https://contoso.webhook.office.com/webhookb2/" + "z" * 30,
+    ]
+    for hook in hooks:
+        text, count = redact_text(f'SLACK = "{hook}"')
+        assert count >= 1, hook
+        assert hook not in text, hook
+
+
+def test_a_webhook_under_an_unhelpful_name_is_still_masked() -> None:
+    """ALERTS, NOTIFY, SLACK: none of these are in the keyword list, which is
+    exactly why the URL itself has to be the pattern."""
+    hook = "https://hooks.slack.com/services/T0AAAAAAAAA/B0BBBBBBBBB/" + "q" * 24
+    for name in ("ALERTS", "NOTIFY", "SLACK", "CHANNEL"):
+        text, _ = redact_text(f"{name} = '{hook}'")
+        assert hook not in text, name
 
 
 def test_the_assignment_form_masks_the_value_and_keeps_the_name() -> None:
