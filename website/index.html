@@ -12,43 +12,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
 <style>
-  :root{
-    --bg:#fbf8f3; --panel:#f5f3ee; --border:#e5e0d6;
-    --ink:#1a1a1a; --muted:#4a4a4a; --faint:#888880;
-    --accent:#166534; --accent-live:#22c55e;
-    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    --serif:"Instrument Serif",ui-serif,Georgia,serif;
-    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-    --pill:100px;
-    color-scheme:light;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      color-scheme:dark;
-      --bg:#0f0f0e; --panel:#171715; --border:rgba(242,239,233,0.14);
-      --ink:#f2efe9; --muted:rgba(242,239,233,0.72); --faint:rgba(242,239,233,0.45);
-      --accent:#4ade80;
-    }
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
-    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
-    display:flex;flex-direction:column;
-    padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
-  }
-  a{color:inherit;text-decoration:none}
-  .wrap{width:100%;max-width:980px;margin:0 auto;padding:0 clamp(20px,5vw,40px)}
+  /* Page-specific only. Shared tokens and chrome live in styles.css, so the
+     landing page and the roadmap page cannot drift apart. */
 
-  nav{flex:none;padding:20px 0}
-  .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
-  .brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);
-    font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
-  .nav-right{display:flex;align-items:center;gap:22px;font-size:13px;color:var(--muted)}
-  .nav-right a:hover{color:var(--ink)}
-
+  /* The first viewport is a contract: the point lands without scrolling. The
+     blocks below are a scroll-down, never a reason to grow the hero. */
+  .screen{min-height:100svh;display:flex;flex-direction:column}
   main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 0}
   .hero{text-align:center}
   .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);
@@ -60,52 +31,17 @@
   h1 em{font-style:normal;color:var(--accent)}
   .sub{margin:18px auto 0;max-width:56ch;color:var(--muted);font-size:clamp(14px,1.6vw,16px)}
   .sub b{color:var(--ink);font-weight:600}
-  code{font-family:var(--mono);font-size:.92em}
-
-  .cta{margin:26px auto 0;display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:var(--pill);
-    font-size:13.5px;font-weight:500;padding:11px 20px;border:1px solid transparent;cursor:pointer}
-  .btn-primary{background:var(--ink);color:var(--bg)}
-  .btn-ghost{border-color:var(--border);color:var(--ink)}
-  .btn-ghost:hover{background:var(--panel)}
-  .cmd{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);
-    background:var(--panel);border-radius:var(--pill);padding:10px 18px;
-    font-family:var(--mono);font-size:13px;color:var(--ink);margin:0;
-    -webkit-appearance:none;appearance:none;cursor:pointer;position:relative}
-  .cmd:hover{border-color:var(--accent)}
-  .cmd:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .cmd .p{color:var(--accent);font-weight:500}
-  /* Fixed-size icon slot: the glyph swaps on copy, so the button never reflows
-     and the buttons beside it never shift under the cursor. */
-  .cmd .ico{display:inline-flex;flex:none;width:14px;height:14px;color:var(--faint)}
-  .cmd:hover .ico{color:var(--muted)}
-  .cmd .ico svg{display:block;width:14px;height:14px}
-  .cmd .ico .check{display:none}
-  .cmd.is-copied .ico{color:var(--accent)}
-  .cmd.is-copied .ico .clip{display:none}
-  .cmd.is-copied .ico .check{display:block}
-  /* Confirmation floats above the chip rather than sitting inside it, for the
-     same reason: no width change, no layout shift. */
-  .cmd .toast{position:absolute;left:50%;bottom:calc(100% + 8px);
-    transform:translateX(-50%) translateY(-4px);background:var(--ink);color:var(--bg);
-    font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;
-    border-radius:var(--pill);white-space:nowrap;opacity:0;pointer-events:none;
-    transition:opacity .14s ease,transform .14s ease}
-  .cmd.is-copied .toast,.cmd.is-failed .toast{opacity:1;transform:translateX(-50%) translateY(0)}
-  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-    clip:rect(0 0 0 0);white-space:nowrap;border:0}
-  @media (prefers-reduced-motion: reduce){.cmd .toast{transition:none}}
-
   .numbers{margin:28px auto 0;max-width:64ch;font-family:var(--mono);font-size:10.5px;
     line-height:1.9;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
   .numbers b{color:var(--muted);font-weight:500}
 
-  footer{flex:none;padding:18px 0 24px;font-size:12px;color:var(--faint)}
-  .foot-inner{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
-  footer a:hover{color:var(--ink)}
+  .cue{display:block;text-align:center;padding:0 0 22px;font-family:var(--mono);
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .cue:hover{color:var(--ink)}
+  .cue span{display:block;font-size:14px;line-height:1;margin-top:6px}
 
-  /* Short viewports: the page is a single screen by contract, so everything
-     tightens together rather than letting the numbers block push a scrollbar.
+  /* Short viewports: the hero is a single screen by contract, so everything
+     tightens together rather than letting the numbers block push it taller.
      Measured against 375x667 and 320x568, which both overflowed before this. */
   @media (max-height:760px){
     nav{padding:14px 0}
@@ -115,7 +51,7 @@
     .cta{margin-top:16px;gap:9px}
     .btn,.cmd{padding:9px 16px;font-size:12.5px}
     .numbers{margin-top:14px;line-height:1.7;font-size:9.8px}
-    footer{padding:12px 0 16px}
+    .cue{padding-bottom:14px}
   }
   @media (max-width:400px){
     .badge{font-size:9.5px;padding:5px 11px}
@@ -127,12 +63,12 @@
     .brand{font-size:11.5px}
     .numbers{font-size:8.6px;line-height:1.55;margin-top:12px}
     .cta{gap:7px;margin-top:13px}
-    footer{padding:10px 0 12px;font-size:11px}
-    .foot-inner{gap:4px 12px}
   }
 </style>
 </head>
 <body>
+
+<div class="screen">
 
 <nav>
   <div class="wrap nav-inner">
@@ -156,7 +92,7 @@
   <header class="hero wrap">
     <span class="badge"><span class="dot"></span>v1 live on PyPI &middot; MIT &middot; runs locally, no API key</span>
     <h1>We're building the <em>AI safety engineer</em> for your codebase.</h1>
-    <p class="sub"><b>v1 ships today</b>: it finds the path from untrusted text, through your model, into <code>exec</code>, a shell, or your database. The rest of the job is on the <a href="./roadmap.html" style="border-bottom:1px solid var(--border)">roadmap</a>.</p>
+    <p class="sub"><b>v1 ships today</b>: it finds the path from untrusted text, through your model, into <code>exec</code>, a shell, or your database. The rest of the job is on the <a href="./roadmap.html" class="ul">roadmap</a>.</p>
     <div class="cta">
       <button class="cmd" type="button" id="copy-cmd" data-cmd="uvx palisade-sec scan ."
               aria-label="Copy install command: uvx palisade-sec scan .">
@@ -186,6 +122,135 @@
   </header>
 </main>
 
+<a class="cue" href="#ships">What ships today<span aria-hidden="true">&darr;</span></a>
+
+</div><!-- /.screen -->
+
+
+<section id="ships" class="band">
+  <div class="wrap">
+    <span class="kicker">Shipped now</span>
+    <h2>One bug class, caught precisely</h2>
+    <p class="lede">Untrusted input reaches a model. The model's output reaches a dangerous capability. Palisade needs all three hops before it says a word, which is why it stays quiet on constant prompts and parameterized queries.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Like ruff or semgrep, for OWASP LLM01</h3>
+        <p>A linter, not an agent. It parses your source and never executes it. No key, no account, no network, and a test in the suite fails the build if a scan so much as imports the networking module.</p>
+      </div>
+      <div class="card">
+        <h3>Precision 1.000</h3>
+        <p>Zero false positives across 40,466 files in 50 third-party repositories. Published alongside held-out recall of 0.000 over 45 independent observations, because either number alone misleads.</p>
+      </div>
+      <div class="card">
+        <h3>Built for a real CVE class</h3>
+        <p>Built for the class behind CVE-2024-5565 (Vanna), CVE-2024-12366 (PandasAI) and CVE-2023-36258 (LangChain PAL). It finds the Vanna shape at the exact line in two releases. PandasAI's dynamic pipeline dispatch is missed, and we publish that miss. LangChain PAL has never been measured.</p>
+      </div>
+      <div class="card">
+        <h3>CI-native</h3>
+        <p>Python and JavaScript or TypeScript. SARIF out, a GitHub Action, a pre-commit hook, and a baseline so an existing codebase can adopt it without a wall of findings on day one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="band alt">
+  <div class="wrap">
+    <span class="kicker">How it works</span>
+    <h2>Three steps</h2>
+    <ol class="steps">
+      <li><b>Install.</b> <code>pip install palisade-sec</code>, or run it with no install at all through <code>uvx</code>.</li>
+      <li><b>Scan.</b> <code>palisade-sec scan .</code> parses your source into a language-neutral taint IR and propagates from sources, through model call sites, into sinks.</li>
+      <li><b>Read the report.</b> Every finding is a complete path with a file and line for each hop. Exit code 1 on a new HIGH, so CI can gate on it.</li>
+    </ol>
+  </div>
+</section>
+
+
+<section class="band">
+  <div class="wrap">
+    <span class="kicker">Honesty</span>
+    <h2>The one scanner that tells you what it misses</h2>
+    <p class="lede">This is the block where a product page usually puts logos and quotes. We would rather publish the measurement, including the half that looks bad.</p>
+
+    <div class="numbers-grid">
+      <div>
+        <div class="n-val">1.000</div>
+        <div class="n-lab">Precision &middot; 0 false positives &middot; 40,466 files &middot; 50 repos</div>
+      </div>
+      <div>
+        <div class="n-val">0.000</div>
+        <div class="n-lab">Held-out recall &middot; 0 of 45 independent observations &middot; 20 repos</div>
+      </div>
+    </div>
+
+    <p class="caveat">Both numbers travel together, always. A scanner that reports nothing has perfect precision for free, so precision alone is an advertisement rather than a measurement.</p>
+    <p class="caveat">Our ground truth is known-incomplete, and the error runs one way. One of our own audits missed two real paths the engine later found, so the denominators are smaller than the truth and that recall figure is, if anything, an <b>overestimate</b>. Every miss is listed by file and line in the <a href="./docs/proof-scans/" class="ul">proof-scan report</a>.</p>
+  </div>
+</section>
+
+
+<section class="band alt">
+  <div class="wrap">
+    <span class="kicker">The boundary</span>
+    <h2>It does not yet catch tool&#8209;calling agent frameworks</h2>
+    <p class="lede">The shape the field is moving to. If Palisade is quiet on your agent framework, that is a known limit and not a clean bill of health.</p>
+    <div class="card">
+      <h3>Why these paths end where types stop helping</h3>
+      <p>The capability is injected at a wiring site in another file, or the arguments are assembled in a container and splatted into the call. Three rule-shaped attempts each moved held-out recall by zero paths, which is how we know the answer is not another rule. The next capability is whole-program object tracking: follow values, not types.</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="band">
+  <div class="wrap">
+    <span class="kicker">Roadmap</span>
+    <h2>The rest of the role</h2>
+    <p class="lede">The complete AI safety engineer is the destination. One verb of it ships today. Nothing below carries a date.</p>
+
+    <div class="verbs">
+      <div class="verb"><span class="tag shipped">Shipped</span><b>See</b><span>Find where a model touches a dangerous capability. This is v1.</span></div>
+      <div class="verb"><span class="tag">Upcoming</span><b>Judge</b><span>Decide what a finding is worth. Ships today as <b>advisory</b> only, on a <b>preliminary</b> seed corpus, and deliberately not counted as done. It does not decide whether you are safe.</span></div>
+      <div class="verb"><span class="tag">Upcoming</span><b>Probe</b><span>Attack the system with its own map. Synthesis and gated execution exist; the reproducible measurement does not.</span></div>
+      <div class="verb"><span class="tag">Upcoming</span><b>Guard</b><span>Turn a finding into a control. Deterministic fixes ship now; the guardrail and safety-case generators are not built.</span></div>
+      <div class="verb"><span class="tag">Upcoming</span><b>Watch</b><span>Notice it happening in production. Opt-in and self-hosted. Nothing here is built.</span></div>
+    </div>
+
+    <p class="caveat"><a href="./roadmap.html" class="ul">Full roadmap, with what is measured and what is not</a></p>
+  </div>
+</section>
+
+
+<section class="band alt">
+  <div class="wrap center">
+    <span class="kicker">Start</span>
+    <h2>Scan your repo in about a minute</h2>
+    <div class="cta center-cta">
+      <button class="cmd" type="button" id="copy-cmd-2" data-cmd="pip install palisade-sec"
+              aria-label="Copy install command: pip install palisade-sec">
+        <span class="p" aria-hidden="true">$</span>pip install palisade-sec
+        <span class="ico" aria-hidden="true">
+          <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="12" height="12" rx="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </span>
+        <span class="toast" aria-hidden="true">Copied</span>
+      </button>
+      <span class="sr-only" role="status" aria-live="polite" id="copy-status-2"></span>
+      <a class="btn btn-ghost" href="./docs/getting-started/">Getting started</a>
+      <a class="btn btn-ghost" href="./docs/">Docs</a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap foot-inner">
     <span>MIT &middot; free to run &middot; no paid tier</span>
@@ -193,57 +258,7 @@
   </div>
 </footer>
 
-<script>
-(function () {
-  var btn = document.getElementById('copy-cmd');
-  if (!btn) return;
-  var toast = btn.querySelector('.toast');
-  var status = document.getElementById('copy-status');
-  var timer;
-
-  // execCommand is deprecated but still the only path that works when the page
-  // is opened over plain http or from a file:// URL, where navigator.clipboard
-  // is undefined. Worth keeping: people do read this page off a local checkout.
-  function legacyCopy(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
-    document.body.appendChild(ta);
-    ta.select();
-    var ok = false;
-    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-    document.body.removeChild(ta);
-    return ok;
-  }
-
-  function settle(ok) {
-    clearTimeout(timer);
-    btn.classList.remove('is-copied', 'is-failed');
-    btn.classList.add(ok ? 'is-copied' : 'is-failed');
-    toast.textContent = ok ? 'Copied' : 'Press ⌘C';
-    status.textContent = ok ? 'Command copied to clipboard' : 'Copy failed, select and copy manually';
-    timer = setTimeout(function () {
-      btn.classList.remove('is-copied', 'is-failed');
-      toast.textContent = 'Copied';
-      status.textContent = '';
-    }, 1800);
-  }
-
-  btn.addEventListener('click', function () {
-    var text = btn.dataset.cmd;
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(function () {
-        settle(true);
-      }, function () {
-        settle(legacyCopy(text));
-      });
-    } else {
-      settle(legacyCopy(text));
-    }
-  });
-})();
-</script>
+<script src="./copy.js"></script>
 
 </body>
 </html>

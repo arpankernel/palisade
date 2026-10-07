@@ -18,6 +18,7 @@ from pydantic import ValidationError, create_model
 
 from palisade_sec.judge._http import post_json
 from palisade_sec.judge.base import JudgeError
+from palisade_sec.judge.guard import SYSTEM_BOUNDARY
 from palisade_sec.judge.types import (
     ChoiceAns,
     ChoiceQ,
@@ -35,7 +36,7 @@ _SYSTEM = (
     "no code fences. Map each question id to its answer: a noul answer is a number "
     "from 0 to 1 (probability the statement is true); a score answer is a number "
     "from 0 to N (the level index); a choice answer is exactly one of the listed "
-    "option keys."
+    "option keys. " + SYSTEM_BOUNDARY
 )
 
 

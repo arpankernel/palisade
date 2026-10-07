@@ -19,7 +19,9 @@ import httpx
 from pydantic import ValidationError
 
 from palisade_sec.judge.base import JudgeError
+from palisade_sec.judge.guard import SYSTEM_BOUNDARY
 from palisade_sec.judge.openai_compatible import _questions_spec, _schema_model, _to_answers
+from palisade_sec.judge.redact import safe_reason
 from palisade_sec.judge.types import JudgeResult, Question
 
 DEFAULT_ENDPOINT = "https://api.anthropic.com"
@@ -33,7 +35,7 @@ _SYSTEM = (
     "no code fences. Map each question id to its answer: a noul answer is a number "
     "from 0 to 1 (probability the statement is true); a score answer is a number "
     "from 0 to N (the level index); a choice answer is exactly one of the listed "
-    "option keys."
+    "option keys. " + SYSTEM_BOUNDARY
 )
 
 
@@ -41,16 +43,21 @@ def _why(resp: httpx.Response) -> str:
     """The provider's reason for a failure, and nothing else.
 
     Anthropic answers an error as {"error": {"message": ...}}. That message is
-    the actionable part and cannot contain the API key; the surrounding body can
-    echo the request, which carries the scanned code. So the message is taken
-    alone, and bounded, because it is still text from outside.
+    the actionable part, so the message is taken alone and the surrounding
+    body, which can echo the request, is dropped.
+
+    The message itself is still text this process did not write. The endpoint
+    can be redirected by config, and even an honest provider may quote the
+    request back. So it goes through redaction before it reaches the
+    exception: `JudgeError` promises it carries neither the key nor the
+    prompt, and this is where that promise is kept rather than assumed.
     """
     try:
         payload = resp.json()
     except ValueError:
         return "no reason given"
     reason = (payload or {}).get("error", {}).get("message") if isinstance(payload, dict) else None
-    return str(reason)[:300] if reason else "no reason given"
+    return safe_reason(str(reason)) if reason else "no reason given"
 
 
 class AnthropicBackend:

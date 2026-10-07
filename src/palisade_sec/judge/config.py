@@ -135,8 +135,22 @@ def _refuse_split_origin(
 
 
 def get_backend() -> JudgeBackend:
-    """Construct the configured backend, or raise JudgeError with a clear,
-    key-free message."""
+    """Construct the configured backend, guarded, or raise JudgeError with a
+    clear, key-free message.
+
+    Every judgment-layer call reaches its backend through here, so this is the
+    one place the guard has to be applied. A backend added to
+    `_construct_backend` below inherits redaction and the instruction boundary
+    without its author doing anything.
+    """
+    from palisade_sec.judge.guard import guarded
+
+    return guarded(_construct_backend())
+
+
+def _construct_backend() -> JudgeBackend:
+    """Build the configured backend. Callers want `get_backend`: this one is
+    unguarded and is reached only through it."""
     env, from_file = _resolve_env()
     name = env.get(BACKEND_ENV, "typesafe").strip().lower()
     if name not in _VALID:

@@ -292,6 +292,111 @@ def test_an_untested_cve_is_only_cited_as_motivation(rel: str) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# The honesty block replaces the trust signals a template would carry
+# ---------------------------------------------------------------------------
+#
+# A product page of this shape has a slot for testimonials, customer logos and
+# a usage counter. Palisade has none of those yet, and inventing them on a
+# security tool is worse than leaving the slot empty: the whole pitch is that
+# the numbers are real. So the slot carries the measurement instead, and these
+# tests hold it to carrying all of it.
+
+_PAGES_WITH_NUMBERS = ["website/index.html", "website/roadmap.html"]
+
+
+@pytest.mark.parametrize("rel", _PAGES_WITH_NUMBERS)
+def test_a_page_that_shows_the_pair_also_shows_the_direction_of_error(rel: str) -> None:
+    """Both numbers together is necessary and not sufficient. 0.000 over 45
+    reads as a floor; it is a ceiling, because the ground truth is incomplete
+    and the gap runs one way."""
+    path = ROOT / rel
+    if not path.is_file():
+        pytest.skip(f"{rel} not present")
+    text = path.read_text(encoding="utf-8")
+    if not _PRECISION.search(text):
+        return
+    assert "known-incomplete" in text or "overestimate" in text, (
+        f"{rel} publishes the measured pair without the direction of the "
+        "ground-truth error. A reader who later finds an unlabelled sibling "
+        "should find that we said so first."
+    )
+
+
+def test_the_landing_page_carries_no_fabricated_trust_signals() -> None:
+    """The slot where a template puts social proof. Until any of this is real,
+    it stays empty and the measurement stands in its place."""
+    text = (ROOT / "website/index.html").read_text(encoding="utf-8").lower()
+    banned = [
+        "testimonial",
+        "trusted by",
+        "loved by",
+        "customers say",
+        "developers trust",
+        "join thousands",
+        "used by thousands",
+        "5-star",
+    ]
+    found = [b for b in banned if b in text]
+    assert not found, (
+        f"the landing page carries a trust signal with nothing behind it: {found}. "
+        "A fake one on a security tool is worse than none."
+    )
+    # A star rating or a user count, in the shapes a template writes them.
+    assert not re.search(
+        r"\b\d[\d,.]*\s*(?:\+\s*)?(?:users|teams|developers|stars|downloads)\b", text
+    ), "the landing page states a usage metric; none has been measured"
+
+
+def test_the_landing_page_names_the_shipped_verb_and_the_unbuilt_ones() -> None:
+    """The roadmap block is the only place the finished role may appear, and it
+    has to appear beside what is not built, or it reads as a claim."""
+    text = (ROOT / "website/index.html").read_text(encoding="utf-8")
+    low = text.lower()
+    assert "upcoming" in low, "the landing page must mark the unbuilt verbs as upcoming"
+    if "complete ai safety engineer" in low:
+        assert "destination" in low, (
+            "the finished role may only appear as the destination, never as a "
+            "description of what ships"
+        )
+
+
+def test_the_landing_page_publishes_no_dates() -> None:
+    """No dates on the roadmap. A date is a promise, and nothing below SEE is
+    far enough along to make one."""
+    for rel in _PAGES_WITH_NUMBERS:
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        body = path.read_text(encoding="utf-8")
+        body = body[body.index("<body") :] if "<body" in body else body
+        assert not re.search(r"\b(Q[1-4]\s*20\d\d|20\d\d\s*Q[1-4])\b", body, re.I), (
+            f"{rel} puts a quarter on the roadmap"
+        )
+        assert not re.search(
+            r"\b(?:by|ships?|lands?|due)\s+(?:early|mid|late)?\s*20\d\d\b", body, re.I
+        ), f"{rel} puts a year on the roadmap"
+
+
+def test_the_shared_stylesheet_is_the_only_token_source() -> None:
+    """Both pages carried their own copy of the palette, which is how they
+    drifted apart the last time either was edited."""
+    css = (ROOT / "website/styles.css").read_text(encoding="utf-8")
+    assert "--accent:" in css, "the shared sheet must define the palette"
+    for rel in _PAGES_WITH_NUMBERS:
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert 'href="./styles.css"' in text, f"{rel} does not use the shared stylesheet"
+        page_css = "\n".join(
+            text[m.end() : text.index("</style>", m.end())] for m in re.finditer(r"<style>", text)
+        )
+        assert "--accent:" not in page_css, (
+            f"{rel} redefines the palette inline; it belongs in styles.css only"
+        )
+
+
 def test_the_cve_facts_still_match_the_corpus() -> None:
     """Vacuity guard, and a drift guard. If PandasAI's label ever becomes a
     true positive, the test above should be relaxed deliberately rather than

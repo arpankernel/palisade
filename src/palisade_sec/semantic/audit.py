@@ -22,6 +22,7 @@ from rich.markup import escape
 from palisade_sec import ir
 from palisade_sec.engine import Finding
 from palisade_sec.judge.base import JudgeBackend
+from palisade_sec.judge.guard import UnredactableStateError
 from palisade_sec.semantic.exploitability import (
     ExploitJudgment,
     exploitability_questions,
@@ -43,7 +44,13 @@ from palisade_sec.semantic.policy import (
 from palisade_sec.semantic.probe import ToolArtifact, harvest_tools
 from palisade_sec.semantic.risk import static_impact, static_likelihood
 
-Decision = str  # "pass" | "review" | "block"
+Decision = str  # "unjudged" | "pass" | "review" | "block"
+
+# A finding the judgment layer refused to send, because redaction could not
+# prove the evidence was free of secrets. It is a coverage gap, not a verdict:
+# it never blocks CI, and it is never counted as a pass. Reporting it loudly
+# is the whole point, since the alternative is a quietly shorter audit.
+UNJUDGED: Decision = "unjudged"
 
 
 @dataclass
@@ -112,7 +119,11 @@ def audit_excessive_agency(
     questions = excessive_agency_questions(pol)
     findings: list[SemanticFinding] = []
     for tool in _judgeable_tools(harvest_tools(modules)):
-        result = backend.ask(excessive_agency_state(tool), questions)
+        try:
+            result = backend.ask(excessive_agency_state(tool), questions)
+        except UnredactableStateError as exc:
+            findings.append(_unjudged_tool(tool, exc))
+            continue
         j = interpret(result)
         decision, rationale = decide(pol, j, verified=result.verified)
         likelihood = j.irreversible * (1.0 if j.gated < pol.gate_threshold else 0.25)
@@ -133,6 +144,31 @@ def audit_excessive_agency(
             )
         )
     return findings
+
+
+def _unjudged_tool(tool: ToolArtifact, exc: UnredactableStateError) -> SemanticFinding:
+    """A tool whose capability evidence never left the machine. Locations
+    only: the snippets are what could not be cleared."""
+    return SemanticFinding(
+        check="excessive_agency",
+        decision=UNJUDGED,
+        title=f"{tool.name} (unjudged)",
+        file=tool.file,
+        line=tool.line,
+        likelihood=0.0,
+        impact=0.0,
+        verified=False,
+        backend="none",
+        evidence=[f"{h.file}:{h.line}" for h in tool.capability_hits],
+        rationale=(
+            "not sent to the judgment endpoint: redaction could not clear the "
+            "evidence of secrets. This tool was not judged."
+        ),
+        detail={
+            "capabilities": tool.capabilities,
+            "unjudged_reasons": list(exc.reasons),
+        },
+    )
 
 
 def _judgeable_tools(tools: list[ToolArtifact]) -> list[ToolArtifact]:
@@ -172,7 +208,11 @@ def audit_taint_exploitability(
     questions = exploitability_questions()
     out: list[SemanticFinding] = []
     for f in findings:
-        result = backend.ask(exploitability_state(f), questions)
+        try:
+            result = backend.ask(exploitability_state(f), questions)
+        except UnredactableStateError as exc:
+            out.append(_unjudged_taint(f, exc))
+            continue
         j = interpret_exploitability(result)
         decision, rationale = decide_exploit(pol, j, verified=result.verified)
         likelihood, impact = _honest_li(f, j, result.verified)
@@ -203,6 +243,39 @@ def audit_taint_exploitability(
             )
         )
     return out
+
+
+def _unjudged_taint(f: Finding, exc: UnredactableStateError) -> SemanticFinding:
+    """A taint finding whose evidence never left the machine.
+
+    The static risk basis is kept, so the finding still carries weight in the
+    report; what is missing is the judgment that would have refined it. No
+    snippet goes into `evidence` here: the reason this path was taken is that
+    a snippet could not be cleared, and the reasons on the exception name
+    types and paths only.
+    """
+    sink_name = f.sink.file.rsplit("/", 1)[-1]
+    return SemanticFinding(
+        check="taint_exploitability",
+        decision=UNJUDGED,
+        title=f"{f.rule_id} -> {sink_name}:{f.sink.line} (unjudged)",
+        file=f.sink.file,
+        line=f.sink.line,
+        likelihood=round(static_likelihood(f.confidence, f.risky), 3),
+        impact=round(static_impact(f.severity), 3),
+        verified=False,
+        backend="none",
+        evidence=[f"{f.source.file}:{f.source.line} -> {f.sink.file}:{f.sink.line}"],
+        rationale=(
+            "not sent to the judgment endpoint: redaction could not clear the "
+            "evidence of secrets. Static finding stands; judgment is missing."
+        ),
+        detail={
+            "fingerprint": f.fingerprint,
+            "rule_id": f.rule_id,
+            "unjudged_reasons": list(exc.reasons),
+        },
+    )
 
 
 def _honest_li(f: Finding, j: ExploitJudgment, verified: bool) -> tuple[float, float]:
@@ -269,7 +342,12 @@ def run_audit(
     )
 
 
-_DECISION_STYLE = {"block": "bold red", "review": "yellow", "pass": "green"}
+_DECISION_STYLE = {
+    UNJUDGED: "bold magenta",
+    "block": "bold red",
+    "review": "yellow",
+    "pass": "green",
+}
 
 
 def to_json(report: AuditReport) -> str:
@@ -280,7 +358,14 @@ def to_json(report: AuditReport) -> str:
             "files_scanned": report.files_scanned,
             "tools_seen": report.tools_seen,
             "checks_run": sorted({f.check for f in report.findings}),
-            "unverified_backend": any(not f.verified for f in report.findings),
+            "unverified_backend": any(
+                not f.verified and f.decision != UNJUDGED for f in report.findings
+            ),
+            # A consumer that reads only `findings` would see an unjudged
+            # entry as one more row. These two keys make the coverage gap
+            # legible without parsing decisions.
+            "unjudged": sum(1 for f in report.findings if f.decision == UNJUDGED),
+            "complete": not any(f.decision == UNJUDGED for f in report.findings),
             "findings": [f.to_dict() for f in report.findings],
         },
         indent=2,
@@ -297,13 +382,22 @@ def print_findings(console, report: AuditReport) -> None:
             f"({report.files_scanned} file(s); no dangerous tools and no taint paths)"
         )
         return
-    if any(not f.verified for f in findings):
+    # An unjudged finding has no answer at all, so it is not evidence of an
+    # unverified backend. Judging it as one would print the wrong caveat.
+    if any(not f.verified and f.decision != UNJUDGED for f in findings):
         console.print(
             "[yellow]note:[/yellow] answers are best-effort from an unverified "
             "backend; blocks are downgraded to review.\n"
         )
-    order = {"block": 0, "review": 1, "pass": 2}
-    for f in sorted(findings, key=lambda x: (order.get(x.decision, 3), -x.likelihood * x.impact)):
+    unjudged = sum(1 for f in findings if f.decision == UNJUDGED)
+    if unjudged:
+        console.print(
+            f"[bold magenta]note:[/bold magenta] {unjudged} finding(s) were not sent "
+            "to the judgment endpoint because redaction could not clear the evidence "
+            "of secrets. This audit is incomplete by that much.\n"
+        )
+    order = {UNJUDGED: 0, "block": 1, "review": 2, "pass": 3}
+    for f in sorted(findings, key=lambda x: (order.get(x.decision, 4), -x.likelihood * x.impact)):
         style = _DECISION_STYLE.get(f.decision, "white")
         loc = f"{escape(f.check)}  {escape(f.title)}  ({escape(f.file)}:{f.line})"
         head = f"[{style}]{f.decision.upper()}[/{style}]  {loc}"
@@ -315,7 +409,11 @@ def print_findings(console, report: AuditReport) -> None:
         console.print(Panel(body, title=head, title_align="left", border_style=style))
     blocks = sum(1 for f in findings if f.decision == "block")
     reviews = sum(1 for f in findings if f.decision == "review")
+    # Unjudged is subtracted explicitly. Folding it into the pass count would
+    # report a finding nobody judged as one that came back clean.
+    passes = len(findings) - blocks - reviews - unjudged
+    tail = f" · {unjudged} unjudged" if unjudged else ""
     console.print(
-        f"\n{blocks} block · {reviews} review · {len(findings) - blocks - reviews} pass  "
-        f"({report.files_scanned} file(s), {len(findings)} finding(s) judged)"
+        f"\n{blocks} block · {reviews} review · {passes} pass{tail}  "
+        f"({report.files_scanned} file(s), {len(findings) - unjudged} finding(s) judged)"
     )

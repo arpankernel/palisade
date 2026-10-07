@@ -1,0 +1,136 @@
+/* Shared tokens and chrome for every page of the site.
+   Both pages used to carry their own copy of this block, which is how the two
+   drifted apart the last time either was edited. One file now, page-specific
+   rules stay inline on the page that needs them. */
+
+:root{
+  --bg:#fbf8f3; --panel:#f5f3ee; --border:#e5e0d6;
+  --ink:#1a1a1a; --muted:#4a4a4a; --faint:#888880;
+  --accent:#166534; --accent-soft:#dcfce7; --accent-live:#22c55e;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --serif:"Instrument Serif",ui-serif,Georgia,serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius:16px; --pill:100px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#0f0f0e; --panel:#171715; --border:rgba(242,239,233,0.14);
+    --ink:#f2efe9; --muted:rgba(242,239,233,0.72); --faint:rgba(242,239,233,0.45);
+    --accent:#4ade80; --accent-soft:rgba(74,222,128,0.14);
+  }
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+}
+a{color:inherit;text-decoration:none}
+code{font-family:var(--mono);font-size:.92em}
+.wrap{width:100%;max-width:980px;margin:0 auto;padding:0 clamp(20px,5vw,40px)}
+.ul{border-bottom:1px solid var(--border)}
+.ul:hover{border-color:var(--accent)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* nav */
+nav{flex:none;padding:20px 0}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);
+  font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.nav-right{display:flex;align-items:center;gap:22px;font-size:13px;color:var(--muted)}
+.nav-right a:hover{color:var(--ink)}
+
+/* buttons and the copy chip */
+.cta{margin:26px auto 0;display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:var(--pill);
+  font-size:13.5px;font-weight:500;padding:11px 20px;border:1px solid transparent;cursor:pointer}
+.btn-primary{background:var(--ink);color:var(--bg)}
+.btn-ghost{border-color:var(--border);color:var(--ink)}
+.btn-ghost:hover{background:var(--panel)}
+.cmd{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);
+  background:var(--panel);border-radius:var(--pill);padding:10px 18px;
+  font-family:var(--mono);font-size:13px;color:var(--ink);margin:0;
+  -webkit-appearance:none;appearance:none;cursor:pointer;position:relative}
+.cmd:hover{border-color:var(--accent)}
+.cmd:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cmd .p{color:var(--accent);font-weight:500}
+/* Fixed-size icon slot: the glyph swaps on copy, so the button never reflows
+   and the buttons beside it never shift under the cursor. */
+.cmd .ico{display:inline-flex;flex:none;width:14px;height:14px;color:var(--faint)}
+.cmd:hover .ico{color:var(--muted)}
+.cmd .ico svg{display:block;width:14px;height:14px}
+.cmd .ico .check{display:none}
+.cmd.is-copied .ico{color:var(--accent)}
+.cmd.is-copied .ico .clip{display:none}
+.cmd.is-copied .ico .check{display:block}
+/* Confirmation floats above the chip, same reason: no width change. */
+.cmd .toast{position:absolute;left:50%;bottom:calc(100% + 8px);
+  transform:translateX(-50%) translateY(-4px);background:var(--ink);color:var(--bg);
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;
+  border-radius:var(--pill);white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .14s ease,transform .14s ease}
+.cmd.is-copied .toast,.cmd.is-failed .toast{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){.cmd .toast{transition:none}}
+
+/* content bands */
+.band{padding-block:clamp(48px,7vw,84px);border-top:1px solid var(--border)}
+.band.alt{background:var(--panel)}
+.band .center{text-align:center}
+.center-cta{justify-content:center}
+.kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--faint);display:block;margin-bottom:10px}
+h2{font-family:var(--serif);font-weight:400;font-size:clamp(1.45rem,3vw,2.1rem);
+  letter-spacing:-0.01em;margin:0 0 10px;max-width:22ch}
+.band .center h2{max-width:none}
+.lede{margin:0 0 26px;max-width:62ch;color:var(--muted)}
+.lede b{color:var(--ink);font-weight:600}
+
+/* cards */
+.grid{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+.card{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);
+  padding:20px 22px}
+.band.alt .card{background:var(--bg)}
+.card h3{font-family:var(--serif);font-weight:400;font-size:1.12rem;margin:0 0 8px}
+.card p{margin:0;color:var(--muted);font-size:14px}
+
+/* steps */
+.steps{margin:0;padding-left:1.2em;max-width:70ch;color:var(--muted)}
+.steps li{margin-bottom:12px}
+.steps b{color:var(--ink);font-weight:600}
+
+/* the measured pair */
+.numbers-grid{border:1px solid var(--border);border-radius:var(--radius);padding:22px;
+  display:grid;gap:16px;grid-template-columns:1fr;background:var(--bg)}
+@media(min-width:680px){.numbers-grid{grid-template-columns:1fr 1fr}}
+.n-val{font-family:var(--serif);font-size:2.2rem;line-height:1}
+.n-lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);margin-top:6px}
+.caveat{margin:16px 0 0;font-size:13.5px;color:var(--muted);max-width:68ch}
+.caveat b{color:var(--ink);font-weight:600}
+
+/* roadmap verbs */
+.verbs{display:grid;gap:10px}
+.verb{display:grid;grid-template-columns:auto auto 1fr;gap:14px;align-items:baseline;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);
+  padding:16px 18px}
+.verb b{font-family:var(--serif);font-weight:400;font-size:1.1rem}
+.verb span:last-child{color:var(--muted);font-size:14px}
+.verb span:last-child b{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink)}
+@media(max-width:560px){
+  .verb{grid-template-columns:1fr;gap:6px}
+}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:var(--pill);padding:3px 10px;border:1px solid var(--border);color:var(--faint);
+  white-space:nowrap;align-self:center}
+.tag.shipped{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+
+/* footer */
+footer{flex:none;padding:22px 0 30px;font-size:12px;color:var(--faint);
+  border-top:1px solid var(--border)}
+.foot-inner{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+footer a:hover{color:var(--ink)}
