@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.7.1 - 2026-10-08
+
+Hardened the judgment layer, which was the part of 0.7.0 that sent anything
+anywhere. Three defects, no new capability, and no change to what Palisade
+claims to catch. The measured numbers are unchanged: precision 1.000 across
+40,466 files, held-out recall 0.000 over 45 independent observations.
+
+### Security
+
+- **An API key could reach the user's terminal through an error message.**
+  `JudgeError` documented that it never carries the key or the raw prompt, and
+  on one path it did. The Anthropic adapter put the endpoint's
+  `error.message` verbatim into the exception, under a comment asserting that
+  such a message cannot contain the key. That was an assumption rather than a
+  guarantee: the endpoint is settable from config, and a hostile or proxying
+  one can echo the `Authorization` header straight back. Error reasons from
+  outside now pass through `safe_reason()`, so the documented promise is
+  enforced instead of asserted. Reachable only by users of `audit` and
+  `review` with a configured endpoint; the offline core never had a key.
+
+- **Secrets are redacted before anything leaves for an endpoint.** A finding's
+  snippets are lines of the user's real source, and real source holds real
+  credentials, so `audit` and `review` could transmit one as incidental
+  context. Provider keys, private-key blocks, JWTs, credentials inside a URL
+  and the `name = "value"` form are masked first. A second pass re-checks the
+  masked text.
+
+- **Redaction fails closed.** When a payload cannot be proved safe, which
+  includes a value of a type the walk cannot inspect, the evidence is not
+  sent. The finding is reported `UNJUDGED` with the reason, the rest of the
+  audit continues, and the reason names types and paths only, so it is safe to
+  print and to log. An audit with any unjudged finding reports
+  `"complete": false` in its JSON and is never counted as a pass: the previous
+  summary arithmetic would have folded a skipped finding into the pass count.
+
+### Added
+
+- **An instruction boundary in the judge payload.** The evidence is now
+  introduced as data and never instructions, naming `CLAUDE.md`, `AGENTS.md`
+  and `README` explicitly, since those are the files an attacker would use. It
+  lives in the payload rather than a system prompt because the TypeSafe
+  backend has no system prompt, and a prompt-only boundary would have covered
+  two backends out of three.
+
+- All three protections are applied at `get_backend()`, the single
+  construction path, so a backend added later inherits them without its author
+  doing anything. Eleven mutation checks delete each protection in turn and
+  require the test suite to go red.
+
+### Changed
+
+- **Website rebuilt to the building-not-hiring positioning.** The hero keeps
+  its weight and its single-screen contract, measured at zero overflow on
+  1280x800, 375x667 and 320x568. Below it: what ships today, how it works, an
+  honesty block carrying both numbers with the direction of the ground-truth
+  error, the uncovered shape stated plainly, and the five-verb roadmap with no
+  dates. Where a product page of this shape puts logos and quotes, this one
+  puts the measurement. The palette moved into a single stylesheet, and a test
+  now fails the build if either page redefines it inline.
+
+- The install command on the site is click-to-copy, with a fallback for pages
+  opened over plain http or from a local checkout.
+
 ## 0.7.0 - 2026-09-30
 
 Measured what this engine misses, three times, and rewrote the product's claim

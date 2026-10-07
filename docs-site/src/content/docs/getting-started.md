@@ -107,7 +107,7 @@ permissions:
   security-events: write
 steps:
   - uses: actions/checkout@v4
-  - uses: arpankernel/palisade@v0.7.0
+  - uses: arpankernel/palisade@v0.7.1
     with:
       baseline: .palisade/baseline.json
 ```
@@ -117,7 +117,7 @@ steps:
 ```yaml
 repos:
   - repo: https://github.com/arpankernel/palisade
-    rev: v0.7.0
+    rev: v0.7.1
     hooks:
       - id: palisade-sec
 ```
