@@ -134,3 +134,19 @@ def test_every_backend_branch_goes_through_the_single_wrap() -> None:
     src = inspect.getsource(config.get_backend)
     assert src.count("return") == 1
     assert "guarded(" in src
+
+
+def test_the_wrapper_does_not_hide_the_backend_from_describe() -> None:
+    """`describe()` reads the model and endpoint off the backend by getattr and
+    prints "?" when they are missing. Wrapping hid both, so the CLI banner lost
+    them: a guard should not take information out of a user-facing line."""
+    from palisade_sec.judge.config import describe
+
+    class Backend(FakeBackend):
+        endpoint = "https://api.example.invalid"
+        model = "a-model-id"
+
+    line = describe(guarded(Backend(answers={})))
+    assert "a-model-id" in line
+    assert "https://api.example.invalid" in line
+    assert "?" not in line

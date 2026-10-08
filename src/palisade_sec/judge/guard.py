@@ -106,6 +106,24 @@ class GuardedBackend:
     def verified(self, value: bool) -> None:
         self.inner.verified = value
 
+    def __getattr__(self, attr: str) -> object:
+        """Read anything else off the wrapped backend.
+
+        `describe()` reports the model and the endpoint by `getattr`, falling
+        back to "?" when they are absent. Wrapping the backend hid both, so
+        the CLI banner read "anthropic (best-effort, unverified) · ? · ?" -
+        the guard silently took information out of a user-facing line. Only
+        `ask` is intercepted; everything else belongs to the backend.
+
+        Dataclass `__init__` sets `inner` directly, so this is reached only
+        for attributes that genuinely are not on the wrapper. Guarding
+        against `inner` itself keeps an unpickled or partly built instance
+        from recursing.
+        """
+        if attr == "inner":
+            raise AttributeError(attr)
+        return getattr(self.inner, attr)
+
     def ask(self, state: object, questions: list[Question]) -> JudgeResult:
         red = redact_state(state)
         if not red.safe:
